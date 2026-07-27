@@ -5,6 +5,7 @@ import {
 	completeSetup,
 	getMaintenanceConfig,
 	getYoutubeConnection,
+	getYoutubeRefreshToken,
 	invalidateMaintenanceCache,
 	isSetupCompleted,
 	setYoutubeConnection,
@@ -259,6 +260,22 @@ describe("YouTube connection storage", () => {
 			expect(select).toHaveBeenCalledWith(
 				expect.not.objectContaining({ youtubeRefreshToken: expect.anything() }),
 			);
+		});
+	});
+
+	describe("getYoutubeRefreshToken", () => {
+		it("returns the encrypted token + channelId when connected", async () => {
+			mockSelectRow({ encryptedRefreshToken: "enc-blob", channelId: "UC123" });
+
+			const row = await getYoutubeRefreshToken();
+
+			expect(row).toEqual({ encryptedRefreshToken: "enc-blob", channelId: "UC123" });
+		});
+
+		it("returns null when no refresh token is stored (not connected)", async () => {
+			mockSelectRow({ encryptedRefreshToken: null, channelId: null });
+
+			expect(await getYoutubeRefreshToken()).toBeNull();
 		});
 	});
 

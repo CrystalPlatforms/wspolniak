@@ -5,6 +5,7 @@ export type {
 	MaintenanceUpdate,
 	YoutubeConnection,
 	YoutubeConnectionInput,
+	YoutubeRefreshTokenRow,
 } from "./queries";
 export {
 	clearYoutubeConnection,
@@ -12,6 +13,7 @@ export {
 	DEFAULT_MAINTENANCE_CONFIG,
 	getMaintenanceConfig,
 	getYoutubeConnection,
+	getYoutubeRefreshToken,
 	invalidateMaintenanceCache,
 	isSetupCompleted,
 	setYoutubeConnection,

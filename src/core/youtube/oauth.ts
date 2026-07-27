@@ -148,7 +148,7 @@ export async function verifyState(
 
 // --- internals ------------------------------------------------------------
 
-function youtubeError(res: Response, action: string): AppError {
+export function youtubeError(res: Response, action: string): AppError {
 	const status = res.status;
 	const code: ErrorCode =
 		status === 401 || status === 403 || status === 400 ? "UNAUTHORIZED" : "INTERNAL";

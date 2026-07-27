@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { Hono } from "hono";
+import { AppError } from "@/core/errors";
 import type { SessionPayload } from "@/db/identity/session";
 
 vi.mock("@/db/identity/session", () => ({
@@ -19,26 +20,69 @@ vi.mock("@/core/youtube", () => ({
 	fetchOwnChannel: vi.fn(),
 	importEncryptionKey: vi.fn(),
 	encryptRefreshToken: vi.fn(),
+	decryptRefreshToken: vi.fn(),
+	refreshAccessToken: vi.fn(),
+	startResumableUpload: vi.fn(),
+	forwardChunk: vi.fn(),
 }));
 
 vi.mock("@/db/instance", () => ({
 	getYoutubeConnection: vi.fn(),
 	setYoutubeConnection: vi.fn(),
 	clearYoutubeConnection: vi.fn(),
+	getYoutubeRefreshToken: vi.fn(),
+}));
+
+vi.mock("@/db/videos", () => ({
+	countTodayUTC: vi.fn(),
+	createVideo: vi.fn(),
+	DAILY_VIDEO_LIMIT: 3,
+	MAX_VIDEO_BYTES: 2 * 1024 * 1024 * 1024,
+	startUploadSchema: {
+		safeParse: (b: unknown) => {
+			const obj = b as Record<string, unknown>;
+			if (typeof obj?.title !== "string" || obj.title.length === 0) {
+				return { success: false, error: { flatten: () => ({ formErrors: ["title"] }) } };
+			}
+			return { success: true, data: obj };
+		},
+	},
+	confirmVideoSchema: {
+		safeParse: (b: unknown) => {
+			const obj = b as Record<string, unknown>;
+			if (typeof obj?.title !== "string" || obj.title.length === 0) {
+				return { success: false, error: { flatten: () => ({ formErrors: ["title"] }) } };
+			}
+			if (typeof obj?.thumbnailUrl !== "string" || !obj.thumbnailUrl.startsWith("http")) {
+				return { success: false, error: { flatten: () => ({ formErrors: ["thumbnailUrl"] }) } };
+			}
+			return { success: true, data: obj };
+		},
+	},
 }));
 
 import {
 	buildAuthorizationUrl,
 	createState,
+	decryptRefreshToken,
 	encryptRefreshToken,
 	exchangeCodeForTokens,
 	fetchOwnChannel,
+	forwardChunk,
 	importEncryptionKey,
+	refreshAccessToken,
+	startResumableUpload,
 	verifyState,
 } from "@/core/youtube";
 import { findActiveUserById } from "@/db/identity/queries";
 import { verifySessionCookie } from "@/db/identity/session";
-import { clearYoutubeConnection, getYoutubeConnection, setYoutubeConnection } from "@/db/instance";
+import {
+	clearYoutubeConnection,
+	getYoutubeConnection,
+	getYoutubeRefreshToken,
+	setYoutubeConnection,
+} from "@/db/instance";
+import { countTodayUTC, createVideo } from "@/db/videos";
 import videoEndpoint from "./video";
 
 const mockVerify = vi.mocked(verifySessionCookie);
@@ -303,5 +347,325 @@ describe("GET /api/video/oauth/callback", () => {
 
 		expect(res.status).toBe(403);
 		expect(mockExchange).not.toHaveBeenCalled();
+	});
+});
+
+const mockDecrypt = vi.mocked(decryptRefreshToken);
+const mockRefresh = vi.mocked(refreshAccessToken);
+const mockStartUpload = vi.mocked(startResumableUpload);
+const mockForwardChunk = vi.mocked(forwardChunk);
+const mockGetToken = vi.mocked(getYoutubeRefreshToken);
+const mockCountToday = vi.mocked(countTodayUTC);
+
+function jsonHeaders() {
+	return { ...adminHeaders(), "Content-Type": "application/json" };
+}
+
+function uploadSessionBody(overrides: Record<string, unknown> = {}) {
+	return JSON.stringify({
+		title: "Wakacje",
+		description: "Opis",
+		size: 1000,
+		mime: "video/mp4",
+		...overrides,
+	});
+}
+
+function connectedYoutube() {
+	mockGetToken.mockResolvedValue({ encryptedRefreshToken: "enc", channelId: "UC1" });
+	mockImportKey.mockResolvedValue("key" as unknown as CryptoKey);
+	mockDecrypt.mockResolvedValue("refresh-token");
+	mockRefresh.mockResolvedValue({ accessToken: "ya29", expiresIn: 3600 });
+}
+
+describe("POST /api/video/upload-session", () => {
+	beforeEach(() => {
+		memberSession();
+		mockCountToday.mockResolvedValue(0);
+		connectedYoutube();
+		mockStartUpload.mockResolvedValue({ sessionUrl: "https://session.url/abc" });
+	});
+
+	it("starts a resumable session for an authenticated member", async () => {
+		const api = createApi();
+		const res = await api.request(
+			"/api/video/upload-session",
+			{ method: "POST", headers: jsonHeaders(), body: uploadSessionBody() },
+			ENV,
+		);
+
+		expect(res.status).toBe(201);
+		const body = (await res.json()) as { data: { sessionUrl: string } };
+		expect(body.data.sessionUrl).toBe("https://session.url/abc");
+		expect(mockStartUpload).toHaveBeenCalledWith(
+			"ya29",
+			expect.objectContaining({ title: "Wakacje", size: 1000 }),
+			expect.any(Object),
+		);
+	});
+
+	it("rejects at the daily limit BEFORE any YouTube call", async () => {
+		mockCountToday.mockResolvedValue(3);
+		const api = createApi();
+		const res = await api.request(
+			"/api/video/upload-session",
+			{ method: "POST", headers: jsonHeaders(), body: uploadSessionBody() },
+			ENV,
+		);
+
+		expect(res.status).toBe(429);
+		// żadnego calla do YouTube (limit sprawdzany wcześniej)
+		expect(mockStartUpload).not.toHaveBeenCalled();
+		expect(mockRefresh).not.toHaveBeenCalled();
+		expect(mockGetToken).not.toHaveBeenCalled();
+	});
+
+	it("returns 503 when YouTube is not connected (no refresh token)", async () => {
+		mockGetToken.mockResolvedValue(null);
+		const api = createApi();
+		const res = await api.request(
+			"/api/video/upload-session",
+			{ method: "POST", headers: jsonHeaders(), body: uploadSessionBody() },
+			ENV,
+		);
+
+		expect(res.status).toBe(503);
+		expect(mockStartUpload).not.toHaveBeenCalled();
+	});
+
+	it("returns 400 when the body is missing the title", async () => {
+		const api = createApi();
+		const res = await api.request(
+			"/api/video/upload-session",
+			{ method: "POST", headers: jsonHeaders(), body: uploadSessionBody({ title: undefined }) },
+			ENV,
+		);
+
+		expect(res.status).toBe(400);
+		expect(mockCountToday).not.toHaveBeenCalled();
+	});
+
+	it("returns 413 when the file exceeds the max size", async () => {
+		const api = createApi();
+		const res = await api.request(
+			"/api/video/upload-session",
+			{
+				method: "POST",
+				headers: jsonHeaders(),
+				body: uploadSessionBody({ size: 3 * 1024 * 1024 * 1024 }),
+			},
+			ENV,
+		);
+
+		expect(res.status).toBe(413);
+		expect(mockStartUpload).not.toHaveBeenCalled();
+	});
+
+	it("returns 401 without a session", async () => {
+		mockVerify.mockResolvedValue(null);
+		const api = createApi();
+		const res = await api.request(
+			"/api/video/upload-session",
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: uploadSessionBody(),
+			},
+			ENV,
+		);
+
+		expect(res.status).toBe(401);
+	});
+});
+
+function chunkHeaders(range: string, session = "https://session.url/abc") {
+	return { ...adminHeaders(), "content-range": range, "x-upload-session": session };
+}
+
+describe("PUT /api/video/upload-chunk", () => {
+	beforeEach(() => {
+		memberSession();
+		connectedYoutube();
+	});
+
+	it("forwards a chunk and returns {complete:false} on 308", async () => {
+		mockForwardChunk.mockResolvedValue({ complete: false });
+		const api = createApi();
+		const res = await api.request(
+			"/api/video/upload-chunk",
+			{ method: "PUT", headers: chunkHeaders("bytes 0-99/100"), body: new Uint8Array(100) },
+			ENV,
+		);
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { data: { complete: boolean } };
+		expect(body.data.complete).toBe(false);
+		expect(mockForwardChunk).toHaveBeenCalledWith(
+			"ya29",
+			"https://session.url/abc",
+			{ start: 0, end: 99, total: 100 },
+			expect.anything(),
+			expect.any(Object),
+		);
+	});
+
+	it("returns the video when the final chunk completes the upload", async () => {
+		mockForwardChunk.mockResolvedValue({
+			complete: true,
+			video: { id: "yt-1", thumbnailUrl: "https://t/h.jpg" },
+		});
+		const api = createApi();
+		const res = await api.request(
+			"/api/video/upload-chunk",
+			{ method: "PUT", headers: chunkHeaders("bytes 0-99/100"), body: new Uint8Array(100) },
+			ENV,
+		);
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as {
+			data: { complete: boolean; video: { id: string; thumbnailUrl: string } };
+		};
+		expect(body.data).toEqual({
+			complete: true,
+			video: { id: "yt-1", thumbnailUrl: "https://t/h.jpg" },
+		});
+	});
+
+	it("returns 400 when Content-Range is missing", async () => {
+		const api = createApi();
+		const res = await api.request(
+			"/api/video/upload-chunk",
+			{
+				method: "PUT",
+				headers: { ...adminHeaders(), "x-upload-session": "https://session.url/abc" },
+				body: new Uint8Array(10),
+			},
+			ENV,
+		);
+
+		expect(res.status).toBe(400);
+		expect(mockForwardChunk).not.toHaveBeenCalled();
+	});
+
+	it("maps a YouTube 403 to a typed error response (no raw leak)", async () => {
+		mockForwardChunk.mockRejectedValue(
+			new AppError("YouTube: błąd podczas przesyłania fragmentu wideo", "UNAUTHORIZED", 403),
+		);
+		const api = createApi();
+		const res = await api.request(
+			"/api/video/upload-chunk",
+			{ method: "PUT", headers: chunkHeaders("bytes 0-99/100"), body: new Uint8Array(100) },
+			ENV,
+		);
+
+		expect(res.status).toBe(403);
+		const body = (await res.json()) as { error: string };
+		expect(body.error).toContain("błąd");
+	});
+
+	it("returns 401 without a session", async () => {
+		mockVerify.mockResolvedValue(null);
+		const api = createApi();
+		const res = await api.request(
+			"/api/video/upload-chunk",
+			{ method: "PUT", headers: chunkHeaders("bytes 0-99/100"), body: new Uint8Array(10) },
+			ENV,
+		);
+
+		expect(res.status).toBe(401);
+	});
+});
+
+const mockCreateVideo = vi.mocked(createVideo);
+
+function confirmBody(overrides: Record<string, unknown> = {}) {
+	return JSON.stringify({
+		youtubeVideoId: "yt-abc",
+		title: "Wakacje",
+		description: "Opis",
+		thumbnailUrl: "https://i.ytimg.com/h.jpg",
+		...overrides,
+	});
+}
+
+function uniqueViolation(): Error {
+	const cause = new Error("pg dup");
+	(cause as Error & { code?: string }).code = "23505";
+	const err = new Error("Failed query: insert into videos");
+	(err as Error & { cause?: unknown }).cause = cause;
+	return err;
+}
+
+describe("POST /api/video/confirm", () => {
+	beforeEach(() => {
+		memberSession();
+		mockCreateVideo.mockResolvedValue({
+			id: "v-1",
+			youtubeVideoId: "yt-abc",
+			title: "Wakacje",
+			description: "Opis",
+			authorId: "u2",
+			thumbnailUrl: "https://i.ytimg.com/h.jpg",
+			createdAt: new Date(),
+		});
+	});
+
+	it("writes the record with authorId from the session and returns 201 + thumbnail", async () => {
+		const api = createApi();
+		const res = await api.request(
+			"/api/video/confirm",
+			{ method: "POST", headers: jsonHeaders(), body: confirmBody() },
+			ENV,
+		);
+
+		expect(res.status).toBe(201);
+		// authorId pochodzi z sesji (memberSession → u2), NIE z ciała żądania
+		expect(mockCreateVideo).toHaveBeenCalledWith({
+			youtubeVideoId: "yt-abc",
+			title: "Wakacje",
+			description: "Opis",
+			authorId: "u2",
+			thumbnailUrl: "https://i.ytimg.com/h.jpg",
+		});
+		const body = (await res.json()) as { data: { id: string; thumbnailUrl: string } };
+		expect(body.data.id).toBe("v-1");
+		expect(body.data.thumbnailUrl).toBe("https://i.ytimg.com/h.jpg");
+	});
+
+	it("returns 401 without a session", async () => {
+		mockVerify.mockResolvedValue(null);
+		const api = createApi();
+		const res = await api.request(
+			"/api/video/confirm",
+			{ method: "POST", headers: jsonHeaders(), body: confirmBody() },
+			ENV,
+		);
+
+		expect(res.status).toBe(401);
+		expect(mockCreateVideo).not.toHaveBeenCalled();
+	});
+
+	it("returns 400 when the thumbnailUrl is invalid", async () => {
+		const api = createApi();
+		const res = await api.request(
+			"/api/video/confirm",
+			{ method: "POST", headers: jsonHeaders(), body: confirmBody({ thumbnailUrl: "not-a-url" }) },
+			ENV,
+		);
+
+		expect(res.status).toBe(400);
+		expect(mockCreateVideo).not.toHaveBeenCalled();
+	});
+
+	it("returns 409 when the video was already saved (unique violation)", async () => {
+		mockCreateVideo.mockRejectedValue(uniqueViolation());
+		const api = createApi();
+		const res = await api.request(
+			"/api/video/confirm",
+			{ method: "POST", headers: jsonHeaders(), body: confirmBody() },
+			ENV,
+		);
+
+		expect(res.status).toBe(409);
 	});
 });

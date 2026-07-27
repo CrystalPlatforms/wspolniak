@@ -137,6 +137,32 @@ export async function getYoutubeConnection(): Promise<YoutubeConnection> {
 	};
 }
 
+export interface YoutubeRefreshTokenRow {
+	encryptedRefreshToken: string;
+	channelId: string;
+}
+
+/**
+ * Zwraca zaszyfrowany refresh token + channelId (do rozszyfrowania przez moduł
+ * `youtube` przy uploadzie). `null`, gdy instancja nie ma połączenia z YouTube.
+ * Token NIE jest tu odszyfrowywany — deszyfracja żyje tylko w `core/youtube`.
+ */
+export async function getYoutubeRefreshToken(): Promise<YoutubeRefreshTokenRow | null> {
+	const rows = await getDb()
+		.select({
+			encryptedRefreshToken: instanceConfig.youtubeRefreshToken,
+			channelId: instanceConfig.youtubeChannelId,
+		})
+		.from(instanceConfig)
+		.limit(1);
+	const row = rows[0];
+	if (!row?.encryptedRefreshToken || !row?.channelId) return null;
+	return {
+		encryptedRefreshToken: row.encryptedRefreshToken,
+		channelId: row.channelId,
+	};
+}
+
 export async function setYoutubeConnection(input: YoutubeConnectionInput): Promise<void> {
 	const id = await getInstanceConfigId();
 	await getDb()

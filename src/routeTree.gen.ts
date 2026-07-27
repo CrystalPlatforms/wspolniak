@@ -16,6 +16,7 @@ import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as SharedPostIdRouteImport } from './routes/shared-post.$id'
 import { Route as AuthErrorRouteImport } from './routes/auth/error'
 import { Route as AppStatsRouteImport } from './routes/app/stats'
+import { Route as AppNewVideoRouteImport } from './routes/app/new-video'
 import { Route as AppNewRouteImport } from './routes/app/new'
 import { Route as AppCalendarRouteImport } from './routes/app/calendar'
 import { Route as AppAdminRouteImport } from './routes/app/admin'
@@ -57,6 +58,11 @@ const AppStatsRoute = AppStatsRouteImport.update({
   path: '/stats',
   getParentRoute: () => AppRoute,
 } as any)
+const AppNewVideoRoute = AppNewVideoRouteImport.update({
+  id: '/new-video',
+  path: '/new-video',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppNewRoute = AppNewRouteImport.update({
   id: '/new',
   path: '/new',
@@ -90,6 +96,7 @@ export interface FileRoutesByFullPath {
   '/app/admin': typeof AppAdminRoute
   '/app/calendar': typeof AppCalendarRoute
   '/app/new': typeof AppNewRoute
+  '/app/new-video': typeof AppNewVideoRoute
   '/app/stats': typeof AppStatsRoute
   '/auth/error': typeof AuthErrorRoute
   '/shared-post/$id': typeof SharedPostIdRoute
@@ -103,6 +110,7 @@ export interface FileRoutesByTo {
   '/app/admin': typeof AppAdminRoute
   '/app/calendar': typeof AppCalendarRoute
   '/app/new': typeof AppNewRoute
+  '/app/new-video': typeof AppNewVideoRoute
   '/app/stats': typeof AppStatsRoute
   '/auth/error': typeof AuthErrorRoute
   '/shared-post/$id': typeof SharedPostIdRoute
@@ -118,6 +126,7 @@ export interface FileRoutesById {
   '/app/admin': typeof AppAdminRoute
   '/app/calendar': typeof AppCalendarRoute
   '/app/new': typeof AppNewRoute
+  '/app/new-video': typeof AppNewVideoRoute
   '/app/stats': typeof AppStatsRoute
   '/auth/error': typeof AuthErrorRoute
   '/shared-post/$id': typeof SharedPostIdRoute
@@ -134,6 +143,7 @@ export interface FileRouteTypes {
     | '/app/admin'
     | '/app/calendar'
     | '/app/new'
+    | '/app/new-video'
     | '/app/stats'
     | '/auth/error'
     | '/shared-post/$id'
@@ -147,6 +157,7 @@ export interface FileRouteTypes {
     | '/app/admin'
     | '/app/calendar'
     | '/app/new'
+    | '/app/new-video'
     | '/app/stats'
     | '/auth/error'
     | '/shared-post/$id'
@@ -161,6 +172,7 @@ export interface FileRouteTypes {
     | '/app/admin'
     | '/app/calendar'
     | '/app/new'
+    | '/app/new-video'
     | '/app/stats'
     | '/auth/error'
     | '/shared-post/$id'
@@ -228,6 +240,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppStatsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/new-video': {
+      id: '/app/new-video'
+      path: '/new-video'
+      fullPath: '/app/new-video'
+      preLoaderRoute: typeof AppNewVideoRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/new': {
       id: '/app/new'
       path: '/new'
@@ -270,6 +289,7 @@ interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRoute
   AppCalendarRoute: typeof AppCalendarRoute
   AppNewRoute: typeof AppNewRoute
+  AppNewVideoRoute: typeof AppNewVideoRoute
   AppStatsRoute: typeof AppStatsRoute
   AppIndexRoute: typeof AppIndexRoute
   AppPostIdRoute: typeof AppPostIdRoute
@@ -280,6 +300,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRoute,
   AppCalendarRoute: AppCalendarRoute,
   AppNewRoute: AppNewRoute,
+  AppNewVideoRoute: AppNewVideoRoute,
   AppStatsRoute: AppStatsRoute,
   AppIndexRoute: AppIndexRoute,
   AppPostIdRoute: AppPostIdRoute,

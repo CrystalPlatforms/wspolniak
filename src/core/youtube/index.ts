@@ -17,3 +17,11 @@ export {
 	verifyState,
 	type YoutubeConfig,
 } from "./oauth";
+export {
+	type ChunkRange,
+	type ForwardChunkResult,
+	forwardChunk,
+	pickThumbnail,
+	type StartUploadMeta,
+	startResumableUpload,
+} from "./upload";
