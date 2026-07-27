@@ -1,3 +1,10 @@
+# [1.68.0](https://github.com/CrystalGamesStudio/wspolniak/compare/v1.67.0...v1.68.0) (2026-07-27)
+
+
+### Features
+
+* **video:** feed /video — browse + play + paginacja + przycisk dodaj wideo (F3) [[#105](https://github.com/CrystalGamesStudio/wspolniak/issues/105)] ([e2092ed](https://github.com/CrystalGamesStudio/wspolniak/commit/e2092ed787eb1970af208136a72e6c854178de60))
+
 # [1.67.0](https://github.com/CrystalGamesStudio/wspolniak/compare/v1.66.0...v1.67.0) (2026-07-27)
 
 
