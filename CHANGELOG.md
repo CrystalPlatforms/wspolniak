@@ -1,3 +1,10 @@
+# [1.67.0](https://github.com/CrystalGamesStudio/wspolniak/compare/v1.66.0...v1.67.0) (2026-07-27)
+
+
+### Features
+
+* **video:** chunkowany upload do YouTube + dzienny limit 3/dzień UTC (F2) [[#104](https://github.com/CrystalGamesStudio/wspolniak/issues/104)] ([0da02f3](https://github.com/CrystalGamesStudio/wspolniak/commit/0da02f39ca7f7a82e080416b3904185df4bf13d7))
+
 # [1.66.0](https://github.com/CrystalGamesStudio/wspolniak/compare/v1.65.0...v1.66.0) (2026-07-23)
 
 
