@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { Link, useLocation } from "@tanstack/react-router";
-import { Calendar, ChartNoAxesColumn, Home, Menu, Plus, SlidersHorizontal } from "lucide-react";
+import {
+	Calendar,
+	ChartNoAxesColumn,
+	Home,
+	Menu,
+	Plus,
+	SlidersHorizontal,
+	Video,
+} from "lucide-react";
 import { useState } from "react";
 import { ThemeToggle } from "@/components/theme";
 import { useTheme } from "@/components/theme/theme-provider";
@@ -19,6 +27,7 @@ interface NavItem {
 // Mirror desktop-sidebar.tsx NAV_ITEMS — jedno źródło prawdy dla nawigacji.
 const NAV_ITEMS: NavItem[] = [
 	{ to: "/app", icon: Home, label: "Feed", exact: true },
+	{ to: "/app/video", icon: Video, label: "Wideo" },
 	{ to: "/app/admin", icon: SlidersHorizontal, label: "Admin", adminOnly: true },
 	{ to: "/app/calendar", icon: Calendar, label: "Kalendarz", adminOnly: true },
 	{ to: "/app/stats", icon: ChartNoAxesColumn, label: "Statystyki", adminOnly: false },
@@ -79,6 +88,12 @@ export function MobileSidebar({ role }: MobileSidebarProps) {
 				</nav>
 
 				<div className="flex flex-col gap-2 border-t border-border p-4">
+					<Link to="/app/new-video" onClick={() => setOpen(false)}>
+						<Button className="w-full rounded-full bg-[#0c275f] py-4 text-lg font-bold text-white hover:bg-[#0c275f]/90">
+							<Video className="mr-2 size-6" />
+							Dodaj wideo
+						</Button>
+					</Link>
 					<Link to="/app/new" onClick={() => setOpen(false)}>
 						<Button className="w-full rounded-full py-4 text-lg font-bold">
 							<Plus className="mr-2 size-6" />

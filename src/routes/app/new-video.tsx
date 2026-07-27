@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { LoaderIcon } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useVideoUpload } from "@/components/video/use-video-upload";
+import { YouTubePlayer } from "@/components/video/youtube-player";
 
 export const Route = createFileRoute("/app/new-video")({
 	component: NewVideoPage,
@@ -60,15 +61,7 @@ function NewVideoPage() {
 				</Alert>
 
 				{/* Success view — odtwarzanie wideo inline (dowód pełnego pipeline'u). */}
-				<div className="aspect-video w-full overflow-hidden rounded-lg border border-border bg-black">
-					<iframe
-						className="h-full w-full"
-						src={`https://www.youtube.com/embed/${result.youtubeVideoId}`}
-						title={title}
-						allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-						allowFullScreen
-					/>
-				</div>
+				<YouTubePlayer youtubeVideoId={result.youtubeVideoId} title={title} />
 
 				<div className="mt-4 flex gap-2">
 					<Button onClick={resetAll}>Wrzuć kolejne</Button>

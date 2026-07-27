@@ -1,5 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { countTodayUTC, createVideo, utcDayStart } from "./queries";
+import {
+	countTodayUTC,
+	createVideo,
+	getVideoById,
+	listPaginatedVideos,
+	utcDayStart,
+} from "./queries";
 
 vi.mock("@/db/setup", () => ({
 	getDb: vi.fn(),
@@ -131,5 +137,120 @@ describe("createVideo", () => {
 		});
 
 		expect(mockValues).toHaveBeenCalledWith(expect.objectContaining({ description: "Opis filmu" }));
+	});
+});
+
+function mockVideoFeedChain(rows: unknown[], withWhere: boolean) {
+	const mockLimit = vi.fn().mockResolvedValue(rows);
+	const mockOrderBy = vi.fn().mockReturnValue({ limit: mockLimit });
+	const mockLeftJoin = vi
+		.fn()
+		.mockReturnValue(
+			withWhere
+				? { where: vi.fn().mockReturnValue({ orderBy: mockOrderBy }) }
+				: { orderBy: mockOrderBy },
+		);
+	const mockFrom = vi.fn().mockReturnValue({ leftJoin: mockLeftJoin });
+	const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
+	mockGetDb.mockReturnValue({ select: mockSelect } as never);
+}
+
+function makeVideoRow(id: string, authorName: string, createdAt: Date) {
+	return {
+		id,
+		youtubeVideoId: `yt-${id}`,
+		title: `Wideo ${id}`,
+		description: null,
+		authorId: "user-1",
+		thumbnailUrl: `https://i.ytimg.com/${id}.jpg`,
+		createdAt,
+		author: { id: "user-1", name: authorName },
+	};
+}
+
+describe("listPaginatedVideos", () => {
+	it("returns videos newest-first with null cursor when fewer than limit", async () => {
+		const now = new Date("2026-07-27T12:00:00Z");
+		const older = new Date("2026-07-27T11:00:00Z");
+		mockVideoFeedChain(
+			[makeVideoRow("v-2", "Tomek", now), makeVideoRow("v-1", "Tomek", older)],
+			false,
+		);
+
+		const result = await listPaginatedVideos({ limit: 20 });
+
+		expect(result.videos).toHaveLength(2);
+		expect(result.videos[0]?.id).toBe("v-2");
+		expect(result.videos[1]?.id).toBe("v-1");
+		expect(result.nextCursor).toBeNull();
+	});
+
+	it("returns nextCursor pointing at the last item when more videos exist", async () => {
+		const base = new Date("2026-07-27T12:00:00Z");
+		mockVideoFeedChain(
+			[
+				makeVideoRow("v-3", "Kasia", new Date(base.getTime() - 0)),
+				makeVideoRow("v-2", "Kasia", new Date(base.getTime() - 1000)),
+				makeVideoRow("v-1", "Kasia", new Date(base.getTime() - 2000)),
+			],
+			false,
+		);
+
+		const result = await listPaginatedVideos({ limit: 2 });
+
+		expect(result.videos).toHaveLength(2);
+		expect(result.videos[0]?.id).toBe("v-3");
+		expect(result.videos[1]?.id).toBe("v-2");
+		expect(result.nextCursor).not.toBeNull();
+		expect(result.nextCursor?.id).toBe("v-2");
+		expect(result.nextCursor?.createdAt).toBe(new Date(base.getTime() - 1000).toISOString());
+	});
+
+	it("returns empty list and null cursor when no videos exist", async () => {
+		mockVideoFeedChain([], false);
+
+		const result = await listPaginatedVideos({ limit: 20 });
+
+		expect(result.videos).toEqual([]);
+		expect(result.nextCursor).toBeNull();
+	});
+
+	it("includes the author name via users join", async () => {
+		const now = new Date("2026-07-27T12:00:00Z");
+		mockVideoFeedChain([makeVideoRow("v-1", "Kasia", now)], false);
+
+		const result = await listPaginatedVideos({ limit: 20 });
+
+		expect(result.videos[0]?.author).toEqual({ id: "user-1", name: "Kasia" });
+	});
+});
+
+function mockVideoByIdChain(rows: unknown[]) {
+	const mockWhere = vi.fn().mockResolvedValue(rows);
+	const mockLeftJoin = vi.fn().mockReturnValue({ where: mockWhere });
+	const mockFrom = vi.fn().mockReturnValue({ leftJoin: mockLeftJoin });
+	const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
+	mockGetDb.mockReturnValue({ select: mockSelect } as never);
+}
+
+describe("getVideoById", () => {
+	it("returns the video with author name for an existing id", async () => {
+		const now = new Date("2026-07-27T12:00:00Z");
+		mockVideoByIdChain([makeVideoRow("v-1", "Kasia", now)]);
+
+		const result = await getVideoById("v-1");
+
+		expect(result).not.toBeNull();
+		expect(result?.id).toBe("v-1");
+		expect(result?.youtubeVideoId).toBe("yt-v-1");
+		expect(result?.author).toEqual({ id: "user-1", name: "Kasia" });
+	});
+
+	it("returns null for a non-existent id", async () => {
+		mockVideoByIdChain([]);
+
+		const result = await getVideoById("missing");
+
+		expect(result).toBeNull();
 	});
 });

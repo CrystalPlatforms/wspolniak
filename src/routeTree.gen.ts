@@ -15,11 +15,13 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as SharedPostIdRouteImport } from './routes/shared-post.$id'
 import { Route as AuthErrorRouteImport } from './routes/auth/error'
+import { Route as AppVideoRouteImport } from './routes/app/video'
 import { Route as AppStatsRouteImport } from './routes/app/stats'
 import { Route as AppNewVideoRouteImport } from './routes/app/new-video'
 import { Route as AppNewRouteImport } from './routes/app/new'
 import { Route as AppCalendarRouteImport } from './routes/app/calendar'
 import { Route as AppAdminRouteImport } from './routes/app/admin'
+import { Route as AppVideoIdRouteImport } from './routes/app/video.$id'
 import { Route as AppPostIdRouteImport } from './routes/app/post.$id'
 import { Route as AppPostIdEditRouteImport } from './routes/app/post.$id_.edit'
 
@@ -53,6 +55,11 @@ const AuthErrorRoute = AuthErrorRouteImport.update({
   path: '/auth/error',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppVideoRoute = AppVideoRouteImport.update({
+  id: '/video',
+  path: '/video',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppStatsRoute = AppStatsRouteImport.update({
   id: '/stats',
   path: '/stats',
@@ -78,6 +85,11 @@ const AppAdminRoute = AppAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AppRoute,
 } as any)
+const AppVideoIdRoute = AppVideoIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AppVideoRoute,
+} as any)
 const AppPostIdRoute = AppPostIdRouteImport.update({
   id: '/post/$id',
   path: '/post/$id',
@@ -98,10 +110,12 @@ export interface FileRoutesByFullPath {
   '/app/new': typeof AppNewRoute
   '/app/new-video': typeof AppNewVideoRoute
   '/app/stats': typeof AppStatsRoute
+  '/app/video': typeof AppVideoRouteWithChildren
   '/auth/error': typeof AuthErrorRoute
   '/shared-post/$id': typeof SharedPostIdRoute
   '/app/': typeof AppIndexRoute
   '/app/post/$id': typeof AppPostIdRoute
+  '/app/video/$id': typeof AppVideoIdRoute
   '/app/post/$id/edit': typeof AppPostIdEditRoute
 }
 export interface FileRoutesByTo {
@@ -112,10 +126,12 @@ export interface FileRoutesByTo {
   '/app/new': typeof AppNewRoute
   '/app/new-video': typeof AppNewVideoRoute
   '/app/stats': typeof AppStatsRoute
+  '/app/video': typeof AppVideoRouteWithChildren
   '/auth/error': typeof AuthErrorRoute
   '/shared-post/$id': typeof SharedPostIdRoute
   '/app': typeof AppIndexRoute
   '/app/post/$id': typeof AppPostIdRoute
+  '/app/video/$id': typeof AppVideoIdRoute
   '/app/post/$id/edit': typeof AppPostIdEditRoute
 }
 export interface FileRoutesById {
@@ -128,10 +144,12 @@ export interface FileRoutesById {
   '/app/new': typeof AppNewRoute
   '/app/new-video': typeof AppNewVideoRoute
   '/app/stats': typeof AppStatsRoute
+  '/app/video': typeof AppVideoRouteWithChildren
   '/auth/error': typeof AuthErrorRoute
   '/shared-post/$id': typeof SharedPostIdRoute
   '/app/': typeof AppIndexRoute
   '/app/post/$id': typeof AppPostIdRoute
+  '/app/video/$id': typeof AppVideoIdRoute
   '/app/post/$id_/edit': typeof AppPostIdEditRoute
 }
 export interface FileRouteTypes {
@@ -145,10 +163,12 @@ export interface FileRouteTypes {
     | '/app/new'
     | '/app/new-video'
     | '/app/stats'
+    | '/app/video'
     | '/auth/error'
     | '/shared-post/$id'
     | '/app/'
     | '/app/post/$id'
+    | '/app/video/$id'
     | '/app/post/$id/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -159,10 +179,12 @@ export interface FileRouteTypes {
     | '/app/new'
     | '/app/new-video'
     | '/app/stats'
+    | '/app/video'
     | '/auth/error'
     | '/shared-post/$id'
     | '/app'
     | '/app/post/$id'
+    | '/app/video/$id'
     | '/app/post/$id/edit'
   id:
     | '__root__'
@@ -174,10 +196,12 @@ export interface FileRouteTypes {
     | '/app/new'
     | '/app/new-video'
     | '/app/stats'
+    | '/app/video'
     | '/auth/error'
     | '/shared-post/$id'
     | '/app/'
     | '/app/post/$id'
+    | '/app/video/$id'
     | '/app/post/$id_/edit'
   fileRoutesById: FileRoutesById
 }
@@ -233,6 +257,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthErrorRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app/video': {
+      id: '/app/video'
+      path: '/video'
+      fullPath: '/app/video'
+      preLoaderRoute: typeof AppVideoRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/stats': {
       id: '/app/stats'
       path: '/stats'
@@ -268,6 +299,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/video/$id': {
+      id: '/app/video/$id'
+      path: '/$id'
+      fullPath: '/app/video/$id'
+      preLoaderRoute: typeof AppVideoIdRouteImport
+      parentRoute: typeof AppVideoRoute
+    }
     '/app/post/$id': {
       id: '/app/post/$id'
       path: '/post/$id'
@@ -285,12 +323,25 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AppVideoRouteChildren {
+  AppVideoIdRoute: typeof AppVideoIdRoute
+}
+
+const AppVideoRouteChildren: AppVideoRouteChildren = {
+  AppVideoIdRoute: AppVideoIdRoute,
+}
+
+const AppVideoRouteWithChildren = AppVideoRoute._addFileChildren(
+  AppVideoRouteChildren,
+)
+
 interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRoute
   AppCalendarRoute: typeof AppCalendarRoute
   AppNewRoute: typeof AppNewRoute
   AppNewVideoRoute: typeof AppNewVideoRoute
   AppStatsRoute: typeof AppStatsRoute
+  AppVideoRoute: typeof AppVideoRouteWithChildren
   AppIndexRoute: typeof AppIndexRoute
   AppPostIdRoute: typeof AppPostIdRoute
   AppPostIdEditRoute: typeof AppPostIdEditRoute
@@ -302,6 +353,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppNewRoute: AppNewRoute,
   AppNewVideoRoute: AppNewVideoRoute,
   AppStatsRoute: AppStatsRoute,
+  AppVideoRoute: AppVideoRouteWithChildren,
   AppIndexRoute: AppIndexRoute,
   AppPostIdRoute: AppPostIdRoute,
   AppPostIdEditRoute: AppPostIdEditRoute,
