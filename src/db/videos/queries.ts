@@ -1,8 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { and, count, desc, eq, gte, type InferSelectModel, lt, or } from "drizzle-orm";
+import {
+	and,
+	asc,
+	count,
+	desc,
+	eq,
+	gte,
+	type InferSelectModel,
+	inArray,
+	lt,
+	or,
+} from "drizzle-orm";
 import { users } from "@/db/identity/table";
 import { getDb } from "@/db/setup";
-import { videos } from "./table";
+import { postVideos, videos } from "./table";
 
 /**
  * Północ UTC dla podanego momentu — dolna granica okna "dziś" dla limitu
@@ -156,6 +167,80 @@ export async function getVideoById(id: string): Promise<VideoFeedItem | null> {
 		.where(eq(videos.id, id));
 	const row = rows[0];
 	return row ? { ...row, author: row.author ?? { id: "", name: "" } } : null;
+}
+
+export type PostVideoLink = InferSelectModel<typeof postVideos>;
+
+/**
+ * Ustawia uporządkowaną listę wideo przypiętych do posta (semantyka replace):
+ * usuwa wszystkie dotychczasowe przypięcia tego posta, a następnie wstawia nową
+ * listę z `position` równym indeksowi w tablicy. Jedno wywołanie obsługuje
+ * dodawanie, usuwanie i zmianę kolejności — idempotentne (AC F5 #4).
+ * Pusta lista odpija wszystkie wideo od posta. Zwraca wstawione wiersze łączące.
+ *
+ * Klucz złożony `(post_id, video_id)` chroni przed duplikatami nawet przy współbieżności.
+ */
+export async function setPostVideos(postId: string, videoIds: string[]): Promise<PostVideoLink[]> {
+	const db = getDb();
+	await db.delete(postVideos).where(eq(postVideos.postId, postId));
+	if (videoIds.length === 0) return [];
+	const rows = await db
+		.insert(postVideos)
+		.values(videoIds.map((videoId, position) => ({ postId, videoId, position })))
+		.returning();
+	return rows;
+}
+
+/** Wideo przypięte do posta — pełne dane filmu + `position` w poście. */
+export interface PostVideo extends VideoFeedItem {
+	position: number;
+}
+
+/**
+ * Batchowy odczyt wideo przypiętych do wielu postów (mirror `countCommentsByPosts`).
+ * Zwraca Mapę postId → lista `PostVideo` posortowana rosnąco po `position`.
+ * `innerJoin videos` sprawia, że wideo usunięte w F4 (sierota w `post_videos`)
+ * nie pojawia się w wyniku. Pusta lista postów → pusta Mapa (bez zapytania).
+ */
+export async function listVideosByPostIds(postIds: string[]): Promise<Map<string, PostVideo[]>> {
+	if (postIds.length === 0) return new Map();
+
+	const rows = await getDb()
+		.select({
+			postId: postVideos.postId,
+			position: postVideos.position,
+			id: videos.id,
+			youtubeVideoId: videos.youtubeVideoId,
+			title: videos.title,
+			description: videos.description,
+			authorId: videos.authorId,
+			thumbnailUrl: videos.thumbnailUrl,
+			createdAt: videos.createdAt,
+			author: { id: users.id, name: users.name },
+		})
+		.from(postVideos)
+		.innerJoin(videos, eq(postVideos.videoId, videos.id))
+		.leftJoin(users, eq(videos.authorId, users.id))
+		.where(inArray(postVideos.postId, postIds))
+		.orderBy(asc(postVideos.postId), asc(postVideos.position));
+
+	const map = new Map<string, PostVideo[]>();
+	for (const row of rows) {
+		const list = map.get(row.postId) ?? [];
+		list.push({
+			id: row.id,
+			youtubeVideoId: row.youtubeVideoId,
+			title: row.title,
+			description: row.description,
+			authorId: row.authorId,
+			thumbnailUrl: row.thumbnailUrl,
+			createdAt: row.createdAt,
+			author: row.author ?? { id: "", name: "" },
+			position: row.position,
+		});
+		map.set(row.postId, list);
+	}
+	return map;
 }
 
 /** Limit wgranych wideo na instancję dzień (okno UTC, reset o północy). */

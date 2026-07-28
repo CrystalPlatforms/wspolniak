@@ -7,10 +7,11 @@ import { feedQueryKey } from "@/components/app/feed-query";
 import type { Mention } from "@/components/app/mention-input";
 import { compressImage } from "@/images/compress";
 
-/** Wejście publikacji posta (tekst + pliki + wzmianki). */
+/** Wejście publikacji posta (tekst + pliki + wideo + wzmianki). */
 export interface PublishPostInput {
 	description: string | null;
 	files: File[];
+	videoIds: string[];
 	mentions: Mention[];
 }
 
@@ -99,6 +100,7 @@ export async function createPost(input: PublishPostInput): Promise<unknown> {
 		body: JSON.stringify({
 			description: input.description || null,
 			cfImageIds,
+			videoIds: input.videoIds,
 			mentions: input.mentions,
 		}),
 	});

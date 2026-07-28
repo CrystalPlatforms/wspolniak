@@ -7,6 +7,7 @@ import { PostActions } from "@/components/app/post-actions";
 import { ReactionBar } from "@/components/app/reaction-bar";
 import { ReactionUsers } from "@/components/app/reaction-users";
 import { Spinner } from "@/components/ui/spinner";
+import { VideoThumb } from "@/components/video/video-thumb";
 import { getImageUrl } from "@/images/client";
 
 const MAX_FEED_IMAGES = 2;
@@ -19,6 +20,13 @@ interface FeedImage {
 	createdAt: string;
 }
 
+interface FeedVideo {
+	id: string;
+	title: string;
+	thumbnailUrl: string;
+	position: number;
+}
+
 interface FeedPost {
 	id: string;
 	authorId: string;
@@ -27,6 +35,7 @@ interface FeedPost {
 	updatedAt: string;
 	author: { id: string; name: string };
 	images: FeedImage[];
+	videos?: FeedVideo[];
 	commentCount?: number;
 	pinned?: boolean;
 }
@@ -151,6 +160,19 @@ export function Feed({
 										</button>
 									);
 								})}
+							</div>
+						)}
+
+						{post.videos && post.videos.length > 0 && (
+							<div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+								{post.videos.map((video) => (
+									<VideoThumb
+										key={video.id}
+										id={video.id}
+										title={video.title}
+										thumbnailUrl={video.thumbnailUrl}
+									/>
+								))}
 							</div>
 						)}
 

@@ -9,16 +9,21 @@ vi.mock("@/db/pinned-posts", () => ({
 vi.mock("@/db/comments", () => ({
 	countCommentsByPosts: vi.fn(),
 }));
+vi.mock("@/db/videos", () => ({
+	listVideosByPostIds: vi.fn(),
+}));
 
 import { countCommentsByPosts } from "@/db/comments";
 import { listPinnedPostIds } from "@/db/pinned-posts";
 import { listPaginatedPosts, listPostsByIds, type PostWithAuthorAndImages } from "@/db/posts";
+import { listVideosByPostIds, type PostVideo } from "@/db/videos";
 import { assembleFeedPage, type FeedPageData } from "./feed";
 
 const mockedPaginated = vi.mocked(listPaginatedPosts);
 const mockedByIds = vi.mocked(listPostsByIds);
 const mockedPinnedIds = vi.mocked(listPinnedPostIds);
 const mockedCommentCounts = vi.mocked(countCommentsByPosts);
+const mockedVideos = vi.mocked(listVideosByPostIds);
 
 function makePost(id: string, createdAt: Date): PostWithAuthorAndImages {
 	return {
@@ -37,6 +42,7 @@ const NOW = new Date("2026-07-01T10:00:00.000Z");
 beforeEach(() => {
 	vi.clearAllMocks();
 	mockedPinnedIds.mockResolvedValue([]);
+	mockedVideos.mockResolvedValue(new Map());
 });
 
 describe("assembleFeedPage", () => {
@@ -132,5 +138,32 @@ describe("assembleFeedPage", () => {
 		const result = await assembleFeedPage({ cursor: undefined, imageAccountHash: "hash-abc" });
 
 		expect(result.data[0]?.commentCount).toBe(0);
+	});
+
+	it("dokleja wideo przypięte do postów w jednym batchu (no waterfall)", async () => {
+		const video: PostVideo = {
+			id: "vid-1",
+			youtubeVideoId: "yt-1",
+			title: "Wakacje",
+			description: null,
+			authorId: "user-1",
+			thumbnailUrl: "https://i.ytimg.com/v/yt-1/default.jpg",
+			createdAt: NOW,
+			position: 0,
+			author: { id: "user-1", name: "Ania" },
+		};
+		mockedPaginated.mockResolvedValue({
+			posts: [makePost("chrono-1", NOW)],
+			nextCursor: null,
+		});
+		mockedCommentCounts.mockResolvedValue(new Map());
+		mockedVideos.mockResolvedValue(new Map([["chrono-1", [video]]]));
+
+		const result = await assembleFeedPage({ cursor: undefined, imageAccountHash: "hash-abc" });
+
+		// batch wołany raz ze wszystkimi id postów
+		expect(mockedVideos).toHaveBeenCalledWith(["chrono-1"]);
+		expect(result.data[0]?.videos).toHaveLength(1);
+		expect(result.data[0]?.videos[0]?.youtubeVideoId).toBe("yt-1");
 	});
 });

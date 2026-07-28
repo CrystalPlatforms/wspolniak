@@ -2,6 +2,7 @@
 import { countCommentsByPosts } from "@/db/comments";
 import { listPinnedPostIds } from "@/db/pinned-posts";
 import { listPaginatedPosts, listPostsByIds, type PostWithAuthorAndImages } from "@/db/posts";
+import { listVideosByPostIds, type PostVideo } from "@/db/videos";
 
 export interface FeedCursor {
 	createdAt: string;
@@ -11,6 +12,7 @@ export interface FeedCursor {
 export type FeedPostData = PostWithAuthorAndImages & {
 	commentCount: number;
 	pinned?: boolean;
+	videos: PostVideo[];
 };
 
 export interface FeedPageData {
@@ -52,14 +54,31 @@ export async function assembleFeedPage(input: {
 		...result.posts,
 	];
 
-	const commentCounts = await countCommentsByPosts(allPosts.map((p) => p.id));
+	const postIds = allPosts.map((p) => p.id);
+	// Batch równolegle: liczniki komentarzy + wideo przypięte do postów (no waterfall).
+	const [commentCounts, videosByPost] = await Promise.all([
+		countCommentsByPosts(postIds),
+		listVideosByPostIds(postIds),
+	]);
 	const postsWithComments = allPosts.map((p) => ({
 		...p,
 		commentCount: commentCounts.get(p.id) ?? 0,
+		videos: videosByPost.get(p.id) ?? [],
 	}));
 
 	return {
 		data: postsWithComments,
 		meta: { nextCursor: result.nextCursor, imageAccountHash },
 	};
+}
+
+/**
+ * Dokleja uporządkowaną listę wideo do pojedynczego posta (strona szczegółów).
+ * Mirror batcha z `assembleFeedPage`, ale dla jednego posta.
+ */
+export async function withPostVideos(
+	post: PostWithAuthorAndImages,
+): Promise<PostWithAuthorAndImages & { videos: PostVideo[] }> {
+	const map = await listVideosByPostIds([post.id]);
+	return { ...post, videos: map.get(post.id) ?? [] };
 }

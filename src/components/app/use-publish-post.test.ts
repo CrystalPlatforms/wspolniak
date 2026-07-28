@@ -20,6 +20,7 @@ function makeQueryClient() {
 const sampleInput: PublishPostInput = {
 	description: "Cześć",
 	files: [],
+	videoIds: [],
 	mentions: [],
 };
 
@@ -135,7 +136,7 @@ describe("createPost", () => {
 			new File(["b"], "2.jpg", { type: "image/jpeg" }),
 		];
 
-		await createPost({ description: "hi", files, mentions: [] });
+		await createPost({ description: "hi", files, videoIds: [], mentions: [] });
 
 		const calls = fetchMock.mock.calls.map(([u]) => String(u));
 
@@ -161,7 +162,7 @@ describe("createPost", () => {
 	it("pomija upload-urls całkowicie, gdy nie ma plików (samo POST /posts)", async () => {
 		const fetchMock = stubFetch(() => []);
 
-		await createPost({ description: "brak zdjęć", files: [], mentions: [] });
+		await createPost({ description: "brak zdjęć", files: [], videoIds: [], mentions: [] });
 
 		const calls = fetchMock.mock.calls.map(([u]) => String(u));
 		expect(calls.filter((u) => u.endsWith("/api/app/images/upload-urls"))).toHaveLength(0);

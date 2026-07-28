@@ -4,6 +4,8 @@ import {
 	createVideo,
 	getVideoById,
 	listPaginatedVideos,
+	listVideosByPostIds,
+	setPostVideos,
 	utcDayStart,
 } from "./queries";
 
@@ -224,6 +226,140 @@ describe("listPaginatedVideos", () => {
 		expect(result.videos[0]?.author).toEqual({ id: "user-1", name: "Kasia" });
 	});
 });
+
+function mockSetPostVideosChain(insertedRows: unknown[]) {
+	const mockReturning = vi.fn().mockResolvedValue(insertedRows);
+	const mockValues = vi.fn().mockReturnValue({ returning: mockReturning });
+	const mockInsert = vi.fn().mockReturnValue({ values: mockValues });
+	const mockDeleteWhere = vi.fn().mockResolvedValue(undefined);
+	const mockDelete = vi.fn().mockReturnValue({ where: mockDeleteWhere });
+	mockGetDb.mockReturnValue({ delete: mockDelete, insert: mockInsert } as never);
+	return { mockValues, mockInsert, mockDelete, mockDeleteWhere };
+}
+
+describe("setPostVideos", () => {
+	it("inserts each video with position equal to its index and returns the rows", async () => {
+		const inserted = [
+			{ postId: "p1", videoId: "v-A", position: 0 },
+			{ postId: "p1", videoId: "v-B", position: 1 },
+		];
+		const { mockValues } = mockSetPostVideosChain(inserted);
+
+		const result = await setPostVideos("p1", ["v-A", "v-B"]);
+
+		expect(result).toEqual(inserted);
+		expect(mockValues).toHaveBeenCalledWith([
+			{ postId: "p1", videoId: "v-A", position: 0 },
+			{ postId: "p1", videoId: "v-B", position: 1 },
+		]);
+	});
+
+	it("clears all attachments and skips insert when videoIds is empty", async () => {
+		const { mockInsert } = mockSetPostVideosChain([]);
+
+		const result = await setPostVideos("p1", []);
+
+		expect(result).toEqual([]);
+		expect(mockInsert).not.toHaveBeenCalled();
+	});
+
+	it("removes existing attachments for the post before inserting (replace semantics)", async () => {
+		const { mockDeleteWhere } = mockSetPostVideosChain([
+			{ postId: "p1", videoId: "v-A", position: 0 },
+		]);
+
+		await setPostVideos("p1", ["v-A"]);
+
+		expect(mockDeleteWhere).toHaveBeenCalledOnce();
+	});
+
+	it("updates positions when the same videos are re-added in a new order", async () => {
+		const { mockValues } = mockSetPostVideosChain([
+			{ postId: "p1", videoId: "v-B", position: 0 },
+			{ postId: "p1", videoId: "v-A", position: 1 },
+		]);
+
+		await setPostVideos("p1", ["v-B", "v-A"]);
+
+		expect(mockValues).toHaveBeenLastCalledWith([
+			{ postId: "p1", videoId: "v-B", position: 0 },
+			{ postId: "p1", videoId: "v-A", position: 1 },
+		]);
+	});
+});
+
+function mockVideosByPostChain(rows: unknown[]) {
+	const mockOrderBy = vi.fn().mockResolvedValue(rows);
+	const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+	const mockLeftJoin = vi.fn().mockReturnValue({ where: mockWhere });
+	const mockInnerJoin = vi.fn().mockReturnValue({ leftJoin: mockLeftJoin });
+	const mockFrom = vi.fn().mockReturnValue({ innerJoin: mockInnerJoin });
+	const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
+	mockGetDb.mockReturnValue({ select: mockSelect } as never);
+	return { mockWhere };
+}
+
+describe("listVideosByPostIds", () => {
+	beforeEach(() => {
+		mockGetDb.mockClear();
+	});
+
+	it("groups videos by post in position order", async () => {
+		const d = new Date("2026-07-27T12:00:00Z");
+		mockVideosByPostChain([
+			row("p1", 0, "v1", "yt1", "A", "u1", "Kasia", d),
+			row("p1", 1, "v2", "yt2", "B", "u1", "Kasia", d),
+			row("p2", 0, "v3", "yt3", "C", "u2", "Tomek", d),
+		]);
+
+		const map = await listVideosByPostIds(["p1", "p2"]);
+
+		expect(map.size).toBe(2);
+		expect(map.get("p1")?.map((v) => v.id)).toEqual(["v1", "v2"]);
+		expect(map.get("p1")?.[0]?.position).toBe(0);
+		expect(map.get("p2")?.[0]?.id).toBe("v3");
+	});
+
+	it("returns an empty Map and skips the DB call when postIds is empty", async () => {
+		const result = await listVideosByPostIds([]);
+
+		expect(result.size).toBe(0);
+		expect(mockGetDb).not.toHaveBeenCalled();
+	});
+
+	it("coerces a null author (orphaned video author) to empty id/name", async () => {
+		const d = new Date("2026-07-27T12:00:00Z");
+		mockVideosByPostChain([row("p1", 0, "v1", "yt1", "A", "u1", null, d)]);
+
+		const map = await listVideosByPostIds(["p1"]);
+
+		expect(map.get("p1")?.[0]?.author).toEqual({ id: "", name: "" });
+	});
+});
+
+function row(
+	postId: string,
+	position: number,
+	id: string,
+	youtubeVideoId: string,
+	title: string,
+	authorId: string,
+	authorName: string | null,
+	createdAt: Date,
+) {
+	return {
+		postId,
+		position,
+		id,
+		youtubeVideoId,
+		title,
+		description: null,
+		authorId,
+		thumbnailUrl: `https://i.ytimg.com/${id}.jpg`,
+		createdAt,
+		author: authorName === null ? null : { id: authorId, name: authorName },
+	};
+}
 
 function mockVideoByIdChain(rows: unknown[]) {
 	const mockWhere = vi.fn().mockResolvedValue(rows);

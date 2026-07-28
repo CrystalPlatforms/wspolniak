@@ -9,6 +9,7 @@ export const createPostSchema = z.object({
 		.nullish()
 		.transform((v) => v ?? null),
 	cfImageIds: z.array(z.string().min(1)).max(10).optional(),
+	videoIds: z.array(z.string().min(1)).max(10).optional(),
 	mentions: z.array(mentionSchema).max(20, "Zbyt wiele wspomnień").default([]),
 });
 
@@ -22,6 +23,7 @@ export const updatePostSchema = z.object({
 		.transform((v) => v ?? null),
 	cfImageIds: z.array(z.string().min(1)).max(10).optional(),
 	imageOrder: z.array(z.string().min(1)).max(10).optional(),
+	videoIds: z.array(z.string().min(1)).max(10).optional(),
 	mentions: z.array(mentionSchema).max(20, "Zbyt wiele wspomnień").default([]),
 });
 

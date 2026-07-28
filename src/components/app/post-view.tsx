@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { Download, Pin } from "lucide-react";
 import { useEffect, useState } from "react";
 import { ImageLightbox } from "@/components/app/image-lightbox";
@@ -6,6 +7,7 @@ import { MentionText } from "@/components/app/mention-text";
 import { PostActions } from "@/components/app/post-actions";
 import { ReactionBar } from "@/components/app/reaction-bar";
 import { ReactionUsers } from "@/components/app/reaction-users";
+import { VideoThumb } from "@/components/video/video-thumb";
 import { getImageUrl } from "@/images/client";
 import { downloadImage } from "@/lib/download-image";
 
@@ -17,6 +19,14 @@ interface PostImage {
 	createdAt: string;
 }
 
+interface PostVideo {
+	id: string;
+	youtubeVideoId: string;
+	title: string;
+	thumbnailUrl: string;
+	position: number;
+}
+
 interface PostData {
 	id: string;
 	authorId: string;
@@ -25,6 +35,7 @@ interface PostData {
 	updatedAt: string;
 	author: { id: string; name: string };
 	images: PostImage[];
+	videos?: PostVideo[];
 	pinned?: boolean;
 }
 
@@ -150,6 +161,19 @@ export function PostView({
 					);
 				})}
 			</div>
+
+			{post.videos && post.videos.length > 0 && (
+				<div className="space-y-2">
+					{post.videos.map((video) => (
+						<VideoThumb
+							key={video.id}
+							id={video.id}
+							title={video.title}
+							thumbnailUrl={video.thumbnailUrl}
+						/>
+					))}
+				</div>
+			)}
 
 			<ImageLightbox
 				images={lightboxImages}

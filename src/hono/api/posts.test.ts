@@ -31,8 +31,13 @@ vi.mock("@/db/pinned-posts", () => ({
 	listPinnedPostIds: vi.fn(),
 }));
 
+vi.mock("@/db/videos", () => ({
+	setPostVideos: vi.fn(),
+}));
+
 vi.mock("@/core/feed", () => ({
 	assembleFeedPage: vi.fn(),
+	withPostVideos: vi.fn(async (post) => ({ ...post, videos: [] })),
 }));
 
 import { assembleFeedPage } from "@/core/feed";
@@ -353,6 +358,7 @@ describe("GET /api/app/posts (paginated)", () => {
 					author: { id: "u1", name: "Tomek" },
 					images: [],
 					commentCount: 3,
+					videos: [],
 				},
 			],
 			meta: {

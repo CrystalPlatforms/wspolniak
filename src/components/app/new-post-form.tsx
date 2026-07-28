@@ -13,6 +13,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { ImagePlus, X } from "lucide-react";
 import { type ChangeEvent, type FormEvent, useCallback, useMemo, useRef, useState } from "react";
 import { type Mention, MentionInput } from "@/components/app/mention-input";
+import { PostVideoPicker } from "@/components/app/post-video-picker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -24,7 +25,12 @@ const MAX_FILE_SIZE_MB = 15;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 interface NewPostFormProps {
-	onSubmit: (data: { description: string; files: File[]; mentions: Mention[] }) => void;
+	onSubmit: (data: {
+		description: string;
+		files: File[];
+		videoIds: string[];
+		mentions: Mention[];
+	}) => void;
 	isSubmitting: boolean;
 }
 
@@ -90,6 +96,7 @@ export function NewPostForm({ onSubmit, isSubmitting }: NewPostFormProps) {
 	const [description, setDescription] = useState("");
 	const [mentions, setMentions] = useState<Mention[]>([]);
 	const [media, setMedia] = useState<MediaItem[]>([]);
+	const [videoIds, setVideoIds] = useState<string[]>([]);
 	const [error, setError] = useState<string | null>(null);
 	const [overId, setOverId] = useState<string | null>(null);
 	const imageInputRef = useRef<HTMLInputElement>(null);
@@ -173,8 +180,8 @@ export function NewPostForm({ onSubmit, isSubmitting }: NewPostFormProps) {
 	const handleSubmit = useCallback(
 		(e: FormEvent) => {
 			e.preventDefault();
-			if (images.length === 0 && !description.trim()) {
-				setError("Dodaj tekst lub zdjęcie");
+			if (images.length === 0 && videoIds.length === 0 && !description.trim()) {
+				setError("Dodaj tekst, zdjęcie lub wideo");
 				return;
 			}
 			const files = images.map((i) => i.file!).filter(Boolean);
@@ -182,15 +189,18 @@ export function NewPostForm({ onSubmit, isSubmitting }: NewPostFormProps) {
 			onSubmit({
 				description,
 				files,
+				videoIds,
 				mentions: validMentions,
 			});
 		},
-		[description, images, onSubmit, mentions.filter],
+		[description, images, onSubmit, mentions.filter, videoIds],
 	);
 
 	const canSubmit = useMemo(() => {
-		return (images.length > 0 || description.trim().length > 0) && !isSubmitting;
-	}, [images.length, description, isSubmitting]);
+		return (
+			(images.length > 0 || videoIds.length > 0 || description.trim().length > 0) && !isSubmitting
+		);
+	}, [images.length, description, isSubmitting, videoIds.length]);
 
 	return (
 		<form onSubmit={handleSubmit} className="space-y-4">
@@ -241,6 +251,8 @@ export function NewPostForm({ onSubmit, isSubmitting }: NewPostFormProps) {
 					)}
 				</Button>
 			</div>
+
+			<PostVideoPicker videoIds={videoIds} onChange={setVideoIds} disabled={isSubmitting} />
 
 			{media.length > 0 && (
 				<DndContext

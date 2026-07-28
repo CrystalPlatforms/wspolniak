@@ -3,6 +3,8 @@ export type {
 	CreateVideoInput,
 	ListPaginatedVideosInput,
 	ListPaginatedVideosResult,
+	PostVideo,
+	PostVideoLink,
 	Video,
 	VideoFeedItem,
 	VideoListCursor,
@@ -14,8 +16,10 @@ export {
 	deleteVideo,
 	getVideoById,
 	listPaginatedVideos,
+	listVideosByPostIds,
+	setPostVideos,
 	utcDayStart,
 } from "./queries";
 export type { ConfirmVideoRequest, StartUploadRequest } from "./schema";
 export { confirmVideoSchema, MAX_VIDEO_BYTES, startUploadSchema } from "./schema";
-export { videos } from "./table";
+export { postVideos, videos } from "./table";

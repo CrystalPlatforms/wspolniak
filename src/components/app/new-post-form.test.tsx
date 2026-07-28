@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+
+// Picker wideo ma własne zależności (server fn + QueryClient) — izolujemy test formularza.
+vi.mock("@/components/app/post-video-picker", () => ({
+	PostVideoPicker: () => null,
+}));
+
 import { NewPostForm } from "./new-post-form";
 
 function makeFile(name: string) {

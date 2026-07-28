@@ -42,6 +42,7 @@ function NewPostPage() {
 						await publish({
 							description: data.description || null,
 							files: data.files,
+							videoIds: data.videoIds,
 							mentions: data.mentions,
 						});
 					} catch {

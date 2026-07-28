@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { index, integer, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
 
 /**
  * Wideo rodzinne — jeden rekord = jeden film YouTube (unlisted).
@@ -18,4 +18,24 @@ export const videos = pgTable(
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 	},
 	(t) => [index("videos_created_at_idx").on(t.createdAt)],
+);
+
+/**
+ * Tabela łącząca post ↔ wideo (F5). `position` = kolejność dodania do posta.
+ * Klucz złożony `(post_id, video_id)` gwarantuje, że dane wideo jest przypięte
+ * do danego posta co najwyżej raz (idempotentność przy ponownym dodaniu).
+ * Indeks na `post_id` obsługuje batchowy odczyt wideo dla listy postów.
+ * Bez FK (konwencja repo — kaskady w aplikacji, jak `post_images`).
+ */
+export const postVideos = pgTable(
+	"post_videos",
+	{
+		postId: text("post_id").notNull(),
+		videoId: text("video_id").notNull(),
+		position: integer("position").notNull(),
+	},
+	(t) => [
+		primaryKey({ columns: [t.postId, t.videoId] }),
+		index("post_videos_post_id_idx").on(t.postId),
+	],
 );

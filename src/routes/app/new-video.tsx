@@ -54,19 +54,16 @@ function NewVideoPage() {
 					<h1 className="text-2xl font-bold text-foreground">Wideo dodane</h1>
 				</div>
 
-				<Alert variant="default" className="mb-4">
-					<AlertDescription>
-						Wideo zostało wgrane na YouTube jako niepubliczne i jest gotowe do odtwarzania.
-					</AlertDescription>
-				</Alert>
-
 				{/* Success view — odtwarzanie wideo inline (dowód pełnego pipeline'u). */}
 				<YouTubePlayer youtubeVideoId={result.youtubeVideoId} title={title} />
 
-				<div className="mt-4 flex gap-2">
+				<div className="mt-4 flex flex-wrap gap-2">
 					<Button onClick={resetAll}>Wrzuć kolejne</Button>
 					<Button variant="outline" onClick={() => navigate({ to: "/app" })}>
 						Wróć do feeda
+					</Button>
+					<Button variant="outline" onClick={() => navigate({ to: "/app/video" })}>
+						Wróć do Wideo
 					</Button>
 				</div>
 			</div>
