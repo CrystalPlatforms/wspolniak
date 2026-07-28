@@ -1,3 +1,10 @@
+# [1.70.0](https://github.com/CrystalGamesStudio/wspolniak/compare/v1.69.0...v1.70.0) (2026-07-28)
+
+
+### Features
+
+* **video:** dołączanie wideo do postów + kolejność dodawania (F5) [[#107](https://github.com/CrystalGamesStudio/wspolniak/issues/107)] ([1f85cd8](https://github.com/CrystalGamesStudio/wspolniak/commit/1f85cd8c241b19ccf39a93c30ad407073ae6ffd7))
+
 # [1.69.0](https://github.com/CrystalGamesStudio/wspolniak/compare/v1.68.0...v1.69.0) (2026-07-28)
 
 
