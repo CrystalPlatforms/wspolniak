@@ -1,3 +1,10 @@
+# [1.69.0](https://github.com/CrystalGamesStudio/wspolniak/compare/v1.68.0...v1.69.0) (2026-07-28)
+
+
+### Features
+
+* **video:** usuwanie wideo — autor/admin, atomowo YouTube→Neon (F4) [[#106](https://github.com/CrystalGamesStudio/wspolniak/issues/106)] ([f0241fe](https://github.com/CrystalGamesStudio/wspolniak/commit/f0241fef5b96579b93df06af8355ede492bd79d9))
+
 # [1.68.0](https://github.com/CrystalGamesStudio/wspolniak/compare/v1.67.0...v1.68.0) (2026-07-27)
 
 
