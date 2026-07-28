@@ -2,12 +2,14 @@
 
 import type { Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
+import { canDeleteVideo } from "@/core/authorization";
 import { AppError, isUniqueViolation } from "@/core/errors";
 import {
 	buildAuthorizationUrl,
 	type ChunkRange,
 	createState,
 	decryptRefreshToken,
+	deleteVideo as deleteYoutubeVideo,
 	encryptRefreshToken,
 	exchangeCodeForTokens,
 	fetchOwnChannel,
@@ -29,6 +31,8 @@ import {
 	countTodayUTC,
 	createVideo,
 	DAILY_VIDEO_LIMIT,
+	deleteVideo,
+	getVideoById,
 	MAX_VIDEO_BYTES,
 	startUploadSchema,
 } from "@/db/videos";
@@ -252,6 +256,35 @@ videoEndpoint.post("/confirm", async (c) => {
 		if (isUniqueViolation(e)) return c.json({ error: "To wideo zostało już zapisane" }, 409);
 		throw e;
 	}
+});
+
+// DELETE /api/video/:id — usuń wideo (author lub admin). Atomowo (F4): najpierw
+// YouTube, a dopiero po sukcesie rekord Neon. Błąd YouTube (quota/sieć/401) →
+// rekord Neon ZOSTAJE, błąd ląduje w odpowiedzi (użytkownik może spróbować ponownie).
+// 404 z YouTube (wideo już tam usunięte) traktowane jest jako sukces → sprząta Neon.
+videoEndpoint.delete("/:id", async (c) => {
+	const user = c.get("user");
+
+	const video = await getVideoById(c.req.param("id"));
+	if (!video) return c.json({ error: "Wideo nie zostało znalezione" }, 404);
+
+	if (!canDeleteVideo(user, video)) {
+		return c.json({ error: "Forbidden" }, 403);
+	}
+
+	try {
+		const resolved = await resolveUploadContext(c);
+		if (resolved instanceof Response) return resolved;
+
+		await deleteYoutubeVideo(video.youtubeVideoId, resolved.accessToken, resolved.config);
+	} catch (e) {
+		if (e instanceof AppError)
+			return c.json({ error: e.message }, e.status as ContentfulStatusCode);
+		throw e;
+	}
+
+	await deleteVideo(video.id);
+	return c.json({ data: { id: video.id } });
 });
 
 export default videoEndpoint;

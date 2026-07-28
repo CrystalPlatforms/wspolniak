@@ -53,6 +53,16 @@ export async function createVideo(input: CreateVideoInput): Promise<Video> {
 	return row;
 }
 
+/**
+ * Hard-deletes a video record (F4). Zwraca usunięty rekord (z `youtubeVideoId`,
+ * którego potrzebuje warstwa API do usunięcia z YouTube) lub `null`, gdy nie
+ * istniał. Tabela `videos` nie ma soft-delete — usunięcie jest trwałe.
+ */
+export async function deleteVideo(id: string): Promise<Video | null> {
+	const rows = await getDb().delete(videos).where(eq(videos.id, id)).returning();
+	return rows[0] ?? null;
+}
+
 /** Kursor paginacji feedu wideo — stabilny porządek (createdAt DESC, id DESC). */
 export interface VideoListCursor {
 	createdAt: string;

@@ -25,3 +25,4 @@ export {
 	type StartUploadMeta,
 	startResumableUpload,
 } from "./upload";
+export { deleteVideo } from "./videos";

@@ -11,6 +11,7 @@ export {
 	countTodayUTC,
 	createVideo,
 	DAILY_VIDEO_LIMIT,
+	deleteVideo,
 	getVideoById,
 	listPaginatedVideos,
 	utcDayStart,

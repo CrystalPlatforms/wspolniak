@@ -2,6 +2,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
+import { VideoActions } from "@/components/video/video-actions";
 import { YouTubePlayer } from "@/components/video/youtube-player";
 import type { VideoFeedItem } from "@/db/videos";
 
@@ -23,6 +24,7 @@ export const Route = createFileRoute("/app/video/$id")({
 function VideoPage() {
 	const { id } = Route.useParams();
 	const navigate = useNavigate();
+	const { session } = Route.useRouteContext();
 	const { data: response, isLoading } = useQuery({
 		queryKey: ["videos", id],
 		queryFn: () => fetchVideo(id),
@@ -51,6 +53,10 @@ function VideoPage() {
 						<ArrowLeft className="h-4 w-4" />
 						Wróć do wideo
 					</button>
+					<div className="flex-1" />
+					{video && (session.userId === video.authorId || session.role === "admin") && (
+						<VideoActions videoId={video.id} />
+					)}
 				</div>
 			</div>
 
