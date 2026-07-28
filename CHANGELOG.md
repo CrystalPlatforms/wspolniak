@@ -1,3 +1,10 @@
+# [1.71.0](https://github.com/CrystalGamesStudio/wspolniak/compare/v1.70.0...v1.71.0) (2026-07-28)
+
+
+### Features
+
+* **posts:** bezpieczny renderer Markdown w postach — F1 read path [[#110](https://github.com/CrystalGamesStudio/wspolniak/issues/110)] ([4d8ecaa](https://github.com/CrystalGamesStudio/wspolniak/commit/4d8ecaa416eb8edd032adb7de496d301c2eeb712))
+
 # [1.70.0](https://github.com/CrystalGamesStudio/wspolniak/compare/v1.69.0...v1.70.0) (2026-07-28)
 
 
