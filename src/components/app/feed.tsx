@@ -2,7 +2,7 @@
 import { ExternalLinkIcon, MessageCircleIcon, PinIcon, RotateCcwIcon } from "lucide-react";
 import { useState } from "react";
 import { ImageLightbox } from "@/components/app/image-lightbox";
-import { MentionText } from "@/components/app/mention-text";
+import { MarkdownText } from "@/components/app/markdown-text";
 import { PostActions } from "@/components/app/post-actions";
 import { ReactionBar } from "@/components/app/reaction-bar";
 import { ReactionUsers } from "@/components/app/reaction-users";
@@ -122,10 +122,7 @@ export function Feed({
 						</div>
 
 						{post.description && (
-							<MentionText
-								text={post.description}
-								className="mb-3 whitespace-pre-wrap break-words text-foreground"
-							/>
+							<MarkdownText text={post.description} className="mb-3 break-words text-foreground" />
 						)}
 
 						{visibleImages.length > 0 && (

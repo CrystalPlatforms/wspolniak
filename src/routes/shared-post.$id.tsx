@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { MarkdownText } from "@/components/app/markdown-text";
 
 interface PostImage {
 	id: string;
@@ -79,7 +80,7 @@ function SharedPostPage() {
 					</div>
 
 					{post.description && (
-						<p className="whitespace-pre-wrap break-words text-foreground">{post.description}</p>
+						<MarkdownText text={post.description} className="break-words text-foreground" />
 					)}
 
 					{post.images.length > 0 && (
