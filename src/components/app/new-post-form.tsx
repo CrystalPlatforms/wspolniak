@@ -213,7 +213,9 @@ export function NewPostForm({ onSubmit, isSubmitting }: NewPostFormProps) {
 			)}
 
 			<div className="space-y-2">
-				<Label htmlFor="description">Tekst</Label>
+				<Label htmlFor="description" className="sr-only">
+					Tekst
+				</Label>
 				<FormattingToolbar
 					textareaRef={descriptionRef}
 					value={description}
@@ -241,26 +243,23 @@ export function NewPostForm({ onSubmit, isSubmitting }: NewPostFormProps) {
 					onChange={handleImageFileChange}
 					className="hidden"
 				/>
-				<Button
-					type="button"
-					variant="outline"
-					className="h-11 w-full sm:h-9"
-					onClick={() => imageInputRef.current?.click()}
-					disabled={images.length >= MAX_IMAGES}
-					title={images.length > 0 ? `${images.length}/${MAX_IMAGES}` : "Dodaj zdjęcia"}
-				>
-					<ImagePlus className="h-4 w-4" />
-					{images.length > 0 ? (
+				<div className="grid grid-cols-2 gap-2">
+					<Button
+						type="button"
+						variant="outline"
+						className="h-11 w-full sm:h-9"
+						onClick={() => imageInputRef.current?.click()}
+						disabled={images.length >= MAX_IMAGES}
+						title={images.length > 0 ? `${images.length}/${MAX_IMAGES}` : "Dodaj zdjęcia"}
+					>
+						<ImagePlus className="h-4 w-4" />
 						<span className="ml-2">
-							{images.length}/{MAX_IMAGES}
+							{images.length > 0 ? `${images.length}/${MAX_IMAGES}` : "Dodaj zdjęcia"}
 						</span>
-					) : (
-						<span className="ml-2">Zdjęcia</span>
-					)}
-				</Button>
+					</Button>
+					<PostVideoPicker videoIds={videoIds} onChange={setVideoIds} disabled={isSubmitting} />
+				</div>
 			</div>
-
-			<PostVideoPicker videoIds={videoIds} onChange={setVideoIds} disabled={isSubmitting} />
 
 			{media.length > 0 && (
 				<DndContext

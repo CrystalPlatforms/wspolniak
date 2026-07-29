@@ -59,8 +59,10 @@ export function PostVideoPicker({ videoIds, onChange, disabled }: PostVideoPicke
 		onChange(next);
 	};
 
+	// Fragment (bez wrappera): trigger wpasowuje się do gridu kompozytora obok
+	// przycisku zdjęć, a lista wybranych (`col-span-full`) rozkłada się pod oboma.
 	return (
-		<div className="space-y-2">
+		<>
 			<Dialog>
 				<DialogTrigger asChild>
 					<Button
@@ -111,7 +113,7 @@ export function PostVideoPicker({ videoIds, onChange, disabled }: PostVideoPicke
 			</Dialog>
 
 			{selectedVideos.length > 0 && (
-				<ul className="space-y-2">
+				<ul className="col-span-full space-y-2">
 					{selectedVideos.map((video, index) => (
 						<li
 							key={video.id}
@@ -161,6 +163,6 @@ export function PostVideoPicker({ videoIds, onChange, disabled }: PostVideoPicke
 					))}
 				</ul>
 			)}
-		</div>
+		</>
 	);
 }

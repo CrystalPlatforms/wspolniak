@@ -56,6 +56,12 @@ describe("MarkdownText", () => {
 		expect(anchor?.getAttribute("rel")).toContain("noreferrer");
 	});
 
+	it("renders links in the brand primary color so they read as links", () => {
+		const { container } = render(<MarkdownText text="[link](https://example.com)" />);
+		const anchor = container.querySelector("a");
+		expect(anchor?.getAttribute("class")).toContain("text-primary");
+	});
+
 	it("does not render or execute raw HTML (no <script> element)", () => {
 		const { container } = render(<MarkdownText text={"<script>alert(1)</script>"} />);
 		expect(container.querySelector("script")).toBeNull();

@@ -77,9 +77,15 @@ export function MarkdownText({ text, className }: { text: string | null; classNa
 				remarkPlugins={[remarkGfm, remarkBreaks]}
 				rehypePlugins={[rehypeMentions]}
 				components={{
-					// Links open in a new tab with a safe rel (defense in depth on top of urlTransform).
+					// Links open in a new tab with a safe rel (defense in depth on top of urlTransform),
+					// styled in the brand primary color (matches @mentions) so they read as links.
 					a: ({ node: _node, ...props }) => (
-						<a {...props} target="_blank" rel="noopener noreferrer" />
+						<a
+							{...props}
+							target="_blank"
+							rel="noopener noreferrer"
+							className="font-medium text-primary underline underline-offset-2 hover:text-primary/80"
+						/>
 					),
 				}}
 			>
