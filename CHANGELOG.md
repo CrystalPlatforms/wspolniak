@@ -1,3 +1,10 @@
+# [1.73.0](https://github.com/CrystalGamesStudio/wspolniak/compare/v1.72.0...v1.73.0) (2026-07-29)
+
+
+### Features
+
+* **posts:** block formatting + linki w kompozytorze — F3 [[#112](https://github.com/CrystalGamesStudio/wspolniak/issues/112)] ([de8bd58](https://github.com/CrystalGamesStudio/wspolniak/commit/de8bd588e53ed3e994b8013d28e89d5218c55168))
+
 # [1.72.0](https://github.com/CrystalGamesStudio/wspolniak/compare/v1.71.0...v1.72.0) (2026-07-29)
 
 
