@@ -1,3 +1,10 @@
+# [1.74.0](https://github.com/CrystalGamesStudio/wspolniak/compare/v1.73.0...v1.74.0) (2026-07-29)
+
+
+### Features
+
+* **posts:** podgląd Markdown w kompozytorze + edycja + style bloków — F4 [[#113](https://github.com/CrystalGamesStudio/wspolniak/issues/113)] ([451601d](https://github.com/CrystalGamesStudio/wspolniak/commit/451601d1ab3b749f515fd68c38b32729d383252b))
+
 # [1.73.0](https://github.com/CrystalGamesStudio/wspolniak/compare/v1.72.0...v1.73.0) (2026-07-29)
 
 
