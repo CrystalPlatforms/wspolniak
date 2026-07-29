@@ -1,3 +1,10 @@
+# [1.72.0](https://github.com/CrystalGamesStudio/wspolniak/compare/v1.71.0...v1.72.0) (2026-07-29)
+
+
+### Features
+
+* **posts:** toolbar formatowania inline (B/I/S) w kompozytorze — F2 [[#111](https://github.com/CrystalGamesStudio/wspolniak/issues/111)] ([85bc2b9](https://github.com/CrystalGamesStudio/wspolniak/commit/85bc2b9c89a4b8515f3e1a7885d63572b67b6f03))
+
 # [1.71.0](https://github.com/CrystalGamesStudio/wspolniak/compare/v1.70.0...v1.71.0) (2026-07-28)
 
 
