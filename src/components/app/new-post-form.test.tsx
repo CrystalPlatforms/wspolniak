@@ -17,9 +17,17 @@ describe("NewPostForm", () => {
 	it("renders file picker and description input", () => {
 		render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
 
-		expect(screen.getByLabelText(/tekst/i)).toBeDefined();
+		expect(screen.getByLabelText(/^tekst$/i)).toBeDefined();
 		expect(screen.getByRole("button", { name: /zdjęcia/i })).toBeDefined();
 		expect(screen.getByRole("button", { name: /opublikuj/i })).toBeDefined();
+	});
+
+	it("renders the post-only formatting toolbar (B/I/S)", () => {
+		render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
+
+		expect(screen.getByRole("button", { name: /pogrubienie/i })).toBeDefined();
+		expect(screen.getByRole("button", { name: /kursywa/i })).toBeDefined();
+		expect(screen.getByRole("button", { name: /przekreślenie/i })).toBeDefined();
 	});
 
 	it("shows file count validation error for >10 files", () => {
@@ -92,7 +100,7 @@ describe("NewPostForm", () => {
 			fireEvent.pointerUp(window, { pointerId: 1 });
 
 			// Submit the form
-			await userEvent.type(screen.getByLabelText(/tekst/i), "test");
+			await userEvent.type(screen.getByLabelText(/^tekst$/i), "test");
 			await userEvent.click(screen.getByRole("button", { name: /opublikuj/i }));
 
 			expect(onSubmit).toHaveBeenCalledWith(

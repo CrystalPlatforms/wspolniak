@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { useEffect, useRef, useState } from "react";
+import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
 import { type CaretCoordinates, getCaretCoordinates } from "./caret-position";
 import { detectMentionQuery, insertMention, type MentionDetection } from "./mentions-text";
 
@@ -25,6 +25,8 @@ export interface MentionInputProps {
 	rows?: number;
 	id?: string;
 	className?: string;
+	/** Opcjonalny ref do wewnętrznego textarea (toolbar formatowania posta). Komentarze go nie przekazują. */
+	textareaRef?: RefObject<HTMLTextAreaElement | null>;
 }
 
 /**
@@ -45,9 +47,19 @@ export function MentionInput({
 	rows = 2,
 	id,
 	className,
+	textareaRef: forwardedTextareaRef,
 }: MentionInputProps) {
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
 	const listRef = useRef<HTMLUListElement>(null);
+
+	/** Utrzymuje wewnętrzny ref i (opcjonalnie) ref parenta na tym samym węźle. */
+	const setNode = useCallback(
+		(node: HTMLTextAreaElement | null) => {
+			textareaRef.current = node;
+			if (forwardedTextareaRef) forwardedTextareaRef.current = node;
+		},
+		[forwardedTextareaRef],
+	);
 	const activeItemRef = useRef<HTMLLIElement>(null);
 	const [detection, setDetection] = useState<MentionDetection | null>(null);
 	const [users, setUsers] = useState<MemberOption[]>([]);
@@ -169,7 +181,7 @@ export function MentionInput({
 	return (
 		<div className="relative">
 			<textarea
-				ref={textareaRef}
+				ref={setNode}
 				id={id}
 				className={`flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${className ?? ""}`}
 				value={value}

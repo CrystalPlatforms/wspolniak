@@ -12,6 +12,7 @@ import { rectSortingStrategy, SortableContext, useSortable } from "@dnd-kit/sort
 import { CSS } from "@dnd-kit/utilities";
 import { ImagePlus, X } from "lucide-react";
 import { type ChangeEvent, type FormEvent, useCallback, useMemo, useRef, useState } from "react";
+import { FormattingToolbar } from "@/components/app/formatting-toolbar";
 import { type Mention, MentionInput } from "@/components/app/mention-input";
 import { PostVideoPicker } from "@/components/app/post-video-picker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -94,6 +95,7 @@ function SortablePreview({
 
 export function NewPostForm({ onSubmit, isSubmitting }: NewPostFormProps) {
 	const [description, setDescription] = useState("");
+	const descriptionRef = useRef<HTMLTextAreaElement>(null);
 	const [mentions, setMentions] = useState<Mention[]>([]);
 	const [media, setMedia] = useState<MediaItem[]>([]);
 	const [videoIds, setVideoIds] = useState<string[]>([]);
@@ -212,7 +214,13 @@ export function NewPostForm({ onSubmit, isSubmitting }: NewPostFormProps) {
 
 			<div className="space-y-2">
 				<Label htmlFor="description">Tekst</Label>
+				<FormattingToolbar
+					textareaRef={descriptionRef}
+					value={description}
+					onChange={setDescription}
+				/>
 				<MentionInput
+					textareaRef={descriptionRef}
 					id="description"
 					value={description}
 					onChange={setDescription}
