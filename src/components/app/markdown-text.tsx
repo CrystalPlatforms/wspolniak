@@ -87,6 +87,28 @@ export function MarkdownText({ text, className }: { text: string | null; classNa
 							className="font-medium text-primary underline underline-offset-2 hover:text-primary/80"
 						/>
 					),
+					// Tailwind preflight flattens headings (inherit size/weight) and strips
+					// list markers (list-style:none, padding:0). Restore visual hierarchy so
+					// block formatting authored via the toolbar actually reads as such.
+					h1: ({ node: _node, ...props }) => (
+						<h1 {...props} className="mb-1 mt-3 text-2xl font-bold text-foreground" />
+					),
+					h2: ({ node: _node, ...props }) => (
+						<h2 {...props} className="mb-1 mt-3 text-xl font-semibold text-foreground" />
+					),
+					h3: ({ node: _node, ...props }) => (
+						<h3 {...props} className="mb-1 mt-2 text-lg font-semibold text-foreground" />
+					),
+					ul: ({ node: _node, ...props }) => (
+						<ul {...props} className="my-2 list-disc space-y-1 pl-5" />
+					),
+					ol: ({ node: _node, ...props }) => (
+						<ol {...props} className="my-2 list-decimal space-y-1 pl-5" />
+					),
+					li: ({ node: _node, ...props }) => (
+						<li {...props} className="marker:text-muted-foreground" />
+					),
+					p: ({ node: _node, ...props }) => <p {...props} className="mb-2 last:mb-0" />,
 				}}
 			>
 				{text}

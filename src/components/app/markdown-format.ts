@@ -5,6 +5,7 @@ export type MarkdownAction =
 	| "bold"
 	| "italic"
 	| "strikethrough"
+	| "h1"
 	| "h2"
 	| "h3"
 	| "bullet"
@@ -43,6 +44,8 @@ export function applyMarkdown(state: EditorSelection, action: MarkdownAction): E
 		return applyInline(state, action);
 	}
 	switch (action) {
+		case "h1":
+			return applyHeading(state, "# ");
 		case "h2":
 			return applyHeading(state, "## ");
 		case "h3":

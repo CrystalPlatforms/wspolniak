@@ -27,6 +27,16 @@ describe("MarkdownText", () => {
 		expect(container.querySelector("del")?.textContent).toBe("skreślone");
 	});
 
+	it("renders # heading as <h1>", () => {
+		const { container } = render(<MarkdownText text="# Tytuł" />);
+		expect(container.querySelector("h1")?.textContent).toBe("Tytuł");
+	});
+
+	it("styles # heading so it is visually distinct (the largest, bold)", () => {
+		const { container } = render(<MarkdownText text="# Tytuł" />);
+		expect(container.querySelector("h1")?.getAttribute("class")).toContain("font-bold");
+	});
+
 	it("renders ## heading as <h2>", () => {
 		const { container } = render(<MarkdownText text="## Tytuł" />);
 		expect(container.querySelector("h2")?.textContent).toBe("Tytuł");
@@ -37,6 +47,16 @@ describe("MarkdownText", () => {
 		expect(container.querySelector("h3")?.textContent).toBe("Podtytuł");
 	});
 
+	it("styles ## heading so it is visually distinct (not flattened by Tailwind preflight)", () => {
+		const { container } = render(<MarkdownText text="## Tytuł" />);
+		expect(container.querySelector("h2")?.getAttribute("class")).toContain("font-semibold");
+	});
+
+	it("styles ### heading so it is visually distinct", () => {
+		const { container } = render(<MarkdownText text="### Podtytuł" />);
+		expect(container.querySelector("h3")?.getAttribute("class")).toContain("font-semibold");
+	});
+
 	it("renders a bullet list as <ul> with <li> items", () => {
 		const { container } = render(<MarkdownText text={"- jabłko\n- gruszka"} />);
 		expect(container.querySelectorAll("ul li")).toHaveLength(2);
@@ -45,6 +65,16 @@ describe("MarkdownText", () => {
 	it("renders a numbered list as <ol> with <li> items", () => {
 		const { container } = render(<MarkdownText text={"1. raz\n2. dwa"} />);
 		expect(container.querySelectorAll("ol li")).toHaveLength(2);
+	});
+
+	it("shows bullet markers on a list (list-disc, not reset by preflight)", () => {
+		const { container } = render(<MarkdownText text={"- jabłko\n- gruszka"} />);
+		expect(container.querySelector("ul")?.getAttribute("class")).toContain("list-disc");
+	});
+
+	it("shows number markers on an ordered list (list-decimal)", () => {
+		const { container } = render(<MarkdownText text={"1. raz\n2. dwa"} />);
+		expect(container.querySelector("ol")?.getAttribute("class")).toContain("list-decimal");
 	});
 
 	it("renders links with target=_blank and a safe rel (noopener noreferrer)", () => {

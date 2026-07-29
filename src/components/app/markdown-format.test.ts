@@ -108,6 +108,20 @@ describe("applyMarkdown", () => {
 		});
 	});
 
+	describe("h1", () => {
+		it("prefixes a selected line with # and selects the new line (toggle)", () => {
+			const result = applyMarkdown({ value: "foo", selectionStart: 0, selectionEnd: 3 }, "h1");
+			expect(result.value).toBe("# foo");
+			expect(result.selectionStart).toBe(0);
+			expect(result.selectionEnd).toBe(5);
+		});
+
+		it("removes # when the line is already a title (toggle off)", () => {
+			const result = applyMarkdown({ value: "# foo", selectionStart: 0, selectionEnd: 5 }, "h1");
+			expect(result.value).toBe("foo");
+		});
+	});
+
 	describe("h2", () => {
 		it("prefixes a selected line with ## and selects the new line", () => {
 			const result = applyMarkdown({ value: "foo", selectionStart: 0, selectionEnd: 3 }, "h2");

@@ -35,6 +35,7 @@ describe("FormattingToolbar", () => {
 	it("renders heading, list and link buttons", () => {
 		render(<FormattingToolbar textareaRef={makeRef()} value="foo" onChange={vi.fn()} />);
 
+		expect(screen.getByRole("button", { name: /nagłówek 1/i })).toBeDefined();
 		expect(screen.getByRole("button", { name: /nagłówek 2/i })).toBeDefined();
 		expect(screen.getByRole("button", { name: /nagłówek 3/i })).toBeDefined();
 		expect(screen.getByRole("button", { name: /lista punktowana/i })).toBeDefined();

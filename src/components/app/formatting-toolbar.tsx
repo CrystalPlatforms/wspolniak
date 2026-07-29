@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import {
 	Bold,
+	Heading1,
 	Heading2,
 	Heading3,
 	Italic,
@@ -29,6 +30,7 @@ const ACTIONS: ActionDef[] = [
 	{ action: "bold", label: "Pogrubienie", Icon: Bold },
 	{ action: "italic", label: "Kursywa", Icon: Italic },
 	{ action: "strikethrough", label: "Przekreślenie", Icon: Strikethrough },
+	{ action: "h1", label: "Nagłówek 1", Icon: Heading1 },
 	{ action: "h2", label: "Nagłówek 2", Icon: Heading2 },
 	{ action: "h3", label: "Nagłówek 3", Icon: Heading3 },
 	{ action: "bullet", label: "Lista punktowana", Icon: List },
