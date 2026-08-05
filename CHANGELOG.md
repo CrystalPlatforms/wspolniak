@@ -1,3 +1,10 @@
+# [3.0.0](https://github.com/CrystalGamesStudio/wspolniak/compare/v1.74.0...v3.0.0) (2026-08-05)
+
+
+### Features
+
+* **instance:** master switch Wideo + Edytor — Wspólniak On/Off [#115](https://github.com/CrystalGamesStudio/wspolniak/issues/115) ([663188f](https://github.com/CrystalGamesStudio/wspolniak/commit/663188f))
+
 # [1.74.0](https://github.com/CrystalGamesStudio/wspolniak/compare/v1.73.0...v1.74.0) (2026-07-29)
 
 
@@ -182,7 +189,7 @@
 
 ## Project Metrics
 
-- Current application codebase size: **31,390 lines of code** as measured on 2026-07-29.
+- Current application codebase size: **31,979 lines of code** as measured on 2026-08-05.
 - Scope: `src/` and `scripts/` source files, excluding generated files, SQL migrations, build artifacts, and dependencies.
 - This metric must be recalculated and kept current whenever the codebase changes in a way that materially affects line count.
 
