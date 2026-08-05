@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 
 // Picker wideo ma własne zależności (server fn + QueryClient) — izolujemy test formularza.
 vi.mock("@/components/app/post-video-picker", () => ({
-	PostVideoPicker: () => null,
+	PostVideoPicker: () => <div data-testid="post-video-picker" />,
 }));
 
 import { NewPostForm } from "./new-post-form";
@@ -28,6 +28,36 @@ describe("NewPostForm", () => {
 		expect(screen.getByRole("button", { name: /pogrubienie/i })).toBeDefined();
 		expect(screen.getByRole("button", { name: /kursywa/i })).toBeDefined();
 		expect(screen.getByRole("button", { name: /przekreślenie/i })).toBeDefined();
+	});
+
+	it("renders the video picker when the video feature is enabled", () => {
+		render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
+
+		expect(screen.queryByTestId("post-video-picker")).not.toBeNull();
+	});
+
+	it("hides the video picker when the video feature is disabled", () => {
+		render(
+			<NewPostForm
+				onSubmit={vi.fn()}
+				isSubmitting={false}
+				featureFlags={{ video: false, markdown: true }}
+			/>,
+		);
+
+		expect(screen.queryByTestId("post-video-picker")).toBeNull();
+	});
+
+	it("hides the formatting toolbar when the markdown feature is disabled", () => {
+		render(
+			<NewPostForm
+				onSubmit={vi.fn()}
+				isSubmitting={false}
+				featureFlags={{ video: true, markdown: false }}
+			/>,
+		);
+
+		expect(screen.queryByRole("button", { name: /pogrubienie/i })).toBeNull();
 	});
 
 	it("shows file count validation error for >10 files", () => {

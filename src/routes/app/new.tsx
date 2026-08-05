@@ -11,6 +11,7 @@ export const Route = createFileRoute("/app/new")({
 
 function NewPostPage() {
 	const navigate = useNavigate();
+	const { featureFlags } = Route.useRouteContext();
 	const { publish, isPending, isError, error, reset } = usePublishPost();
 
 	return (
@@ -34,6 +35,7 @@ function NewPostPage() {
 			) : null}
 
 			<NewPostForm
+				featureFlags={featureFlags}
 				onSubmit={async (data) => {
 					// Blokujący flow: zostajemy na formie do sukcesu. navigate + invalidate
 					// odpalają się w onSuccess hooka; błąd ląduje w `error` (Alert nad formą).

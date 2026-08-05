@@ -18,6 +18,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { LoaderIcon } from "@/components/ui/spinner";
+import { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from "@/db/instance";
 import { getImageUrl } from "@/images/client";
 import { reorder } from "@/lib/reorder";
 
@@ -51,6 +52,7 @@ interface EditPostFormProps {
 		mentions: Mention[];
 	}) => void;
 	isSubmitting: boolean;
+	featureFlags?: FeatureFlags;
 }
 
 function SortablePreview({
@@ -116,6 +118,7 @@ export function EditPostForm({
 	imageAccountHash,
 	onSubmit,
 	isSubmitting,
+	featureFlags = DEFAULT_FEATURE_FLAGS,
 }: EditPostFormProps) {
 	const [description, setDescription] = useState(initialDescription ?? "");
 	const [mentions, setMentions] = useState<Mention[]>([]);
@@ -259,6 +262,7 @@ export function EditPostForm({
 					value={description}
 					onChange={setDescription}
 					onMentionsChange={setMentions}
+					markdownEnabled={featureFlags.markdown}
 				/>
 			</div>
 

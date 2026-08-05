@@ -7,6 +7,7 @@ import {
 	shouldShowMaintenanceOverlay,
 } from "@/components/maintenance/maintenance-overlay";
 import { PwaShell } from "@/components/pwa/pwa-shell";
+import { getFeatureFlagsState } from "@/core/functions/feature-flags";
 import { getMaintenanceState } from "@/core/functions/maintenance";
 import { getSession } from "@/core/functions/session";
 
@@ -17,13 +18,14 @@ export const Route = createFileRoute("/app")({
 			throw redirect({ to: "/" });
 		}
 		const maintenance = await getMaintenanceState();
-		return { session, maintenance };
+		const featureFlags = await getFeatureFlagsState();
+		return { session, maintenance, featureFlags };
 	},
 	component: AppLayout,
 });
 
 function AppLayout() {
-	const { session, maintenance } = Route.useRouteContext();
+	const { session, maintenance, featureFlags } = Route.useRouteContext();
 
 	if (shouldShowMaintenanceOverlay(maintenance, session.role)) {
 		return (
@@ -37,11 +39,11 @@ function AppLayout() {
 
 	return (
 		<PwaShell>
-			<DesktopSidebar role={session.role} />
+			<DesktopSidebar role={session.role} featureFlags={featureFlags} />
 			<main className="sm:ml-[240px]">
 				<Outlet />
 			</main>
-			<MobileNav role={session.role} />
+			<MobileNav role={session.role} featureFlags={featureFlags} />
 		</PwaShell>
 	);
 }

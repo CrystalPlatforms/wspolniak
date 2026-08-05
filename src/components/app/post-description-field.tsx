@@ -21,6 +21,8 @@ interface PostDescriptionFieldProps {
 	onMentionsChange?: (mentions: Mention[]) => void;
 	id?: string;
 	placeholder?: string;
+	/** Gdy false, pole staje się zwykłym tekstem (bez toolbara i podglądu). */
+	markdownEnabled?: boolean;
 }
 
 export function PostDescriptionField({
@@ -29,28 +31,32 @@ export function PostDescriptionField({
 	onMentionsChange,
 	id = "description",
 	placeholder,
+	markdownEnabled = true,
 }: PostDescriptionFieldProps) {
 	const descriptionRef = useRef<HTMLTextAreaElement>(null);
 	const [showPreview, setShowPreview] = useState(false);
+	const previewActive = markdownEnabled && showPreview;
 
 	return (
 		<div className="space-y-2">
-			<div className="flex flex-wrap items-center justify-between gap-1">
-				{/* Toolbar ma sens tylko podczas edycji — w podglądzie go chowamy. */}
-				{!showPreview && (
-					<FormattingToolbar textareaRef={descriptionRef} value={value} onChange={onChange} />
-				)}
-				<Button
-					type="button"
-					variant="ghost"
-					size="sm"
-					onClick={() => setShowPreview((prev) => !prev)}
-				>
-					{showPreview ? <Pencil className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-					{showPreview ? "Edytuj" : "Podgląd"}
-				</Button>
-			</div>
-			{showPreview ? (
+			{markdownEnabled && (
+				<div className="flex flex-wrap items-center justify-between gap-1">
+					{/* Toolbar ma sens tylko podczas edycji — w podglądzie go chowamy. */}
+					{!showPreview && (
+						<FormattingToolbar textareaRef={descriptionRef} value={value} onChange={onChange} />
+					)}
+					<Button
+						type="button"
+						variant="ghost"
+						size="sm"
+						onClick={() => setShowPreview((prev) => !prev)}
+					>
+						{showPreview ? <Pencil className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+						{showPreview ? "Edytuj" : "Podgląd"}
+					</Button>
+				</div>
+			)}
+			{previewActive ? (
 				<div className="min-h-36 rounded-md border border-input bg-background p-3 text-foreground">
 					<MarkdownText text={value} className="break-words text-foreground" />
 				</div>

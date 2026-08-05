@@ -59,6 +59,8 @@ describe("POST /api/setup", () => {
 			maintenanceMessage: null,
 			maintenanceSubtitle: null,
 			maintenanceIcon: null,
+			videoEnabled: true,
+			markdownEnabled: true,
 			youtubeChannelId: null,
 			youtubeChannelTitle: null,
 			youtubeRefreshToken: null,

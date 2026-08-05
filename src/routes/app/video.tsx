@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 
 /**
  * Layout trasy `/app/video` — renderuje wyłącznie `<Outlet>` dla dzieci:
@@ -10,6 +10,9 @@ import { createFileRoute, Outlet } from "@tanstack/react-router";
  * się nie renderował (widok zostawał na feedzie). Stąd ten cienki layout.
  */
 export const Route = createFileRoute("/app/video")({
+	beforeLoad: ({ context }) => {
+		if (!context.featureFlags.video) throw redirect({ to: "/app" });
+	},
 	component: VideoLayout,
 });
 

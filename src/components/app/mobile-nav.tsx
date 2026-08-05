@@ -4,20 +4,22 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { Home, Plus, RefreshCw } from "lucide-react";
 import { MobileSidebar } from "@/components/app/mobile-sidebar";
 import { Button } from "@/components/ui/button";
+import { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from "@/db/instance";
 import { cn } from "@/lib/utils";
 
 interface MobileNavProps {
 	role?: string;
+	featureFlags?: FeatureFlags;
 }
 
-export function MobileNav({ role }: MobileNavProps) {
+export function MobileNav({ role, featureFlags = DEFAULT_FEATURE_FLAGS }: MobileNavProps) {
 	const { pathname } = useLocation();
 	const isHomeActive = pathname === "/app";
 
 	return (
 		<nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background pb-safe sm:hidden">
 			<div className="flex items-center justify-around px-2 py-3">
-				<MobileSidebar role={role} />
+				<MobileSidebar role={role} featureFlags={featureFlags} />
 
 				<Link
 					to="/app"

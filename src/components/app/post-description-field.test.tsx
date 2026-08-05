@@ -74,4 +74,22 @@ describe("PostDescriptionField", () => {
 		expect(strong).not.toBeNull();
 		expect(strong?.textContent).toBe("hello");
 	});
+
+	it("hides formatting toolbar and preview toggle when markdown is disabled", () => {
+		render(<PostDescriptionField value="" onChange={vi.fn()} markdownEnabled={false} />);
+
+		// Plain textarea is still available.
+		expect(screen.getByRole("textbox")).toBeDefined();
+		// No formatting toolbar.
+		expect(screen.queryByRole("button", { name: /pogrubienie/i })).toBeNull();
+		// No Podgląd/Edytuj toggle.
+		expect(screen.queryByRole("button", { name: /podgląd/i })).toBeNull();
+	});
+
+	it("renders formatting toolbar and preview toggle when markdown is enabled", () => {
+		render(<PostDescriptionField value="" onChange={vi.fn()} markdownEnabled />);
+
+		expect(screen.getByRole("button", { name: /pogrubienie/i })).toBeDefined();
+		expect(screen.getByRole("button", { name: /podgląd/i })).toBeDefined();
+	});
 });

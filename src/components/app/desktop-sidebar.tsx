@@ -4,6 +4,7 @@ import { Calendar, ChartNoAxesColumn, Home, Plus, SlidersHorizontal, Video } fro
 import { ThemeToggle } from "@/components/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import { Button } from "@/components/ui/button";
+import { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from "@/db/instance";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -16,6 +17,7 @@ interface NavItem {
 
 interface DesktopSidebarProps {
 	role?: string;
+	featureFlags?: FeatureFlags;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -26,9 +28,16 @@ const NAV_ITEMS: NavItem[] = [
 	{ to: "/app/stats", icon: ChartNoAxesColumn, label: "Statystyki", adminOnly: false },
 ];
 
-export function DesktopSidebar({ role }: DesktopSidebarProps) {
+export function DesktopSidebar({
+	role,
+	featureFlags = DEFAULT_FEATURE_FLAGS,
+}: DesktopSidebarProps) {
 	const location = useLocation();
 	const { resolvedTheme } = useTheme();
+
+	const items = featureFlags.video
+		? NAV_ITEMS
+		: NAV_ITEMS.filter((item) => item.to !== "/app/video");
 
 	const logoSrc =
 		resolvedTheme === "dark" ? "/logo/WspolniakLogoTrans.png" : "/logo/WspolniakLogoTransLIGHT.png";
@@ -38,7 +47,7 @@ export function DesktopSidebar({ role }: DesktopSidebarProps) {
 			<img src={logoSrc} alt="Wspólniak" className="mx-auto mb-6 h-48 w-auto" />
 
 			<nav className="flex flex-1 flex-col gap-1 pl-2">
-				{NAV_ITEMS.map((item) => {
+				{items.map((item) => {
 					if ("adminOnly" in item && item.adminOnly && role !== "admin") return null;
 
 					const isActive = item.exact
@@ -67,12 +76,14 @@ export function DesktopSidebar({ role }: DesktopSidebarProps) {
 			</nav>
 
 			<div className="mt-6 flex flex-col gap-2 px-3">
-				<Link to="/app/new-video">
-					<Button className="w-full rounded-full bg-[#0c275f] py-4 text-lg font-bold text-white hover:bg-[#0c275f]/90">
-						<Video className="mr-2 size-6" />
-						Dodaj wideo
-					</Button>
-				</Link>
+				{featureFlags.video && (
+					<Link to="/app/new-video">
+						<Button className="w-full rounded-full bg-[#0c275f] py-4 text-lg font-bold text-white hover:bg-[#0c275f]/90">
+							<Video className="mr-2 size-6" />
+							Dodaj wideo
+						</Button>
+					</Link>
+				)}
 				<Link to="/app/new">
 					<Button className="w-full rounded-full py-4 text-lg font-bold">
 						<Plus className="mr-2 size-6" />

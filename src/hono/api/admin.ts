@@ -6,7 +6,12 @@ import {
 	softDeleteMember,
 	updateMemberName,
 } from "@/db/identity/queries";
-import { getMaintenanceConfig, updateMaintenance } from "@/db/instance/queries";
+import {
+	getFeatureFlags,
+	getMaintenanceConfig,
+	updateFeatureFlags,
+	updateMaintenance,
+} from "@/db/instance/queries";
 import { getStatsSummary } from "@/db/stats";
 import { createHono, getOrigin } from "@/hono/factory";
 import { adminMiddleware } from "@/hono/middleware/admin";
@@ -117,6 +122,33 @@ adminEndpoint.put("/maintenance", async (c) => {
 	await updateMaintenance(update);
 	const config = await getMaintenanceConfig();
 	return c.json({ data: config });
+});
+
+adminEndpoint.get("/features", async (c) => {
+	const flags = await getFeatureFlags();
+	return c.json({ data: flags });
+});
+
+adminEndpoint.put("/features", async (c) => {
+	const body = await c.req.json<{ video?: unknown; markdown?: unknown }>();
+
+	const update: { video?: boolean; markdown?: boolean } = {};
+	if (body.video !== undefined) {
+		if (typeof body.video !== "boolean") {
+			return c.json({ error: "video must be a boolean" }, 400);
+		}
+		update.video = body.video;
+	}
+	if (body.markdown !== undefined) {
+		if (typeof body.markdown !== "boolean") {
+			return c.json({ error: "markdown must be a boolean" }, 400);
+		}
+		update.markdown = body.markdown;
+	}
+
+	await updateFeatureFlags(update);
+	const flags = await getFeatureFlags();
+	return c.json({ data: flags });
 });
 
 adminEndpoint.get("/stats", async (c) => {

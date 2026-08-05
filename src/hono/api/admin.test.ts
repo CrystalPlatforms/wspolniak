@@ -16,7 +16,9 @@ vi.mock("@/db/identity/queries", () => ({
 }));
 
 vi.mock("@/db/instance/queries", () => ({
+	getFeatureFlags: vi.fn(),
 	getMaintenanceConfig: vi.fn(),
+	updateFeatureFlags: vi.fn(),
 	updateMaintenance: vi.fn(),
 }));
 
@@ -33,7 +35,12 @@ import {
 	updateMemberName,
 } from "@/db/identity/queries";
 import { verifySessionCookie } from "@/db/identity/session";
-import { getMaintenanceConfig, updateMaintenance } from "@/db/instance/queries";
+import {
+	getFeatureFlags,
+	getMaintenanceConfig,
+	updateFeatureFlags,
+	updateMaintenance,
+} from "@/db/instance/queries";
 import { getStatsSummary } from "@/db/stats";
 import adminEndpoint from "./admin";
 
@@ -46,6 +53,8 @@ const mockSoftDeleteMember = vi.mocked(softDeleteMember);
 const mockUpdateMemberName = vi.mocked(updateMemberName);
 const mockGetMaintenanceConfig = vi.mocked(getMaintenanceConfig);
 const mockUpdateMaintenance = vi.mocked(updateMaintenance);
+const mockGetFeatureFlags = vi.mocked(getFeatureFlags);
+const mockUpdateFeatureFlags = vi.mocked(updateFeatureFlags);
 const mockGetStatsSummary = vi.mocked(getStatsSummary);
 
 function createApi() {
@@ -580,5 +589,92 @@ describe("GET /api/admin/stats", () => {
 		);
 
 		expect(res.status).toBe(403);
+	});
+});
+
+describe("GET /api/admin/features", () => {
+	it("returns current feature flags", async () => {
+		mockGetFeatureFlags.mockResolvedValue({ video: true, markdown: false });
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/admin/features",
+			{ headers: adminHeaders() },
+			{ SESSION_SECRET: "secret" },
+		);
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { data: { video: boolean; markdown: boolean } };
+		expect(body.data).toEqual({ video: true, markdown: false });
+	});
+});
+
+describe("PUT /api/admin/features", () => {
+	it("updates both flags and returns the new state", async () => {
+		mockGetFeatureFlags.mockResolvedValue({ video: false, markdown: false });
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/admin/features",
+			{
+				method: "PUT",
+				headers: { ...adminHeaders(), "Content-Type": "application/json" },
+				body: JSON.stringify({ video: false, markdown: false }),
+			},
+			{ SESSION_SECRET: "secret" },
+		);
+
+		expect(res.status).toBe(200);
+		expect(mockUpdateFeatureFlags).toHaveBeenCalledWith({ video: false, markdown: false });
+	});
+
+	it("forwards a partial update (only video)", async () => {
+		mockGetFeatureFlags.mockResolvedValue({ video: false, markdown: true });
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/admin/features",
+			{
+				method: "PUT",
+				headers: { ...adminHeaders(), "Content-Type": "application/json" },
+				body: JSON.stringify({ video: false }),
+			},
+			{ SESSION_SECRET: "secret" },
+		);
+
+		expect(res.status).toBe(200);
+		expect(mockUpdateFeatureFlags).toHaveBeenCalledWith({ video: false });
+	});
+
+	it("rejects non-boolean video", async () => {
+		const api = createApi();
+		const res = await api.request(
+			"/api/admin/features",
+			{
+				method: "PUT",
+				headers: { ...adminHeaders(), "Content-Type": "application/json" },
+				body: JSON.stringify({ video: "yes" }),
+			},
+			{ SESSION_SECRET: "secret" },
+		);
+
+		expect(res.status).toBe(400);
+		expect(mockUpdateFeatureFlags).not.toHaveBeenCalled();
+	});
+
+	it("rejects non-boolean markdown", async () => {
+		const api = createApi();
+		const res = await api.request(
+			"/api/admin/features",
+			{
+				method: "PUT",
+				headers: { ...adminHeaders(), "Content-Type": "application/json" },
+				body: JSON.stringify({ markdown: 1 }),
+			},
+			{ SESSION_SECRET: "secret" },
+		);
+
+		expect(res.status).toBe(400);
+		expect(mockUpdateFeatureFlags).not.toHaveBeenCalled();
 	});
 });

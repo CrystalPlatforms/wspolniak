@@ -18,6 +18,7 @@ import { PostVideoPicker } from "@/components/app/post-video-picker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from "@/db/instance";
 import { reorder } from "@/lib/reorder";
 
 const ACCEPTED_IMAGE_TYPES = "image/jpeg,image/png,image/webp,image/heic,image/heif";
@@ -33,6 +34,7 @@ interface NewPostFormProps {
 		mentions: Mention[];
 	}) => void;
 	isSubmitting: boolean;
+	featureFlags?: FeatureFlags;
 }
 
 interface MediaItem {
@@ -93,7 +95,11 @@ function SortablePreview({
 	);
 }
 
-export function NewPostForm({ onSubmit, isSubmitting }: NewPostFormProps) {
+export function NewPostForm({
+	onSubmit,
+	isSubmitting,
+	featureFlags = DEFAULT_FEATURE_FLAGS,
+}: NewPostFormProps) {
 	const [description, setDescription] = useState("");
 	const [mentions, setMentions] = useState<Mention[]>([]);
 	const [media, setMedia] = useState<MediaItem[]>([]);
@@ -220,6 +226,7 @@ export function NewPostForm({ onSubmit, isSubmitting }: NewPostFormProps) {
 					value={description}
 					onChange={setDescription}
 					onMentionsChange={setMentions}
+					markdownEnabled={featureFlags.markdown}
 				/>
 			</div>
 
@@ -246,7 +253,9 @@ export function NewPostForm({ onSubmit, isSubmitting }: NewPostFormProps) {
 							{images.length > 0 ? `${images.length}/${MAX_IMAGES}` : "Dodaj zdjęcia"}
 						</span>
 					</Button>
-					<PostVideoPicker videoIds={videoIds} onChange={setVideoIds} disabled={isSubmitting} />
+					{featureFlags.video && (
+						<PostVideoPicker videoIds={videoIds} onChange={setVideoIds} disabled={isSubmitting} />
+					)}
 				</div>
 			</div>
 

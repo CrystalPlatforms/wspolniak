@@ -14,6 +14,7 @@ import { ThemeToggle } from "@/components/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from "@/db/instance";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -35,15 +36,19 @@ const NAV_ITEMS: NavItem[] = [
 
 interface MobileSidebarProps {
 	role?: string;
+	featureFlags?: FeatureFlags;
 }
 
 // Hamburger (tylko mobile, sm:hidden) otwierający drawer animowany od lewej.
 // Zawiera wszystkie pozycje jak desktop-sidebar + Nowy post + przełącznik motywu.
-export function MobileSidebar({ role }: MobileSidebarProps) {
+export function MobileSidebar({ role, featureFlags = DEFAULT_FEATURE_FLAGS }: MobileSidebarProps) {
 	const [open, setOpen] = useState(false);
 	const { pathname } = useLocation();
 	const { resolvedTheme } = useTheme();
-	const items = NAV_ITEMS.filter((item) => !item.adminOnly || role === "admin");
+	const items = NAV_ITEMS.filter(
+		(item) =>
+			(!item.adminOnly || role === "admin") && (featureFlags.video || item.to !== "/app/video"),
+	);
 	const logoSrc =
 		resolvedTheme === "dark" ? "/logo/WspolniakLogoTrans.png" : "/logo/WspolniakLogoTransLIGHT.png";
 
@@ -88,12 +93,14 @@ export function MobileSidebar({ role }: MobileSidebarProps) {
 				</nav>
 
 				<div className="flex flex-col gap-2 border-t border-border p-4">
-					<Link to="/app/new-video" onClick={() => setOpen(false)}>
-						<Button className="w-full rounded-full bg-[#0c275f] py-4 text-lg font-bold text-white hover:bg-[#0c275f]/90">
-							<Video className="mr-2 size-6" />
-							Dodaj wideo
-						</Button>
-					</Link>
+					{featureFlags.video && (
+						<Link to="/app/new-video" onClick={() => setOpen(false)}>
+							<Button className="w-full rounded-full bg-[#0c275f] py-4 text-lg font-bold text-white hover:bg-[#0c275f]/90">
+								<Video className="mr-2 size-6" />
+								Dodaj wideo
+							</Button>
+						</Link>
+					)}
 					<Link to="/app/new" onClick={() => setOpen(false)}>
 						<Button className="w-full rounded-full py-4 text-lg font-bold">
 							<Plus className="mr-2 size-6" />

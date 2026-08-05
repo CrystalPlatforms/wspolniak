@@ -3,12 +3,15 @@ import { eq } from "drizzle-orm";
 import {
 	clearYoutubeConnection,
 	completeSetup,
+	getFeatureFlags,
 	getMaintenanceConfig,
 	getYoutubeConnection,
 	getYoutubeRefreshToken,
+	invalidateFeatureFlagsCache,
 	invalidateMaintenanceCache,
 	isSetupCompleted,
 	setYoutubeConnection,
+	updateFeatureFlags,
 	updateMaintenance,
 } from "./queries";
 import { instanceConfig } from "./table";
@@ -133,6 +136,125 @@ describe("maintenance config", () => {
 		await getMaintenanceConfig();
 
 		expect(select).toHaveBeenCalledTimes(2);
+	});
+});
+
+describe("feature flags", () => {
+	beforeEach(() => invalidateFeatureFlagsCache());
+
+	function mockSelectRow(row: Record<string, unknown>) {
+		const limit = vi.fn().mockResolvedValue([row]);
+		const from = vi.fn().mockReturnValue({ limit });
+		const select = vi.fn().mockReturnValue({ from });
+		mockGetDb.mockReturnValue({ select } as never);
+		return { select, from, limit };
+	}
+
+	it("returns both features enabled when columns are true", async () => {
+		mockSelectRow({ videoEnabled: true, markdownEnabled: true });
+
+		const flags = await getFeatureFlags();
+
+		expect(flags).toEqual({ video: true, markdown: true });
+	});
+
+	it("returns a disabled flag when its column is false", async () => {
+		mockSelectRow({ videoEnabled: false, markdownEnabled: true });
+
+		const flags = await getFeatureFlags();
+
+		expect(flags).toEqual({ video: false, markdown: true });
+	});
+
+	it("defaults to enabled when columns are null (no opinion stored yet)", async () => {
+		mockSelectRow({ videoEnabled: null, markdownEnabled: null });
+
+		const flags = await getFeatureFlags();
+
+		expect(flags).toEqual({ video: true, markdown: true });
+	});
+
+	it("serves cached flags on second call without hitting DB again", async () => {
+		const { select } = mockSelectRow({ videoEnabled: true, markdownEnabled: true });
+
+		await getFeatureFlags();
+		await getFeatureFlags();
+
+		expect(select).toHaveBeenCalledTimes(1);
+	});
+
+	it("re-reads DB after the cache is invalidated", async () => {
+		const { select } = mockSelectRow({ videoEnabled: false, markdownEnabled: true });
+
+		await getFeatureFlags();
+		invalidateFeatureFlagsCache();
+		await getFeatureFlags();
+
+		expect(select).toHaveBeenCalledTimes(2);
+	});
+});
+
+describe("updateFeatureFlags", () => {
+	beforeEach(() => invalidateFeatureFlagsCache());
+
+	function mockUpdateById(rowId: string) {
+		const limit = vi.fn().mockResolvedValue([{ id: rowId }]);
+		const from = vi.fn().mockReturnValue({ limit });
+		const select = vi.fn().mockReturnValue({ from });
+		const where = vi.fn().mockResolvedValue([]);
+		const set = vi.fn().mockReturnValue({ where });
+		const update = vi.fn().mockReturnValue({ set });
+		mockGetDb.mockReturnValue({ select, update } as never);
+		return { select, update, set };
+	}
+
+	it("persists both flags when provided", async () => {
+		const { set } = mockUpdateById("inst-1");
+
+		await updateFeatureFlags({ video: false, markdown: false });
+
+		expect(set).toHaveBeenCalledWith({ videoEnabled: false, markdownEnabled: false });
+	});
+
+	it("persists only provided fields and ignores undefined", async () => {
+		const { set } = mockUpdateById("inst-1");
+
+		await updateFeatureFlags({ video: false });
+
+		expect(set).toHaveBeenCalledWith({ videoEnabled: false });
+	});
+
+	it("throws when no instance_config row exists", async () => {
+		const limit = vi.fn().mockResolvedValue([]);
+		const from = vi.fn().mockReturnValue({ limit });
+		const select = vi.fn().mockReturnValue({ from });
+		mockGetDb.mockReturnValue({ select, update: vi.fn() } as never);
+
+		await expect(updateFeatureFlags({ video: false })).rejects.toThrow(/no instance_config row/i);
+	});
+
+	it("invalidates the cache so the next read sees fresh values", async () => {
+		let dbRow: Record<string, unknown> = {
+			id: "inst-1",
+			videoEnabled: true,
+			markdownEnabled: true,
+		};
+		const limit = vi.fn().mockImplementation(() => Promise.resolve([dbRow]));
+		const from = vi.fn().mockReturnValue({ limit });
+		const select = vi.fn().mockReturnValue({ from });
+		const where = vi.fn().mockResolvedValue([]);
+		const set = vi.fn().mockReturnValue({ where });
+		const update = vi.fn().mockReturnValue({ set });
+		mockGetDb.mockReturnValue({ select, update } as never);
+
+		const first = await getFeatureFlags();
+		expect(first.video).toBe(true);
+
+		dbRow = { id: "inst-1", videoEnabled: false, markdownEnabled: true }; // persisted change
+		await updateFeatureFlags({ video: false }); // invalidates cache
+
+		const second = await getFeatureFlags();
+		expect(second.video).toBe(false);
 	});
 });
 

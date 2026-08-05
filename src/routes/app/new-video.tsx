@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -12,6 +12,9 @@ import { useVideoUpload } from "@/components/video/use-video-upload";
 import { YouTubePlayer } from "@/components/video/youtube-player";
 
 export const Route = createFileRoute("/app/new-video")({
+	beforeLoad: ({ context }) => {
+		if (!context.featureFlags.video) throw redirect({ to: "/app" });
+	},
 	component: NewVideoPage,
 });
 

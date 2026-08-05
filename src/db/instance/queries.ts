@@ -91,6 +91,65 @@ export async function updateMaintenance(input: MaintenanceUpdate): Promise<void>
 	invalidateMaintenanceCache();
 }
 
+// --- Feature flags (Wspólniak On/Off) ------------------------------------
+// Master switches for optional features (Wideo, Edytor). Default to enabled so
+// existing instances keep their current behaviour once columns are added.
+
+export interface FeatureFlags {
+	video: boolean;
+	markdown: boolean;
+}
+
+export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
+	video: true,
+	markdown: true,
+};
+
+const FEATURE_FLAGS_CACHE_TTL_MS = 60_000;
+let featureFlagsCache: { data: FeatureFlags; expiresAt: number } | null = null;
+
+export function invalidateFeatureFlagsCache(): void {
+	featureFlagsCache = null;
+}
+
+export async function getFeatureFlags(): Promise<FeatureFlags> {
+	if (featureFlagsCache && featureFlagsCache.expiresAt > Date.now()) {
+		return featureFlagsCache.data;
+	}
+	const rows = await getDb()
+		.select({
+			videoEnabled: instanceConfig.videoEnabled,
+			markdownEnabled: instanceConfig.markdownEnabled,
+		})
+		.from(instanceConfig)
+		.limit(1);
+	const row = rows[0];
+	const flags: FeatureFlags = {
+		video: row?.videoEnabled ?? DEFAULT_FEATURE_FLAGS.video,
+		markdown: row?.markdownEnabled ?? DEFAULT_FEATURE_FLAGS.markdown,
+	};
+	featureFlagsCache = { data: flags, expiresAt: Date.now() + FEATURE_FLAGS_CACHE_TTL_MS };
+	return flags;
+}
+
+export interface FeatureFlagsUpdate {
+	video?: boolean;
+	markdown?: boolean;
+}
+
+export async function updateFeatureFlags(input: FeatureFlagsUpdate): Promise<void> {
+	const id = await getInstanceConfigId();
+
+	const set: Record<string, unknown> = {};
+	if (input.video !== undefined) set.videoEnabled = input.video;
+	if (input.markdown !== undefined) set.markdownEnabled = input.markdown;
+
+	if (Object.keys(set).length > 0) {
+		await getDb().update(instanceConfig).set(set).where(eq(instanceConfig.id, id));
+	}
+	invalidateFeatureFlagsCache();
+}
+
 // --- YouTube connection (Wspólniak Wideo) ---------------------------------
 // Storage only. The refresh token is stored as an opaque encrypted blob and
 // never selected by these functions — only the `youtube` module decrypts it.
