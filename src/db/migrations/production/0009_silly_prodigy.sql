@@ -1,0 +1,2 @@
+ALTER TABLE "instance_config" ADD COLUMN "video_enabled" boolean DEFAULT true NOT NULL;--> statement-breakpoint
+ALTER TABLE "instance_config" ADD COLUMN "markdown_enabled" boolean DEFAULT true NOT NULL;
