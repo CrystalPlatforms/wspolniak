@@ -1,3 +1,10 @@
+# [3.1.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.0.0...v3.1.0) (2026-08-06)
+
+
+### Features
+
+* **video:** komunikat o przetwarzaniu filmu po uploadie ([0368b2e](https://github.com/CrystalPlatforms/wspolniak/commit/0368b2e17d83d15a8e529c306e4d3c43a9f8a501)), closes [#117](https://github.com/CrystalPlatforms/wspolniak/issues/117)
+
 # [3.0.0](https://github.com/CrystalGamesStudio/wspolniak/compare/v1.74.0...v3.0.0) (2026-08-05)
 
 
