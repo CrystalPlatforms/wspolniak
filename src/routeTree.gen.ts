@@ -9,26 +9,26 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SetupRouteImport } from './routes/setup'
-import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AppRouteImport } from './routes/app'
+import { Route as SetupRouteImport } from './routes/setup'
 import { Route as AppIndexRouteImport } from './routes/app/index'
-import { Route as SharedPostIdRouteImport } from './routes/shared-post.$id'
-import { Route as AuthErrorRouteImport } from './routes/auth/error'
-import { Route as AppVideoRouteImport } from './routes/app/video'
-import { Route as AppStatsRouteImport } from './routes/app/stats'
-import { Route as AppNewVideoRouteImport } from './routes/app/new-video'
-import { Route as AppNewRouteImport } from './routes/app/new'
-import { Route as AppCalendarRouteImport } from './routes/app/calendar'
 import { Route as AppAdminRouteImport } from './routes/app/admin'
+import { Route as AppCalendarRouteImport } from './routes/app/calendar'
+import { Route as AppNewRouteImport } from './routes/app/new'
+import { Route as AppNewVideoRouteImport } from './routes/app/new-video'
+import { Route as AppStatsRouteImport } from './routes/app/stats'
+import { Route as AppVideoRouteImport } from './routes/app/video'
+import { Route as AuthErrorRouteImport } from './routes/auth/error'
+import { Route as SharedPostIdRouteImport } from './routes/shared-post.$id'
+import { Route as AppPostIdRouteImport } from './routes/app/post.$id'
 import { Route as AppVideoIndexRouteImport } from './routes/app/video/index'
 import { Route as AppVideoIdRouteImport } from './routes/app/video.$id'
-import { Route as AppPostIdRouteImport } from './routes/app/post.$id'
 import { Route as AppPostIdEditRouteImport } from './routes/app/post.$id_.edit'
 
-const SetupRoute = SetupRouteImport.update({
-  id: '/setup',
-  path: '/setup',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppRoute = AppRouteImport.update({
@@ -36,9 +36,9 @@ const AppRoute = AppRouteImport.update({
   path: '/app',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -46,34 +46,9 @@ const AppIndexRoute = AppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
-const SharedPostIdRoute = SharedPostIdRouteImport.update({
-  id: '/shared-post/$id',
-  path: '/shared-post/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthErrorRoute = AuthErrorRouteImport.update({
-  id: '/auth/error',
-  path: '/auth/error',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AppVideoRoute = AppVideoRouteImport.update({
-  id: '/video',
-  path: '/video',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppStatsRoute = AppStatsRouteImport.update({
-  id: '/stats',
-  path: '/stats',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppNewVideoRoute = AppNewVideoRouteImport.update({
-  id: '/new-video',
-  path: '/new-video',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppNewRoute = AppNewRouteImport.update({
-  id: '/new',
-  path: '/new',
+const AppAdminRoute = AppAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
   getParentRoute: () => AppRoute,
 } as any)
 const AppCalendarRoute = AppCalendarRouteImport.update({
@@ -81,9 +56,39 @@ const AppCalendarRoute = AppCalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => AppRoute,
 } as any)
-const AppAdminRoute = AppAdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
+const AppNewRoute = AppNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppNewVideoRoute = AppNewVideoRouteImport.update({
+  id: '/new-video',
+  path: '/new-video',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppStatsRoute = AppStatsRouteImport.update({
+  id: '/stats',
+  path: '/stats',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppVideoRoute = AppVideoRouteImport.update({
+  id: '/video',
+  path: '/video',
+  getParentRoute: () => AppRoute,
+} as any)
+const AuthErrorRoute = AuthErrorRouteImport.update({
+  id: '/auth/error',
+  path: '/auth/error',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SharedPostIdRoute = SharedPostIdRouteImport.update({
+  id: '/shared-post/$id',
+  path: '/shared-post/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AppPostIdRoute = AppPostIdRouteImport.update({
+  id: '/post/$id',
+  path: '/post/$id',
   getParentRoute: () => AppRoute,
 } as any)
 const AppVideoIndexRoute = AppVideoIndexRouteImport.update({
@@ -95,11 +100,6 @@ const AppVideoIdRoute = AppVideoIdRouteImport.update({
   id: '/$id',
   path: '/$id',
   getParentRoute: () => AppVideoRoute,
-} as any)
-const AppPostIdRoute = AppPostIdRouteImport.update({
-  id: '/post/$id',
-  path: '/post/$id',
-  getParentRoute: () => AppRoute,
 } as any)
 const AppPostIdEditRoute = AppPostIdEditRouteImport.update({
   id: '/post/$id_/edit',
@@ -225,11 +225,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/setup': {
-      id: '/setup'
-      path: '/setup'
-      fullPath: '/setup'
-      preLoaderRoute: typeof SetupRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app': {
@@ -239,11 +239,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app/': {
@@ -253,46 +253,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
-    '/shared-post/$id': {
-      id: '/shared-post/$id'
-      path: '/shared-post/$id'
-      fullPath: '/shared-post/$id'
-      preLoaderRoute: typeof SharedPostIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth/error': {
-      id: '/auth/error'
-      path: '/auth/error'
-      fullPath: '/auth/error'
-      preLoaderRoute: typeof AuthErrorRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/app/video': {
-      id: '/app/video'
-      path: '/video'
-      fullPath: '/app/video'
-      preLoaderRoute: typeof AppVideoRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/stats': {
-      id: '/app/stats'
-      path: '/stats'
-      fullPath: '/app/stats'
-      preLoaderRoute: typeof AppStatsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/new-video': {
-      id: '/app/new-video'
-      path: '/new-video'
-      fullPath: '/app/new-video'
-      preLoaderRoute: typeof AppNewVideoRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/new': {
-      id: '/app/new'
-      path: '/new'
-      fullPath: '/app/new'
-      preLoaderRoute: typeof AppNewRouteImport
+    '/app/admin': {
+      id: '/app/admin'
+      path: '/admin'
+      fullPath: '/app/admin'
+      preLoaderRoute: typeof AppAdminRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/calendar': {
@@ -302,11 +267,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCalendarRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/admin': {
-      id: '/app/admin'
-      path: '/admin'
-      fullPath: '/app/admin'
-      preLoaderRoute: typeof AppAdminRouteImport
+    '/app/new': {
+      id: '/app/new'
+      path: '/new'
+      fullPath: '/app/new'
+      preLoaderRoute: typeof AppNewRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/new-video': {
+      id: '/app/new-video'
+      path: '/new-video'
+      fullPath: '/app/new-video'
+      preLoaderRoute: typeof AppNewVideoRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/stats': {
+      id: '/app/stats'
+      path: '/stats'
+      fullPath: '/app/stats'
+      preLoaderRoute: typeof AppStatsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/video': {
+      id: '/app/video'
+      path: '/video'
+      fullPath: '/app/video'
+      preLoaderRoute: typeof AppVideoRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/auth/error': {
+      id: '/auth/error'
+      path: '/auth/error'
+      fullPath: '/auth/error'
+      preLoaderRoute: typeof AuthErrorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shared-post/$id': {
+      id: '/shared-post/$id'
+      path: '/shared-post/$id'
+      fullPath: '/shared-post/$id'
+      preLoaderRoute: typeof SharedPostIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/app/post/$id': {
+      id: '/app/post/$id'
+      path: '/post/$id'
+      fullPath: '/app/post/$id'
+      preLoaderRoute: typeof AppPostIdRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/video/': {
@@ -322,13 +329,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/video/$id'
       preLoaderRoute: typeof AppVideoIdRouteImport
       parentRoute: typeof AppVideoRoute
-    }
-    '/app/post/$id': {
-      id: '/app/post/$id'
-      path: '/post/$id'
-      fullPath: '/app/post/$id'
-      preLoaderRoute: typeof AppPostIdRouteImport
-      parentRoute: typeof AppRoute
     }
     '/app/post/$id_/edit': {
       id: '/app/post/$id_/edit'

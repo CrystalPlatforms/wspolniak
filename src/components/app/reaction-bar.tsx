@@ -83,7 +83,8 @@ export function ReactionBar({ target }: ReactionBarProps) {
 			queryClient.setQueryData<Counts>(countsKey, (old = {}) =>
 				applyOptimisticCounts(old, currentReaction, reactionType),
 			);
-			queryClient.setQueryData<MyReaction>(myKey, { reactionType });
+			const nextReaction: MyReaction = { reactionType };
+			queryClient.setQueryData<MyReaction>(myKey, nextReaction);
 			setPoppingType(reactionType);
 
 			return { previousCounts, previousMyReaction };
