@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { LoaderIcon } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useVideoUpload } from "@/components/video/use-video-upload";
+import { VideoProcessingNotice } from "@/components/video/video-processing-notice";
 import { YouTubePlayer } from "@/components/video/youtube-player";
 
 export const Route = createFileRoute("/app/new-video")({
@@ -59,6 +60,8 @@ function NewVideoPage() {
 
 				{/* Success view — odtwarzanie wideo inline (dowód pełnego pipeline'u). */}
 				<YouTubePlayer youtubeVideoId={result.youtubeVideoId} title={title} />
+
+				<VideoProcessingNotice />
 
 				<div className="mt-4 flex flex-wrap gap-2">
 					<Button onClick={resetAll}>Wrzuć kolejne</Button>
