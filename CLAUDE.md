@@ -185,7 +185,11 @@ Bez branchy — commit + push bezpośrednio na main. Bez PR, pytań o approval.
 
 ## Statusy projektów w toku
 
-Zobacz `/Users/panad/.claude/projects/-Users-panad-Documents-wspolniak/memory/MEMORY.md` dla aktualnych statusów migracji i implementacji.
+Zobacz lokalną pamięć projektu Claude Code (`MEMORY.md`) dla aktualnych statusów migracji i implementacji.
+
+Pamięć jest lokalna dla każdego dewelopera — jej ścieżka wynika ze ścieżki repo na danej
+maszynie, więc nie wpisuj tu ścieżek bezwzględnych. Statusy istotne dla obu deweloperów
+trzymaj w `/docs` lub `plans/`.
 
 ## Reguły specyficzne dla technologii
 
