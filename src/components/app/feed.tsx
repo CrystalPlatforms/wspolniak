@@ -110,6 +110,7 @@ export function Feed({
 								{formatRelativeTime(post.createdAt)}
 							</time>
 							<div className="ml-auto flex items-center gap-1">
+								<BookmarkButton postId={post.id} />
 								<ReactionUsers target={{ kind: "post", postId: post.id }} />
 								{(post.authorId === currentUserId || currentUserRole === "admin") && (
 									<PostActions
@@ -184,7 +185,6 @@ export function Feed({
 									{post.commentCount ?? 0}
 								</a>
 								<ReactionBar target={{ kind: "post", postId: post.id }} />
-								<BookmarkButton postId={post.id} />
 							</div>
 							<a
 								href={`/app/post/${post.id}`}

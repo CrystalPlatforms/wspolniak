@@ -9,6 +9,9 @@ interface BookmarkButtonProps {
 /** Współdzielony klucz zapytania o zbiór zapisanych postów (deduplikowany przez cache). */
 export const SAVED_POSTS_KEY = ["bookmarks", "saved"] as const;
 
+/** Kolor ikony zakładki (kontur + wypełnienie) gdy post jest zapisany — żółty. */
+const BOOKMARK_SAVED_COLOR = "#fcc740";
+
 /** Pobiera listę zapisanych postów i redukuje ją do zbioru ID. */
 async function fetchSavedPostIds(): Promise<Set<string>> {
 	const res = await fetch("/api/app/bookmarks");
@@ -54,9 +57,10 @@ export function BookmarkButton({ postId }: BookmarkButtonProps) {
 			onClick={() => mutation.mutate(!saved)}
 			aria-pressed={saved}
 			aria-label={saved ? "Usuń z Biblioteki" : "Zapisz do Biblioteki"}
-			className="flex items-center gap-1.5 rounded-md px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground sm:px-2 sm:py-1"
+			style={saved ? { color: BOOKMARK_SAVED_COLOR } : undefined}
+			className="inline-flex items-center gap-1 rounded-md px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
 		>
-			<Bookmark className="size-6 sm:size-4" fill={saved ? "currentColor" : "none"} />
+			<Bookmark className="h-5 w-5" fill={saved ? "currentColor" : "none"} />
 		</button>
 	);
 }

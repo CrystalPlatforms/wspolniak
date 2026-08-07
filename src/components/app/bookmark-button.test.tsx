@@ -39,23 +39,26 @@ afterEach(() => {
 });
 
 describe("BookmarkButton (render)", () => {
-	it("shows 'Zapisz do Biblioteki', unfilled icon and aria-pressed=false when the post is not saved", async () => {
+	it("shows 'Zapisz do Biblioteki', unfilled gray icon and aria-pressed=false when not saved", async () => {
 		vi.stubGlobal("fetch", mockBookmarksFetch([]));
 
 		render(<BookmarkButton postId="post-1" />, { wrapper: createWrapper() });
 
 		const button = await screen.findByRole("button", { name: /zapisz do biblioteki/i });
 		expect(button.getAttribute("aria-pressed")).toBe("false");
+		expect(button.style.color).toBe("");
 		expect(button.querySelector("svg")?.getAttribute("fill")).not.toBe("currentColor");
 	});
 
-	it("shows 'Usuń z Biblioteki', filled icon and aria-pressed=true when the post is saved", async () => {
+	it("shows 'Usuń z Biblioteki', filled yellow icon and aria-pressed=true when saved", async () => {
 		vi.stubGlobal("fetch", mockBookmarksFetch(["post-1"]));
 
 		render(<BookmarkButton postId="post-1" />, { wrapper: createWrapper() });
 
 		const button = await screen.findByRole("button", { name: /usuń z biblioteki/i });
 		expect(button.getAttribute("aria-pressed")).toBe("true");
+		// #fcc740 → rgb(252, 199, 64): kontur i wypełnienie ikony w żółtym kolorze.
+		expect(button.style.color).toBe("rgb(252, 199, 64)");
 		expect(button.querySelector("svg")?.getAttribute("fill")).toBe("currentColor");
 	});
 });
