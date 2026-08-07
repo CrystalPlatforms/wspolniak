@@ -1,3 +1,10 @@
+# [3.4.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.3.0...v3.4.0) (2026-08-07)
+
+
+### Features
+
+* **bookmarks:** przycisk zapisu w feedzie + strona /biblioteka ([b915831](https://github.com/CrystalPlatforms/wspolniak/commit/b915831d49874b314aa4727402cd08f338a783cb)), closes [#123](https://github.com/CrystalPlatforms/wspolniak/issues/123) [#124](https://github.com/CrystalPlatforms/wspolniak/issues/124)
+
 # [3.3.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.2.0...v3.3.0) (2026-08-07)
 
 
