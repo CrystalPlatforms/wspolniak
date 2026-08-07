@@ -1,3 +1,10 @@
+# [3.5.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.4.0...v3.5.0) (2026-08-07)
+
+
+### Features
+
+* **bookmarks:** ikona zakładki w nagłówku + żółte wypełnienie (#fcc740) ([bd6ce5a](https://github.com/CrystalPlatforms/wspolniak/commit/bd6ce5ac0188392af9d4f9da4f45662e4d7f1643)), closes [#fcc740](https://github.com/CrystalPlatforms/wspolniak/issues/fcc740) [#fcc740](https://github.com/CrystalPlatforms/wspolniak/issues/fcc740)
+
 # [3.4.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.3.0...v3.4.0) (2026-08-07)
 
 
