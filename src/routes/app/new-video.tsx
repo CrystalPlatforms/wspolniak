@@ -6,7 +6,6 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LoaderIcon } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { useVideoUpload } from "@/components/video/use-video-upload";
 import { VideoProcessingNotice } from "@/components/video/video-processing-notice";
@@ -21,7 +20,7 @@ export const Route = createFileRoute("/app/new-video")({
 
 function NewVideoPage() {
 	const navigate = useNavigate();
-	const { upload, isPending, progress, error, result, reset } = useVideoUpload();
+	const { upload, isPending, error, result, reset } = useVideoUpload();
 	const [title, setTitle] = useState("");
 	const [description, setDescription] = useState("");
 	const [file, setFile] = useState<File | null>(null);
@@ -140,27 +139,20 @@ function NewVideoPage() {
 					) : null}
 				</div>
 
-				{progress !== null && isPending ? <ProgressBar percent={progress} /> : null}
-
-				<Button type="submit" disabled={!file || !title.trim() || isPending}>
-					{isPending ? <LoaderIcon loading={isPending} /> : null}
-					{isPending ? "Wgrywanie…" : "Wrzuć wideo"}
+				<Button
+					type="submit"
+					className="relative h-11 w-full overflow-hidden sm:h-9"
+					disabled={!file || !title.trim() || isPending}
+				>
+					{isPending ? (
+						<span
+							aria-hidden
+							className="absolute inset-0 origin-left animate-[publish-indeterminate_7s_ease-out_forwards] bg-primary-foreground/20"
+						/>
+					) : null}
+					<span className="relative">{isPending ? "Wgrywanie…" : "Wrzuć wideo"}</span>
 				</Button>
 			</form>
-		</div>
-	);
-}
-
-function ProgressBar({ percent }: { percent: number }) {
-	return (
-		<div className="space-y-1">
-			<div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-				<div
-					className="h-full rounded-full bg-primary transition-all duration-150"
-					style={{ width: `${percent}%` }}
-				/>
-			</div>
-			<p className="text-right text-xs text-muted-foreground">{percent}%</p>
 		</div>
 	);
 }
