@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { ExternalLinkIcon, MessageCircleIcon, PinIcon, RotateCcwIcon } from "lucide-react";
 import { useState } from "react";
+import { BookmarkButton } from "@/components/app/bookmark-button";
 import { ImageLightbox } from "@/components/app/image-lightbox";
 import { MarkdownText } from "@/components/app/markdown-text";
 import { PostActions } from "@/components/app/post-actions";
@@ -183,6 +184,7 @@ export function Feed({
 									{post.commentCount ?? 0}
 								</a>
 								<ReactionBar target={{ kind: "post", postId: post.id }} />
+								<BookmarkButton postId={post.id} />
 							</div>
 							<a
 								href={`/app/post/${post.id}`}

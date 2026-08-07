@@ -14,6 +14,7 @@ import { Route as AppRouteImport } from './routes/app'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppAdminRouteImport } from './routes/app/admin'
+import { Route as AppBibliotekaRouteImport } from './routes/app/biblioteka'
 import { Route as AppCalendarRouteImport } from './routes/app/calendar'
 import { Route as AppNewRouteImport } from './routes/app/new'
 import { Route as AppNewVideoRouteImport } from './routes/app/new-video'
@@ -50,6 +51,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
 const AppAdminRoute = AppAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppBibliotekaRoute = AppBibliotekaRouteImport.update({
+  id: '/biblioteka',
+  path: '/biblioteka',
   getParentRoute: () => AppRoute,
 } as any)
 const AppCalendarRoute = AppCalendarRouteImport.update({
@@ -118,6 +124,7 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRouteWithChildren
   '/setup': typeof SetupRoute
   '/app/admin': typeof AppAdminRoute
+  '/app/biblioteka': typeof AppBibliotekaRoute
   '/app/calendar': typeof AppCalendarRoute
   '/app/new': typeof AppNewRoute
   '/app/new-video': typeof AppNewVideoRoute
@@ -136,6 +143,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/setup': typeof SetupRoute
   '/app/admin': typeof AppAdminRoute
+  '/app/biblioteka': typeof AppBibliotekaRoute
   '/app/calendar': typeof AppCalendarRoute
   '/app/new': typeof AppNewRoute
   '/app/new-video': typeof AppNewVideoRoute
@@ -155,6 +163,7 @@ export interface FileRoutesById {
   '/app': typeof AppRouteWithChildren
   '/setup': typeof SetupRoute
   '/app/admin': typeof AppAdminRoute
+  '/app/biblioteka': typeof AppBibliotekaRoute
   '/app/calendar': typeof AppCalendarRoute
   '/app/new': typeof AppNewRoute
   '/app/new-video': typeof AppNewVideoRoute
@@ -176,6 +185,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/setup'
     | '/app/admin'
+    | '/app/biblioteka'
     | '/app/calendar'
     | '/app/new'
     | '/app/new-video'
@@ -194,6 +204,7 @@ export interface FileRouteTypes {
     | '/'
     | '/setup'
     | '/app/admin'
+    | '/app/biblioteka'
     | '/app/calendar'
     | '/app/new'
     | '/app/new-video'
@@ -212,6 +223,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/setup'
     | '/app/admin'
+    | '/app/biblioteka'
     | '/app/calendar'
     | '/app/new'
     | '/app/new-video'
@@ -270,6 +282,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/app/admin'
       preLoaderRoute: typeof AppAdminRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/biblioteka': {
+      id: '/app/biblioteka'
+      path: '/biblioteka'
+      fullPath: '/app/biblioteka'
+      preLoaderRoute: typeof AppBibliotekaRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/calendar': {
@@ -375,6 +394,7 @@ const AppVideoRouteWithChildren = AppVideoRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRoute
+  AppBibliotekaRoute: typeof AppBibliotekaRoute
   AppCalendarRoute: typeof AppCalendarRoute
   AppNewRoute: typeof AppNewRoute
   AppNewVideoRoute: typeof AppNewVideoRoute
@@ -388,6 +408,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRoute,
+  AppBibliotekaRoute: AppBibliotekaRoute,
   AppCalendarRoute: AppCalendarRoute,
   AppNewRoute: AppNewRoute,
   AppNewVideoRoute: AppNewVideoRoute,
