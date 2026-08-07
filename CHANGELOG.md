@@ -1,3 +1,10 @@
+# [3.6.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.5.0...v3.6.0) (2026-08-07)
+
+
+### Features
+
+* **bookmarks:** animacja przejścia ikony zakładki ([#125](https://github.com/CrystalPlatforms/wspolniak/issues/125)) ([10813e4](https://github.com/CrystalPlatforms/wspolniak/commit/10813e491d48ffe33f8828cb0e7e596db0aeb0d4)), closes [#fcc740](https://github.com/CrystalPlatforms/wspolniak/issues/fcc740)
+
 # [3.5.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.4.0...v3.5.0) (2026-08-07)
 
 
