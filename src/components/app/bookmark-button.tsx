@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bookmark } from "lucide-react";
+import { useState } from "react";
 
 interface BookmarkButtonProps {
 	postId: string;
@@ -43,6 +44,7 @@ export function BookmarkButton({ postId }: BookmarkButtonProps) {
 		queryFn: fetchSavedPostIds,
 	});
 	const saved = savedIds?.has(postId) ?? false;
+	const [popping, setPopping] = useState(false);
 
 	const mutation = useMutation({
 		mutationFn: (next: boolean) => setBookmarkState(postId, next),
@@ -51,16 +53,27 @@ export function BookmarkButton({ postId }: BookmarkButtonProps) {
 		},
 	});
 
+	function handleClick() {
+		// Subtelna animacja „pop" przy przełączeniu stanu (#125).
+		setPopping(true);
+		window.setTimeout(() => setPopping(false), 320);
+		mutation.mutate(!saved);
+	}
+
 	return (
 		<button
 			type="button"
-			onClick={() => mutation.mutate(!saved)}
+			onClick={handleClick}
 			aria-pressed={saved}
 			aria-label={saved ? "Usuń z Biblioteki" : "Zapisz do Biblioteki"}
 			style={saved ? { color: BOOKMARK_SAVED_COLOR } : undefined}
 			className="inline-flex items-center gap-1 rounded-md px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
 		>
-			<Bookmark className="h-5 w-5" fill={saved ? "currentColor" : "none"} />
+			<Bookmark
+				className="h-5 w-5 transition-colors duration-200"
+				fill={saved ? "currentColor" : "none"}
+				style={popping ? { animation: "bookmark-pop 300ms ease-in-out" } : undefined}
+			/>
 		</button>
 	);
 }

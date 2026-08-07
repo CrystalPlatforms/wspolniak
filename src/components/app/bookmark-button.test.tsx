@@ -129,4 +129,16 @@ describe("BookmarkButton (interaction)", () => {
 		// Po POST + invalidate + refetch przycisk pokazuje stan zapisany.
 		expect(await screen.findByRole("button", { name: /usuń z biblioteki/i })).toBeDefined();
 	});
+
+	it("plays a pop animation on the icon when the bookmark is toggled", async () => {
+		vi.stubGlobal("fetch", mockBookmarksFetch([]));
+
+		render(<BookmarkButton postId="post-1" />, { wrapper: createWrapper() });
+
+		const button = await screen.findByRole("button", { name: /zapisz do biblioteki/i });
+		await userEvent.click(button);
+
+		// Subtelna animacja „pop" aplikowana na ikonie przy przełączeniu (#125).
+		expect(button.querySelector("svg")?.style.animation).toContain("bookmark-pop");
+	});
 });
