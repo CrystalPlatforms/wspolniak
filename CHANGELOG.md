@@ -1,3 +1,10 @@
+# [3.3.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.2.0...v3.3.0) (2026-08-07)
+
+
+### Features
+
+* **bookmarks:** backend Biblioteki — domena + API (POST/DELETE/GET) ([a1ad7ca](https://github.com/CrystalPlatforms/wspolniak/commit/a1ad7ca37e6b715628c0f78e80783aa8bf865144)), closes [#119](https://github.com/CrystalPlatforms/wspolniak/issues/119) [#120](https://github.com/CrystalPlatforms/wspolniak/issues/120) [#121](https://github.com/CrystalPlatforms/wspolniak/issues/121) [#122](https://github.com/CrystalPlatforms/wspolniak/issues/122)
+
 # [3.2.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.1.0...v3.2.0) (2026-08-07)
 
 
