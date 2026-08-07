@@ -22,12 +22,15 @@ describe("NewPostForm", () => {
 		expect(screen.getByRole("button", { name: /opublikuj/i })).toBeDefined();
 	});
 
-	it("renders the post-only formatting toolbar (B/I/S)", () => {
+	it("shows the formatting switch (default OFF) when markdown is enabled", () => {
 		render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
 
-		expect(screen.getByRole("button", { name: /pogrubienie/i })).toBeDefined();
-		expect(screen.getByRole("button", { name: /kursywa/i })).toBeDefined();
-		expect(screen.getByRole("button", { name: /przekreślenie/i })).toBeDefined();
+		// Slice 1: stara plain-text toolbar B/I/S zastąpiona switchem → WYSIWYG (leniwie).
+		const toggle = screen.getByRole("switch", { name: /formatowanie/i });
+		expect(toggle).toBeDefined();
+		expect(toggle.getAttribute("aria-checked")).toBe("false");
+		// Domyślnie OFF → zwykłe pole tekstowe, bez przycisków formatowania.
+		expect(screen.queryByRole("button", { name: /pogrubienie/i })).toBeNull();
 	});
 
 	it("renders the video picker when the video feature is enabled", () => {
@@ -48,7 +51,7 @@ describe("NewPostForm", () => {
 		expect(screen.queryByTestId("post-video-picker")).toBeNull();
 	});
 
-	it("hides the formatting toolbar when the markdown feature is disabled", () => {
+	it("hides the formatting switch when the markdown feature is disabled", () => {
 		render(
 			<NewPostForm
 				onSubmit={vi.fn()}
@@ -57,7 +60,7 @@ describe("NewPostForm", () => {
 			/>,
 		);
 
-		expect(screen.queryByRole("button", { name: /pogrubienie/i })).toBeNull();
+		expect(screen.queryByRole("switch", { name: /formatowanie/i })).toBeNull();
 	});
 
 	it("shows file count validation error for >10 files", () => {

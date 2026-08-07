@@ -396,3 +396,200 @@ code {
     display: none !important;
   }
 }
+/* ── MDXEditor (Wspolniak Edytor 2.0 / #116) ─────────────────────────────────
+   Liba hardkoduje --basePageBg: white i opiera resztę tokenów na globalnej skali
+   Radix slate (:root/.dark). Przez to dropdown stylu (BlockTypeSelect) i jego
+   trigger są zawsze białe — używają --basePageBg, które nie jest oparte na slate.
+
+   Tokeny mapujemy na zmienne motywu aplikacji z !important, celując w:
+   - :root — portal dropdownu może uciec do document.body (poza scope edytora);
+   - .mdxeditor — wrapper edytora;
+   - [class*="_editorRoot"] — BEZPOŚREDNIO w hashowaną klasę roota, gdzie lib
+     definiuje --basePageBg: white on-element. !important pewnie przebija tę
+     on-element definicję (non-important) niezależnie od specyficzności.
+     Selektor atrybutu jest stabilny w obrębie v4.2.0 (emotion hash _er3ed_). ── */
+:root,
+.wspolniak-mdx .mdxeditor,
+.wspolniak-mdx [class*="_editorRoot"] {
+  --basePageBg: var(--background) !important;
+  --baseBase: var(--background) !important;
+  --baseBgSubtle: var(--muted) !important;
+  --baseBg: var(--muted) !important;
+  --baseBgHover: var(--accent) !important;
+  --baseBgActive: var(--accent) !important;
+  --baseLine: var(--border) !important;
+  --baseBorder: var(--border) !important;
+  --baseBorderHover: var(--input) !important;
+  --baseSolid: var(--muted-foreground) !important;
+  --baseSolidHover: var(--foreground) !important;
+  --baseText: var(--foreground) !important;
+  --baseTextContrast: var(--foreground) !important;
+  --accentBase: var(--primary) !important;
+  --accentBgSubtle: color-mix(in oklab, var(--primary) 12%, transparent) !important;
+  --accentBg: color-mix(in oklab, var(--primary) 18%, transparent) !important;
+  --accentBgHover: var(--accent) !important;
+  --accentBgActive: var(--accent) !important;
+  --accentLine: var(--primary) !important;
+  --accentBorder: var(--primary) !important;
+  --accentBorderHover: var(--primary) !important;
+  --accentSolid: var(--primary) !important;
+  --accentSolidHover: var(--primary) !important;
+  --accentText: var(--primary) !important;
+  --accentTextContrast: var(--primary-foreground) !important;
+  color: var(--foreground) !important;
+}
+
+/* ── MDXEditor: bezpośrednie kolory portali (dropdown stylu, dialog linka) ────
+   Tokeny na :root (wyżej) powinny wystarczyć przez dziedziczenie custom-property
+   — portale MDXEditora montują się do <body>, które jest dzieckiem <html>=:root
+   (tam jest .dark), więc --basePageBg/--baseBase rozwiązują się do wartości dark.
+   Mimo to nadpisujemy tło/tekst BEZPOŚREDNIO na charakterystycznych klasach emotion
+   (fragmenty nazw bez pełnego hash _er3ed_ — odporne na patche), celując w zmienne
+   motywu app (--popover/--popover-foreground). To defense-in-depth: dropdown i
+   dialog linka zawsze pasują do reszty UI, nawet gdyby subtelność cascade tokenów
+   liby zawiodła. Selektory są globalne (portale uciekają poza scope .wspolniak-mdx). ── */
+
+/* Rozwinięty dropdown stylu (BlockTypeSelect) + dialog linka — ramka popoveru. */
+[class*="_selectContainer_"],
+[class*="_toolbarCodeBlockLanguageSelectContent_"],
+[class*="_dialogContent_"],
+[class*="_linkDialogPopoverContent_"],
+[class*="_tableColumnEditorPopoverContent_"] {
+  background-color: var(--popover) !important;
+  color: var(--popover-foreground) !important;
+  border-color: var(--border) !important;
+}
+/* Trigger dropdownu (zamknięty) — tło jak pole edytora, nie białe. */
+[class*="_toolbarNodeKindSelectTrigger_"],
+[class*="_toolbarButtonSelectTrigger_"],
+[class*="_selectTrigger_"] {
+  background-color: var(--background) !important;
+  color: var(--foreground) !important;
+}
+/* Opcje dropdownu — tekst themed; hover i zaznaczenie jak w app (accent). */
+[class*="_selectItem_"],
+[class*="_toolbarNodeKindSelectItem_"] {
+  color: var(--popover-foreground) !important;
+}
+[class*="_selectItem_"][data-highlighted],
+[class*="_toolbarNodeKindSelectItem_"][data-highlighted],
+[class*="_selectItem_"][data-state="checked"],
+[class*="_toolbarNodeKindSelectItem_"][data-state="checked"] {
+  background-color: var(--accent) !important;
+  color: var(--accent-foreground) !important;
+}
+/* Pola tekstowe w dialogach MDXEditora (link / tabela / właściwości) — szare tło
+   (--input) i biały tekst (--foreground) w dark mode. Celujemy STRUKTURALNIE w
+   <input> wewnątrz treści dialogu/popoveru, bo LinkDialog nie używa klasy
+   „linkDialogInput" — renderuje inputy z klasami „textInput"/downshift, a lib daje
+   im `all: unset` + `background: transparent`. !important przebija ten reset.
+   Selektor globalny (portale uciekają poza scope .wspolniak-mdx do <body>). */
+[class*="_dialogContent_"] input,
+[class*="_largeDialogContent_"] input,
+[class*="_linkDialogPopoverContent_"] input,
+[class*="_tableColumnEditorPopoverContent_"] input {
+  background-color: var(--input) !important;
+  color: var(--foreground) !important;
+}
+[class*="_dialogContent_"] input::placeholder,
+[class*="_largeDialogContent_"] input::placeholder,
+[class*="_linkDialogPopoverContent_"] input::placeholder,
+[class*="_tableColumnEditorPopoverContent_"] input::placeholder {
+  color: var(--muted-foreground) !important;
+}
+/* Ikony w podglądzie linka (edytuj / usuń / kopiuj) — same ikony białe w dark
+   (actionButton ma color: var(--baseTextContrast)→--foreground przez tokeny),
+   a hover stonowany szary (--muted-foreground). Lib na :hover zmienia actionButton
+   TYLKO tło (nie kolor), więc bez tej reguły ikona zostaje biała też po najechaniu.
+   Łapiemy wszystkie przyciski ikonowe edytora: iconButton (toolbar/property),
+   actionButton (podgląd linka) i dialogCloseButton (X w dialogu). */
+@media (hover: hover) {
+  [class*="_iconButton_"]:hover,
+  [class*="_actionButton_"]:hover,
+  [class*="_dialogCloseButton_"]:hover {
+    color: var(--muted-foreground) !important;
+  }
+}
+
+/* Aktywny przycisk toolbara (włączone formatowanie, np. pogrubienie pod kursorem):
+   zielone obramowanie (ring) + zielona ikona zamiast zielonego wypełnienia.
+   box-shadow zamiast border, żeby nie przesuwać zawartości przycisku. */
+.wspolniak-mdx .mdxeditor-toolbar button[data-state='on'] {
+  background-color: transparent;
+  color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+/* Typografia w treści edytora — Tailwind preflight spłaszcza nagłówki i listy
+   (font-size/weight/font-style: inherit, list-style: none), więc „Nagłówek 1/2/3"
+   z toolbara nie zmieniał rozmiaru, a quote (blockquote) działał bo nie jest
+   resetowany. Przywracamy style zgodne z MarkdownText. */
+.wspolniak-mdx .mdxeditor .ce-content h1,
+.wspolniak-mdx .mdxeditor h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 0.75rem 0 0.25rem;
+  color: var(--foreground);
+}
+.wspolniak-mdx .mdxeditor .ce-content h2,
+.wspolniak-mdx .mdxeditor h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0.75rem 0 0.25rem;
+  color: var(--foreground);
+}
+.wspolniak-mdx .mdxeditor .ce-content h3,
+.wspolniak-mdx .mdxeditor h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 0.5rem 0 0.25rem;
+  color: var(--foreground);
+}
+.wspolniak-mdx .mdxeditor :is(ul, ol) {
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+}
+.wspolniak-mdx .mdxeditor ul {
+  list-style: disc;
+}
+.wspolniak-mdx .mdxeditor ol {
+  list-style: decimal;
+}
+.wspolniak-mdx .mdxeditor li {
+  margin: 0.125rem 0;
+}
+.wspolniak-mdx .mdxeditor blockquote {
+  border-left: 3px solid var(--border);
+  padding-left: 0.75rem;
+  margin: 0.5rem 0;
+  color: var(--muted-foreground);
+  font-style: italic;
+}
+.wspolniak-mdx .mdxeditor a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+/* Tabela (InsertTable) — themed komórki. Pełna ścieżka (table/thead/tbody/tr)
+   daje specyficzność (0,2,4), co przebija selektor liby (0,2,3 z :not()),
+   a !important na border/text-align gwarantuje nadpisanie. */
+.wspolniak-mdx .mdxeditor table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5rem 0;
+  font-size: 0.875rem;
+}
+.wspolniak-mdx .mdxeditor table thead tr > th,
+.wspolniak-mdx .mdxeditor table tbody tr > th,
+.wspolniak-mdx .mdxeditor table tbody tr > td {
+  border: 1px solid var(--border) !important;
+  padding: 0.375rem 0.5rem;
+  text-align: left !important;
+}
+.wspolniak-mdx .mdxeditor table thead tr > th {
+  background-color: var(--muted) !important;
+  font-weight: 600;
+}

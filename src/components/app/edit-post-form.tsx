@@ -14,6 +14,7 @@ import { ImagePlus, X } from "lucide-react";
 import { type ChangeEvent, type FormEvent, useCallback, useMemo, useRef, useState } from "react";
 import type { Mention } from "@/components/app/mention-input";
 import { PostDescriptionField } from "@/components/app/post-description-field";
+import { PostVideoPicker } from "@/components/app/post-video-picker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -44,11 +45,14 @@ interface EditPostFormProps {
 	description: string | null;
 	existingImages: ExistingImage[];
 	imageAccountHash: string;
+	/** Uporządkowana lista identyfikatorów wideo przypiętych do posta (kolejność = position). */
+	initialVideoIds?: string[];
 	onSubmit: (data: {
 		description: string;
 		files: File[];
 		removedImageIds: string[];
 		imageOrder: string[];
+		videoIds: string[];
 		mentions: Mention[];
 	}) => void;
 	isSubmitting: boolean;
@@ -116,11 +120,13 @@ export function EditPostForm({
 	description: initialDescription,
 	existingImages,
 	imageAccountHash,
+	initialVideoIds = [],
 	onSubmit,
 	isSubmitting,
 	featureFlags = DEFAULT_FEATURE_FLAGS,
 }: EditPostFormProps) {
 	const [description, setDescription] = useState(initialDescription ?? "");
+	const [videoIds, setVideoIds] = useState<string[]>(initialVideoIds);
 	const [mentions, setMentions] = useState<Mention[]>([]);
 	const [error, setError] = useState<string | null>(null);
 	const [overId, setOverId] = useState<string | null>(null);
@@ -237,9 +243,17 @@ export function EditPostForm({
 			const imageOrder = currentExistingIds;
 
 			const validMentions = mentions.filter((m) => description.includes(`@${m.name}`));
-			onSubmit({ description, files, removedImageIds, imageOrder, mentions: validMentions });
+			// videoIds (kolejność) idą tak jak w tworzeniu — backend robi setPostVideos(replace).
+			onSubmit({
+				description,
+				files,
+				removedImageIds,
+				imageOrder,
+				videoIds,
+				mentions: validMentions,
+			});
 		},
-		[description, items, existingImages, newFiles, onSubmit, mentions.filter],
+		[description, items, existingImages, newFiles, videoIds, onSubmit, mentions.filter],
 	);
 
 	const canSubmit = useMemo(
@@ -256,7 +270,9 @@ export function EditPostForm({
 			)}
 
 			<div className="space-y-2">
-				<Label htmlFor="description">Tekst</Label>
+				<Label htmlFor="description" className="sr-only">
+					Tekst
+				</Label>
 				<PostDescriptionField
 					id="description"
 					value={description}
@@ -266,8 +282,7 @@ export function EditPostForm({
 				/>
 			</div>
 
-			<div className="space-y-2">
-				<Label htmlFor="photos">Zdjęcia</Label>
+			<div>
 				<input
 					id="photos"
 					ref={fileInputRef}
@@ -277,17 +292,24 @@ export function EditPostForm({
 					onChange={handleFileChange}
 					className="hidden"
 				/>
-				<Button
-					type="button"
-					variant="outline"
-					className="w-full"
-					onClick={() => fileInputRef.current?.click()}
-				>
-					<ImagePlus className="mr-2 h-4 w-4" />
-					{items.length > 0
-						? `Wybrano ${items.length} ${items.length === 1 ? "zdjęcie" : items.length < 5 ? "zdjęcia" : "zdjęć"}`
-						: "Wybierz zdjęcia"}
-				</Button>
+				<div className="grid grid-cols-2 gap-2">
+					<Button
+						type="button"
+						variant="outline"
+						className="h-11 w-full sm:h-9"
+						onClick={() => fileInputRef.current?.click()}
+						disabled={items.length >= MAX_FILES}
+						title={items.length > 0 ? `${items.length}/${MAX_FILES}` : "Dodaj zdjęcia"}
+					>
+						<ImagePlus className="h-4 w-4" />
+						<span className="ml-2">
+							{items.length > 0 ? `${items.length}/${MAX_FILES}` : "Dodaj zdjęcia"}
+						</span>
+					</Button>
+					{featureFlags.video && (
+						<PostVideoPicker videoIds={videoIds} onChange={setVideoIds} disabled={isSubmitting} />
+					)}
+				</div>
 			</div>
 
 			{items.length > 0 && (

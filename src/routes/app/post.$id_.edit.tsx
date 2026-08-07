@@ -19,6 +19,7 @@ interface PostData {
 	authorId: string;
 	description: string | null;
 	images: PostImage[];
+	videos: { id: string; position: number }[];
 }
 
 interface PostResponse {
@@ -68,6 +69,7 @@ function EditPostPage() {
 			files: File[];
 			removedImageIds: string[];
 			imageOrder: string[];
+			videoIds: string[];
 			mentions: Mention[];
 		}) => {
 			// Delete removed images
@@ -98,13 +100,16 @@ function EditPostPage() {
 				if (!res.ok) throw new Error("Nie udało się zmienić kolejności zdjęć");
 			}
 
-			// Update description
+			// Update description + mentions + videos in a single PATCH. The backend
+			// runs setPostVideos(postId, videoIds) as a replace, so even an empty
+			// array is sent — removing every video must persist (parity with creating).
 			const res = await fetch(`/api/app/posts/${id}`, {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					description: input.description || null,
 					mentions: input.mentions,
+					videoIds: input.videoIds,
 				}),
 			});
 			if (res.status === 403) throw new Error("Brak uprawnień do edycji tego posta");
@@ -125,6 +130,7 @@ function EditPostPage() {
 			files: File[];
 			removedImageIds: string[];
 			imageOrder: string[];
+			videoIds: string[];
 			mentions: Mention[];
 		}) => {
 			mutation.reset();
@@ -176,6 +182,9 @@ function EditPostPage() {
 				description={post.description}
 				existingImages={post.images.map((img) => ({ id: img.id, cfImageId: img.cfImageId }))}
 				imageAccountHash={response.meta.imageAccountHash}
+				initialVideoIds={[...post.videos]
+					.sort((a, b) => a.position - b.position)
+					.map((video) => video.id)}
 				onSubmit={handleSubmit}
 				isSubmitting={mutation.isPending}
 				featureFlags={featureFlags}

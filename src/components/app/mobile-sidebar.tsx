@@ -3,6 +3,7 @@ import { Link, useLocation } from "@tanstack/react-router";
 import {
 	Calendar,
 	ChartNoAxesColumn,
+	Cog,
 	Home,
 	Menu,
 	Plus,
@@ -32,6 +33,7 @@ const NAV_ITEMS: NavItem[] = [
 	{ to: "/app/admin", icon: SlidersHorizontal, label: "Admin", adminOnly: true },
 	{ to: "/app/calendar", icon: Calendar, label: "Kalendarz", adminOnly: true },
 	{ to: "/app/stats", icon: ChartNoAxesColumn, label: "Statystyki", adminOnly: false },
+	{ to: "/app/settings", icon: Cog, label: "Ustawienia" },
 ];
 
 interface MobileSidebarProps {

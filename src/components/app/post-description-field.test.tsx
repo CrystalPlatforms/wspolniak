@@ -1,95 +1,86 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useState } from "react";
 import { PostDescriptionField } from "./post-description-field";
 
+// Środowisko (desktop vs mobile/PWA) kontrolowane per-test — domyślnie desktop,
+// bo istniejące testy zakładają, że switch formatowania jest dostępny.
+const richTextEnv = vi.hoisted(() => ({ supports: true }));
+vi.mock("@/hooks/use-supports-rich-text", () => ({
+	useSupportsRichText: () => richTextEnv.supports,
+}));
+
+// MDXEditor to ciężka liba 3rd-party — mockujemy ją na granicy systemu.
+// Testujemy nasz wrapper (switch → lazy → edytor), nie wnętrze liby.
+vi.mock("@mdxeditor/editor", () => ({
+	MDXEditor: ({ markdown }: { markdown: string }) => (
+		<div data-testid="mdx-editor" data-markdown={markdown} />
+	),
+	// Pluginy to czarna skrzynka dla tego testu — zwracamy obiekt.
+	markdownShortcutPlugin: () => ({}),
+	headingsPlugin: () => ({}),
+	listsPlugin: () => ({}),
+	linkPlugin: () => ({}),
+	linkDialogPlugin: () => ({}),
+	quotePlugin: () => ({}),
+	tablePlugin: () => ({}),
+	toolbarPlugin: () => ({}),
+	// Komponenty toolbara — no-op (testujemy switch → lazy → edytor, nie toolbar).
+	UndoRedo: () => null,
+	BoldItalicUnderlineToggles: () => null,
+	StrikeThroughSupSubToggles: () => null,
+	BlockTypeSelect: () => null,
+	ListsToggle: () => null,
+	CreateLink: () => null,
+	InsertTable: () => null,
+	Separator: () => null,
+}));
+
 describe("PostDescriptionField", () => {
-	it("renders the textarea, formatting toolbar and Podgląd toggle in edit mode by default", () => {
-		render(<PostDescriptionField value="" onChange={vi.fn()} />);
-
-		// Edit mode: the editable textarea is mounted.
-		expect(screen.getByRole("textbox")).toBeDefined();
-		// Post-only formatting toolbar is present.
-		expect(screen.getByRole("button", { name: /pogrubienie/i })).toBeDefined();
-		// Preview toggle is available.
-		expect(screen.getByRole("button", { name: /podgląd/i })).toBeDefined();
-	});
-
-	it("switches to a rendered preview when Podgląd is clicked, hiding the textarea", async () => {
-		const { container } = render(<PostDescriptionField value="**hello**" onChange={vi.fn()} />);
-
-		await userEvent.click(screen.getByRole("button", { name: /podgląd/i }));
-
-		// Textarea is unmounted in preview mode.
-		expect(screen.queryByRole("textbox")).toBeNull();
-		// Preview rendered the bold Markdown.
-		const strong = container.querySelector("strong");
-		expect(strong).not.toBeNull();
-		expect(strong?.textContent).toBe("hello");
-	});
-
-	it("returns to the editor when Edytuj is clicked, bringing the textarea back", async () => {
-		render(<PostDescriptionField value="**hello**" onChange={vi.fn()} />);
-
-		// Enter preview mode.
-		await userEvent.click(screen.getByRole("button", { name: /podgląd/i }));
-		expect(screen.queryByRole("textbox")).toBeNull();
-
-		// Switch back to the editor.
-		await userEvent.click(screen.getByRole("button", { name: /edytuj/i }));
-		expect(screen.getByRole("textbox")).toBeDefined();
-	});
-
-	it("renders the preview from the current value, not a stale snapshot", async () => {
-		function Controlled() {
-			const [value, setValue] = useState("pierwotny");
-			return <PostDescriptionField value={value} onChange={setValue} />;
-		}
-		const { container } = render(<Controlled />);
-
-		// Edit the text, then open the preview.
-		await userEvent.type(screen.getByRole("textbox"), " zmiana");
-		await userEvent.click(screen.getByRole("button", { name: /podgląd/i }));
-
-		// Preview reflects the typed text, not the initial value.
-		expect(container.textContent).toContain("zmiana");
-	});
-
-	it("flows toolbar formatting into the preview", async () => {
-		function Controlled() {
-			const [value, setValue] = useState("hello");
-			return <PostDescriptionField value={value} onChange={setValue} />;
-		}
-		const { container } = render(<Controlled />);
-
-		// Select "hello" and bold it via the toolbar.
-		const textarea = screen.getByRole("textbox") as HTMLTextAreaElement;
-		textarea.setSelectionRange(0, 5);
-		await userEvent.click(screen.getByRole("button", { name: /pogrubienie/i }));
-
-		// Preview should render the formatted result.
-		await userEvent.click(screen.getByRole("button", { name: /podgląd/i }));
-		const strong = container.querySelector("strong");
-		expect(strong).not.toBeNull();
-		expect(strong?.textContent).toBe("hello");
-	});
-
-	it("hides formatting toolbar and preview toggle when markdown is disabled", () => {
-		render(<PostDescriptionField value="" onChange={vi.fn()} markdownEnabled={false} />);
-
-		// Plain textarea is still available.
-		expect(screen.getByRole("textbox")).toBeDefined();
-		// No formatting toolbar.
-		expect(screen.queryByRole("button", { name: /pogrubienie/i })).toBeNull();
-		// No Podgląd/Edytuj toggle.
-		expect(screen.queryByRole("button", { name: /podgląd/i })).toBeNull();
-	});
-
-	it("renders formatting toolbar and preview toggle when markdown is enabled", () => {
+	it("renderuje zwykłe pole tekstowe i switch formatowania, gdy markdown włączony (domyślnie OFF)", () => {
 		render(<PostDescriptionField value="" onChange={vi.fn()} markdownEnabled />);
 
-		expect(screen.getByRole("button", { name: /pogrubienie/i })).toBeDefined();
-		expect(screen.getByRole("button", { name: /podgląd/i })).toBeDefined();
+		// Domyślnie OFF → zwykłe pole tekstowe, edytor WYSIWYG niewidoczny.
+		expect(screen.getByRole("textbox")).toBeDefined();
+		expect(screen.queryByTestId("mdx-editor")).toBeNull();
+		// Switch formatowania dostępny i wyłączony.
+		const toggle = screen.getByRole("switch", { name: /formatowanie/i });
+		expect(toggle).toBeDefined();
+		expect(toggle.getAttribute("aria-checked")).toBe("false");
+	});
+
+	it("nie renderuje switcha, gdy markdown wyłączony", () => {
+		render(<PostDescriptionField value="" onChange={vi.fn()} markdownEnabled={false} />);
+
+		expect(screen.getByRole("textbox")).toBeDefined();
+		expect(screen.queryByRole("switch")).toBeNull();
+		expect(screen.queryByTestId("mdx-editor")).toBeNull();
+	});
+
+	it("ładuje edytor WYSIWYG dopiero po włączeniu switcha (leniwie)", async () => {
+		render(<PostDescriptionField value="hello" onChange={vi.fn()} markdownEnabled />);
+
+		// Przed włączeniem: brak edytora (biblioteka się nie ładuje).
+		expect(screen.queryByTestId("mdx-editor")).toBeNull();
+
+		// Włączamy formatowanie.
+		await userEvent.click(screen.getByRole("switch", { name: /formatowanie/i }));
+
+		// Edytor ładuje się przez Suspense (React.lazy) — czekamy na render.
+		expect(await screen.findByTestId("mdx-editor")).toBeDefined();
+		// Zwykły textarea zostaje zastąpiony edytorem.
+		expect(screen.queryByRole("textbox")).toBeNull();
+	});
+
+	it("nie pokazuje switcha formatowania na mobile/PWA (środowisko bez rich text)", () => {
+		richTextEnv.supports = false;
+		render(<PostDescriptionField value="" onChange={vi.fn()} markdownEnabled />);
+
+		// Mimo włączonego markdown — na mobile/PWA switcha nie ma, zostaje zwykłe
+		// pole tekstowe (WYSIWYG jest ciężki i nieporęczny na telefonie / w PWA).
+		expect(screen.getByRole("textbox")).toBeDefined();
+		expect(screen.queryByRole("switch")).toBeNull();
+		expect(screen.queryByTestId("mdx-editor")).toBeNull();
+		richTextEnv.supports = true;
 	});
 });

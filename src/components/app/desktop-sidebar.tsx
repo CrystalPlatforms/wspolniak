@@ -1,6 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { Link, useLocation } from "@tanstack/react-router";
-import { Calendar, ChartNoAxesColumn, Home, Plus, SlidersHorizontal, Video } from "lucide-react";
+import {
+	Calendar,
+	ChartNoAxesColumn,
+	Cog,
+	Home,
+	Plus,
+	SlidersHorizontal,
+	Video,
+} from "lucide-react";
 import { ThemeToggle } from "@/components/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import { Button } from "@/components/ui/button";
@@ -26,6 +34,7 @@ const NAV_ITEMS: NavItem[] = [
 	{ to: "/app/admin", icon: SlidersHorizontal, label: "Admin", adminOnly: true },
 	{ to: "/app/calendar", icon: Calendar, label: "Kalendarz", adminOnly: true },
 	{ to: "/app/stats", icon: ChartNoAxesColumn, label: "Statystyki", adminOnly: false },
+	{ to: "/app/settings", icon: Cog, label: "Ustawienia" },
 ];
 
 export function DesktopSidebar({

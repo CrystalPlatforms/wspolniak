@@ -17,6 +17,7 @@ import { Route as AppAdminRouteImport } from './routes/app/admin'
 import { Route as AppCalendarRouteImport } from './routes/app/calendar'
 import { Route as AppNewRouteImport } from './routes/app/new'
 import { Route as AppNewVideoRouteImport } from './routes/app/new-video'
+import { Route as AppSettingsRouteImport } from './routes/app/settings'
 import { Route as AppStatsRouteImport } from './routes/app/stats'
 import { Route as AppVideoRouteImport } from './routes/app/video'
 import { Route as AuthErrorRouteImport } from './routes/auth/error'
@@ -64,6 +65,11 @@ const AppNewRoute = AppNewRouteImport.update({
 const AppNewVideoRoute = AppNewVideoRouteImport.update({
   id: '/new-video',
   path: '/new-video',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
 const AppStatsRoute = AppStatsRouteImport.update({
@@ -115,6 +121,7 @@ export interface FileRoutesByFullPath {
   '/app/calendar': typeof AppCalendarRoute
   '/app/new': typeof AppNewRoute
   '/app/new-video': typeof AppNewVideoRoute
+  '/app/settings': typeof AppSettingsRoute
   '/app/stats': typeof AppStatsRoute
   '/app/video': typeof AppVideoRouteWithChildren
   '/auth/error': typeof AuthErrorRoute
@@ -132,6 +139,7 @@ export interface FileRoutesByTo {
   '/app/calendar': typeof AppCalendarRoute
   '/app/new': typeof AppNewRoute
   '/app/new-video': typeof AppNewVideoRoute
+  '/app/settings': typeof AppSettingsRoute
   '/app/stats': typeof AppStatsRoute
   '/auth/error': typeof AuthErrorRoute
   '/shared-post/$id': typeof SharedPostIdRoute
@@ -150,6 +158,7 @@ export interface FileRoutesById {
   '/app/calendar': typeof AppCalendarRoute
   '/app/new': typeof AppNewRoute
   '/app/new-video': typeof AppNewVideoRoute
+  '/app/settings': typeof AppSettingsRoute
   '/app/stats': typeof AppStatsRoute
   '/app/video': typeof AppVideoRouteWithChildren
   '/auth/error': typeof AuthErrorRoute
@@ -170,6 +179,7 @@ export interface FileRouteTypes {
     | '/app/calendar'
     | '/app/new'
     | '/app/new-video'
+    | '/app/settings'
     | '/app/stats'
     | '/app/video'
     | '/auth/error'
@@ -187,6 +197,7 @@ export interface FileRouteTypes {
     | '/app/calendar'
     | '/app/new'
     | '/app/new-video'
+    | '/app/settings'
     | '/app/stats'
     | '/auth/error'
     | '/shared-post/$id'
@@ -204,6 +215,7 @@ export interface FileRouteTypes {
     | '/app/calendar'
     | '/app/new'
     | '/app/new-video'
+    | '/app/settings'
     | '/app/stats'
     | '/app/video'
     | '/auth/error'
@@ -279,6 +291,13 @@ declare module '@tanstack/react-router' {
       path: '/new-video'
       fullPath: '/app/new-video'
       preLoaderRoute: typeof AppNewVideoRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/settings': {
+      id: '/app/settings'
+      path: '/settings'
+      fullPath: '/app/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/stats': {
@@ -359,6 +378,7 @@ interface AppRouteChildren {
   AppCalendarRoute: typeof AppCalendarRoute
   AppNewRoute: typeof AppNewRoute
   AppNewVideoRoute: typeof AppNewVideoRoute
+  AppSettingsRoute: typeof AppSettingsRoute
   AppStatsRoute: typeof AppStatsRoute
   AppVideoRoute: typeof AppVideoRouteWithChildren
   AppIndexRoute: typeof AppIndexRoute
@@ -371,6 +391,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppCalendarRoute: AppCalendarRoute,
   AppNewRoute: AppNewRoute,
   AppNewVideoRoute: AppNewVideoRoute,
+  AppSettingsRoute: AppSettingsRoute,
   AppStatsRoute: AppStatsRoute,
   AppVideoRoute: AppVideoRouteWithChildren,
   AppIndexRoute: AppIndexRoute,

@@ -22,3 +22,11 @@ minimumReleaseAgeExclude:
   - taze@19.17.2
   - tsx@4.23.9
   - wrangler@4.119.0
+# Hoistuj pakiety @tanstack/* na top-level node_modules/. Worker Cloudflare
+# (workerd) ma restrykcyjny resolver — NIE podąża za symlinkami pnpm przez
+# .pnpm/. @tanstack/react-start re-exportuje createStartHandler z
+# @tanstack/react-start-server przez `export *`, ale bez top-level symlinku
+# workerd go nie rozwiązuje → "createStartHandler is not a function".
+# (Uwaga: pnpm v11 czyta te ustawienia z pnpm-workspace.yaml, NIE z .npmrc.)
+publicHoistPattern:
+  - '@tanstack/*'
