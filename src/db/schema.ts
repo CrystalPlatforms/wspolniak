@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+export { bookmarks } from "./bookmarks/table";
 export { calendarEvents, calendarReminderLog } from "./calendar/table";
 export { comments } from "./comments/table";
 export { users } from "./identity/table";

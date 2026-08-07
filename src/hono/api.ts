@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import adminEndpoint from "@/hono/api/admin";
 import appEndpoint from "@/hono/api/app";
+import bookmarksEndpoint from "@/hono/api/bookmarks";
 import calendarEndpoint from "@/hono/api/calendar";
 import commentsEndpoint from "@/hono/api/comments";
 import healthEndpoint from "@/hono/api/health";
@@ -23,6 +24,7 @@ apiHono.route("/app/posts", postsEndpoint);
 apiHono.route("/app/posts", commentsEndpoint);
 apiHono.route("/app/posts", reactionsEndpoint);
 apiHono.route("/app/posts", pinnedPostsEndpoint);
+apiHono.route("/app/bookmarks", bookmarksEndpoint);
 apiHono.route("/app/videos", videoAppEndpoint);
 apiHono.route("/app/push", pushEndpoint);
 apiHono.route("/app", appEndpoint);
