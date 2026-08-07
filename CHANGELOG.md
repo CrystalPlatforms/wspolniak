@@ -1,3 +1,11 @@
+# [3.2.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.1.0...v3.2.0) (2026-08-07)
+
+
+### Features
+
+* **editor:** edytor WYSIWYG Markdown + strona Ustawienia ([fbc0b1c](https://github.com/CrystalPlatforms/wspolniak/commit/fbc0b1caae7d2376a7bf82cc01c25bfcdb33d408))
+* **video:** animowany postęp wgrywania wideo ([79592af](https://github.com/CrystalPlatforms/wspolniak/commit/79592afa1be9d46ceb29fb5fb19c36cad72f43ce))
+
 # [3.1.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.0.0...v3.1.0) (2026-08-06)
 
 
