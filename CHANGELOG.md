@@ -1,3 +1,10 @@
+# [3.8.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.7.0...v3.8.0) (2026-08-08)
+
+
+### Features
+
+* **bookmarks:** faza 4 biblioteki — kaskada usuwania, autoryzacja, toast błędów ([#131](https://github.com/CrystalPlatforms/wspolniak/issues/131) [#132](https://github.com/CrystalPlatforms/wspolniak/issues/132) [#133](https://github.com/CrystalPlatforms/wspolniak/issues/133)) ([3a3560a](https://github.com/CrystalPlatforms/wspolniak/commit/3a3560a1e79b0772957841ac970d951662f74912)), closes [#126](https://github.com/CrystalPlatforms/wspolniak/issues/126)
+
 # [3.7.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.6.0...v3.7.0) (2026-08-08)
 
 
