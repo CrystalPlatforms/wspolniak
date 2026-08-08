@@ -45,3 +45,11 @@ export async function deleteBookmark(userId: string, postId: string): Promise<Bo
 		.returning();
 	return rows[0] ?? null;
 }
+
+// Kaskadowe czyszczenie zakładek wszystkich użytkowników dla usuniętego posta.
+// Wywoływane przy usuwaniu posta (#131) — tabela bookmarks nie ma FK (konwencja),
+// więc znikanie zakładek zapewnia ten jawny handler zamiast ON DELETE CASCADE.
+export async function deleteBookmarksByPost(postId: string): Promise<void> {
+	const db = getDb();
+	await db.delete(bookmarks).where(eq(bookmarks.postId, postId));
+}

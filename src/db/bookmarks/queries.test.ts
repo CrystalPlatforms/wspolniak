@@ -132,3 +132,33 @@ describe("listBookmarksForUser", () => {
 		expect(result).toEqual([]);
 	});
 });
+
+describe("deleteBookmarksByPost", () => {
+	// Kaskada — usuwa zakładki wszystkich userów dla danego posta (#131).
+	function mockDeleteChain() {
+		const mockWhere = vi.fn().mockResolvedValue(undefined);
+		const mockDelete = vi.fn().mockReturnValue({ where: mockWhere });
+		mockGetDb.mockReturnValue({ delete: mockDelete } as never);
+		return { mockWhere };
+	}
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("deletes every bookmark for the given post (cascade on post delete)", async () => {
+		const { mockWhere } = mockDeleteChain();
+		const { deleteBookmarksByPost } = await import("./queries");
+
+		await deleteBookmarksByPost("post-1");
+
+		expect(mockWhere).toHaveBeenCalledTimes(1);
+	});
+
+	it("resolves without error when no bookmarks exist for the post", async () => {
+		mockDeleteChain();
+		const { deleteBookmarksByPost } = await import("./queries");
+
+		await expect(deleteBookmarksByPost("post-1")).resolves.toBeUndefined();
+	});
+});

@@ -27,6 +27,10 @@ vi.mock("@/db/mentions/queries", () => ({
 	deleteMentionsByPost: vi.fn(),
 }));
 
+vi.mock("@/db/bookmarks", () => ({
+	deleteBookmarksByPost: vi.fn(),
+}));
+
 vi.mock("@/db/pinned-posts", () => ({
 	listPinnedPostIds: vi.fn(),
 }));
@@ -41,6 +45,7 @@ vi.mock("@/core/feed", () => ({
 }));
 
 import { assembleFeedPage } from "@/core/feed";
+import { deleteBookmarksByPost } from "@/db/bookmarks";
 import { findActiveUserById } from "@/db/identity/queries";
 import { verifySessionCookie } from "@/db/identity/session";
 import { createMentions, deleteMentionsByPost } from "@/db/mentions/queries";
@@ -69,6 +74,7 @@ const mockReorderPostImages = vi.mocked(reorderPostImages);
 const mockDeletePostImage = vi.mocked(deletePostImage);
 const mockCreateMentions = vi.mocked(createMentions);
 const mockDeleteMentionsByPost = vi.mocked(deleteMentionsByPost);
+const mockDeleteBookmarksByPost = vi.mocked(deleteBookmarksByPost);
 
 function createApi() {
 	const api = new Hono<{
@@ -721,6 +727,22 @@ describe("DELETE /api/app/posts/:id", () => {
 
 		expect(res.status).toBe(200);
 		expect(mockSoftDelete).toHaveBeenCalledWith("post-1");
+	});
+
+	it("cascades: removes the post's bookmarks for all users on delete (#131)", async () => {
+		mockGetPost.mockResolvedValue(samplePost);
+		mockSoftDelete.mockResolvedValue({ ...samplePost, deletedAt: now });
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/posts/post-1",
+			authedRequest("/api/app/posts/post-1", { method: "DELETE" }),
+			env,
+		);
+
+		expect(res.status).toBe(200);
+		// Kaskada — zakładki wszystkich userów dla tego posta zostają usunięte.
+		expect(mockDeleteBookmarksByPost).toHaveBeenCalledWith("post-1");
 	});
 
 	it("allows admin to delete any post", async () => {

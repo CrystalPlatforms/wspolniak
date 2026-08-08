@@ -308,3 +308,64 @@ describe("GET /api/app/bookmarks", () => {
 		expect(res.status).toBe(401);
 	});
 });
+
+describe("Authorization — own bookmarks only (#132)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		authedUser();
+	});
+
+	it("GET derives userId from the session, never from the request", async () => {
+		// Sesja = user u1. Niezależnie od treści żądania, listBookmarksForUser
+		// musi dostać userId z sesji (u1) — nie da się wyciągnąć zakładek usera u2.
+		mockListBookmarks.mockResolvedValue([]);
+		mockListPostsByIds.mockResolvedValue([]);
+
+		const api = createApi();
+		// Próba „manipulacji": dowolny body/query nie zmienia userId.
+		const res = await api.request("/api/app/bookmarks?userId=u2", authedRequest(), env);
+
+		expect(res.status).toBe(200);
+		expect(mockListBookmarks).toHaveBeenCalledWith("u1");
+		expect(mockListBookmarks).not.toHaveBeenCalledWith("u2");
+	});
+
+	it("DELETE is scoped to the session user — cannot remove another user's bookmark", async () => {
+		// Endpoint przyjmuje tylko :postId; userId zawsze z sesji. deleteBookmark
+		// wołane jest z ("u1", postId) — scoped WHERE gwarantuje, że user u1
+		// nigdy nie usunie zakładki usera u2.
+		mockDeleteBookmark.mockResolvedValue({
+			id: "bookmark-1",
+			userId: "u1",
+			postId: "post-1",
+			createdAt: now,
+		});
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/bookmarks/post-1",
+			authedRequest({ method: "DELETE" }),
+			env,
+		);
+
+		expect(res.status).toBe(200);
+		expect(mockDeleteBookmark).toHaveBeenCalledWith("u1", "post-1");
+	});
+
+	it("DELETE for a post the user never bookmarked returns 404 (no leak of others' bookmarks)", async () => {
+		// User u1 nie ma zakładki post-9 → scoped delete nie znajduje wiersza.
+		// To jedyna „obrona": nie ma jak wskazać cudzej zakładki, więc 403 jest
+		// z konstrukcji nieosiągalne; zamiast tego 404 (nie ujawnia istnienia).
+		mockDeleteBookmark.mockResolvedValue(null);
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/bookmarks/post-9",
+			authedRequest({ method: "DELETE" }),
+			env,
+		);
+
+		expect(res.status).toBe(404);
+		expect(mockDeleteBookmark).toHaveBeenCalledWith("u1", "post-9");
+	});
+});

@@ -2,6 +2,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bookmark } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
 interface BookmarkButtonProps {
 	postId: string;
@@ -61,11 +62,17 @@ export function BookmarkButton({ postId }: BookmarkButtonProps) {
 			});
 			return { previous };
 		},
-		onError: (_error, _next, context) => {
+		onError: (_error, next, context) => {
 			// Rollback do stanu sprzed kliknięcia, gdy API zawiedzie (#126).
 			if (context?.previous !== undefined) {
 				queryClient.setQueryData(SAVED_POSTS_KEY, context.previous);
 			}
+			// Powiadom użytkownika o błędzie zapisu/usuwania (#133).
+			toast.error(
+				next
+					? "Nie udało się zapisać posta do Biblioteki"
+					: "Nie udało się usunąć posta z Biblioteki",
+			);
 		},
 		onSettled: () => {
 			// Prefix ["bookmarks"] unieważnia i stan ikony (saved), i listę Biblioteki (list),

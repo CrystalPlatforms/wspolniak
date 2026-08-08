@@ -5,6 +5,13 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { BookmarkButton } from "./bookmark-button";
 
+// Powiadomienia toast (sonner) mockowane — weryfikujemy wywołanie toast.error (#133).
+vi.mock("sonner", () => ({ toast: { error: vi.fn() } }));
+
+import { toast } from "sonner";
+
+const mockToastError = vi.mocked(toast.error);
+
 function createWrapper() {
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	return function Wrapper({ children }: { children: ReactNode }) {
@@ -211,5 +218,52 @@ describe("BookmarkButton (optimistic update)", () => {
 		expect(unsaved.getAttribute("aria-pressed")).toBe("false");
 		expect(unsaved.style.color).toBe("");
 		expect(unsaved.querySelector("svg")?.getAttribute("fill")).not.toBe("currentColor");
+	});
+});
+
+describe("BookmarkButton (error handling — #133)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("shows a toast error and reverts the icon when saving fails", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockImplementation((_url: string, opts?: RequestInit) => {
+				if (opts?.method === "POST") return Promise.reject(new Error("network"));
+				return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: [] }) });
+			}),
+		);
+
+		render(<BookmarkButton postId="post-1" />, { wrapper: createWrapper() });
+
+		const button = await screen.findByRole("button", { name: /zapisz do biblioteki/i });
+		await userEvent.click(button);
+
+		// Po błędzie zapisu: toast z komunikatem + ikona wraca do niezapisanej.
+		await screen.findByRole("button", { name: /zapisz do biblioteki/i });
+		expect(mockToastError).toHaveBeenCalledWith("Nie udało się zapisać posta do Biblioteki");
+	});
+
+	it("shows a toast error when removing fails", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockImplementation((_url: string, opts?: RequestInit) => {
+				if (opts?.method === "DELETE") return Promise.reject(new Error("network"));
+				return Promise.resolve({
+					ok: true,
+					json: () => Promise.resolve({ data: [{ id: "post-1" }] }),
+				});
+			}),
+		);
+
+		render(<BookmarkButton postId="post-1" />, { wrapper: createWrapper() });
+
+		const button = await screen.findByRole("button", { name: /usuń z biblioteki/i });
+		await userEvent.click(button);
+
+		// Po błędzie usuwania: toast z komunikatem usuwania.
+		await screen.findByRole("button", { name: /usuń z biblioteki/i });
+		expect(mockToastError).toHaveBeenCalledWith("Nie udało się usunąć posta z Biblioteki");
 	});
 });
