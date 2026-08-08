@@ -2,7 +2,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { BookmarksList } from "@/components/app/bookmarks-list";
 
-export const Route = createFileRoute("/app/biblioteka")({
+export const Route = createFileRoute("/app/lib")({
 	component: BibliotekaPage,
 });
 

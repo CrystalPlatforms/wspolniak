@@ -33,7 +33,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
 	{ to: "/app", icon: Home, label: "Feed", exact: true },
 	{ to: "/app/video", icon: Video, label: "Wideo", fillWhenActive: true },
-	{ to: "/app/biblioteka", icon: Bookmark, label: "Biblioteka", fillWhenActive: true },
+	{ to: "/app/lib", icon: Bookmark, label: "Biblioteka", fillWhenActive: true },
 	{ to: "/app/admin", icon: SlidersHorizontal, label: "Admin", adminOnly: true },
 	{
 		to: "/app/calendar",

@@ -14,8 +14,8 @@ import { Route as AppRouteImport } from './routes/app'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppAdminRouteImport } from './routes/app/admin'
-import { Route as AppBibliotekaRouteImport } from './routes/app/biblioteka'
 import { Route as AppCalendarRouteImport } from './routes/app/calendar'
+import { Route as AppLibRouteImport } from './routes/app/lib'
 import { Route as AppNewRouteImport } from './routes/app/new'
 import { Route as AppNewVideoRouteImport } from './routes/app/new-video'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
@@ -53,14 +53,14 @@ const AppAdminRoute = AppAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AppRoute,
 } as any)
-const AppBibliotekaRoute = AppBibliotekaRouteImport.update({
-  id: '/biblioteka',
-  path: '/biblioteka',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppCalendarRoute = AppCalendarRouteImport.update({
   id: '/calendar',
   path: '/calendar',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppLibRoute = AppLibRouteImport.update({
+  id: '/lib',
+  path: '/lib',
   getParentRoute: () => AppRoute,
 } as any)
 const AppNewRoute = AppNewRouteImport.update({
@@ -124,8 +124,8 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRouteWithChildren
   '/setup': typeof SetupRoute
   '/app/admin': typeof AppAdminRoute
-  '/app/biblioteka': typeof AppBibliotekaRoute
   '/app/calendar': typeof AppCalendarRoute
+  '/app/lib': typeof AppLibRoute
   '/app/new': typeof AppNewRoute
   '/app/new-video': typeof AppNewVideoRoute
   '/app/settings': typeof AppSettingsRoute
@@ -143,8 +143,8 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/setup': typeof SetupRoute
   '/app/admin': typeof AppAdminRoute
-  '/app/biblioteka': typeof AppBibliotekaRoute
   '/app/calendar': typeof AppCalendarRoute
+  '/app/lib': typeof AppLibRoute
   '/app/new': typeof AppNewRoute
   '/app/new-video': typeof AppNewVideoRoute
   '/app/settings': typeof AppSettingsRoute
@@ -163,8 +163,8 @@ export interface FileRoutesById {
   '/app': typeof AppRouteWithChildren
   '/setup': typeof SetupRoute
   '/app/admin': typeof AppAdminRoute
-  '/app/biblioteka': typeof AppBibliotekaRoute
   '/app/calendar': typeof AppCalendarRoute
+  '/app/lib': typeof AppLibRoute
   '/app/new': typeof AppNewRoute
   '/app/new-video': typeof AppNewVideoRoute
   '/app/settings': typeof AppSettingsRoute
@@ -185,8 +185,8 @@ export interface FileRouteTypes {
     | '/app'
     | '/setup'
     | '/app/admin'
-    | '/app/biblioteka'
     | '/app/calendar'
+    | '/app/lib'
     | '/app/new'
     | '/app/new-video'
     | '/app/settings'
@@ -204,8 +204,8 @@ export interface FileRouteTypes {
     | '/'
     | '/setup'
     | '/app/admin'
-    | '/app/biblioteka'
     | '/app/calendar'
+    | '/app/lib'
     | '/app/new'
     | '/app/new-video'
     | '/app/settings'
@@ -223,8 +223,8 @@ export interface FileRouteTypes {
     | '/app'
     | '/setup'
     | '/app/admin'
-    | '/app/biblioteka'
     | '/app/calendar'
+    | '/app/lib'
     | '/app/new'
     | '/app/new-video'
     | '/app/settings'
@@ -284,18 +284,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/biblioteka': {
-      id: '/app/biblioteka'
-      path: '/biblioteka'
-      fullPath: '/app/biblioteka'
-      preLoaderRoute: typeof AppBibliotekaRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/app/calendar': {
       id: '/app/calendar'
       path: '/calendar'
       fullPath: '/app/calendar'
       preLoaderRoute: typeof AppCalendarRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/lib': {
+      id: '/app/lib'
+      path: '/lib'
+      fullPath: '/app/lib'
+      preLoaderRoute: typeof AppLibRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/new': {
@@ -394,8 +394,8 @@ const AppVideoRouteWithChildren = AppVideoRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRoute
-  AppBibliotekaRoute: typeof AppBibliotekaRoute
   AppCalendarRoute: typeof AppCalendarRoute
+  AppLibRoute: typeof AppLibRoute
   AppNewRoute: typeof AppNewRoute
   AppNewVideoRoute: typeof AppNewVideoRoute
   AppSettingsRoute: typeof AppSettingsRoute
@@ -408,8 +408,8 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRoute,
-  AppBibliotekaRoute: AppBibliotekaRoute,
   AppCalendarRoute: AppCalendarRoute,
+  AppLibRoute: AppLibRoute,
   AppNewRoute: AppNewRoute,
   AppNewVideoRoute: AppNewVideoRoute,
   AppSettingsRoute: AppSettingsRoute,

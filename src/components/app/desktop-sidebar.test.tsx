@@ -39,16 +39,16 @@ describe("DesktopSidebar — Wideo feature flag", () => {
 });
 
 describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
-	it("renders a Biblioteka nav link to /app/biblioteka", () => {
+	it("renders a Biblioteka nav link to /app/lib", () => {
 		setPathname("/app");
 		render(<DesktopSidebar featureFlags={{ video: true, markdown: true }} />);
 
 		const link = screen.getByRole("link", { name: /^biblioteka$/i });
-		expect(link.getAttribute("href")).toBe("/app/biblioteka");
+		expect(link.getAttribute("href")).toBe("/app/lib");
 	});
 
-	it("highlights the Biblioteka link when on /app/biblioteka", () => {
-		setPathname("/app/biblioteka");
+	it("highlights the Biblioteka link when on /app/lib", () => {
+		setPathname("/app/lib");
 		render(<DesktopSidebar featureFlags={{ video: true, markdown: true }} />);
 
 		const link = screen.getByRole("link", { name: /^biblioteka$/i });
@@ -56,7 +56,7 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 	});
 
 	it("fills the bookmark icon white when Biblioteka is active", () => {
-		setPathname("/app/biblioteka");
+		setPathname("/app/lib");
 		render(<DesktopSidebar featureFlags={{ video: true, markdown: true }} />);
 
 		const link = screen.getByRole("link", { name: /^biblioteka$/i });

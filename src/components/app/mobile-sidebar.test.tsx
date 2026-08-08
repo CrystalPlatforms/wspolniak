@@ -27,17 +27,17 @@ async function openMenu() {
 }
 
 describe("MobileSidebar — Biblioteka nav link (#129)", () => {
-	it("renders a Biblioteka nav link to /app/biblioteka", async () => {
+	it("renders a Biblioteka nav link to /app/lib", async () => {
 		setPathname("/app");
 		render(<MobileSidebar featureFlags={{ video: true, markdown: true }} />);
 		await openMenu();
 
 		const link = screen.getByRole("link", { name: /^biblioteka$/i });
-		expect(link.getAttribute("href")).toBe("/app/biblioteka");
+		expect(link.getAttribute("href")).toBe("/app/lib");
 	});
 
-	it("highlights the Biblioteka link when on /app/biblioteka", async () => {
-		setPathname("/app/biblioteka");
+	it("highlights the Biblioteka link when on /app/lib", async () => {
+		setPathname("/app/lib");
 		render(<MobileSidebar featureFlags={{ video: true, markdown: true }} />);
 		await openMenu();
 
@@ -46,7 +46,7 @@ describe("MobileSidebar — Biblioteka nav link (#129)", () => {
 	});
 
 	it("fills the bookmark icon white when Biblioteka is active", async () => {
-		setPathname("/app/biblioteka");
+		setPathname("/app/lib");
 		render(<MobileSidebar featureFlags={{ video: true, markdown: true }} />);
 		await openMenu();
 
