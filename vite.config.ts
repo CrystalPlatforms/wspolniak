@@ -8,6 +8,10 @@ import viteTsConfigPaths from "vite-tsconfig-paths";
 export default defineConfig({
 	server: {
 		host: "0.0.0.0",
+		// Błąd HMR „createStartHandler is not a function" (TanStack Start × @cloudflare/vite-plugin)
+		// pojawia się sporadycznie przy przeładowaniu SSR. Wyłączamy nakładkę błędu, żeby nie blokować
+		// UI i nie wymuszać restartu dev servera — sam błąd ląduje w konsoli, a kolejny HMR go czyści.
+		hmr: { overlay: false },
 	},
 	plugins: [
 		viteTsConfigPaths({

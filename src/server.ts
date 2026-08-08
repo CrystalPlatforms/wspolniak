@@ -2,7 +2,7 @@
 // DO NOT DELETE THIS FILE!!!
 // Custom CF Workers entry: routes /api/* to Hono, /app/u/* to auth, rest to TanStack Start.
 // `scheduled` handler odpala cron kalendarza (D-0 posty od admina).
-import handler from "@tanstack/react-start/server-entry";
+/// <reference types="vite/client" />
 import { runCalendarJob } from "@/calendar/job";
 import { initDatabase } from "@/db";
 import { apiHono } from "@/hono/api";
@@ -11,6 +11,34 @@ import { createHono } from "@/hono/factory";
 
 const authHono = createHono();
 authHono.route("/app/u", authRoute);
+
+// Obejście błędu SSR HMR „createStartHandler is not a function" (TanStack/router#7285):
+// statyczny import `@tanstack/react-start/server-entry` traci eksport createStartHandler
+// przy każdym przeładowaniu HMR (TanStack Start × @cloudflare/vite-plugin). Dynamiczny import
+// materializuje namespace dopiero w czasie wywołania (po rozliczeniu HMR), a unieważnienie
+// cache w import.meta.hot.accept wymusza świeży import po każdej aktualizacji.
+type ServerEntry = {
+	fetch: (
+		request: Request,
+		opts: { context: { fromFetch: boolean } },
+	) => Promise<Response> | Response;
+};
+
+let ssrEntry: ServerEntry | null = null;
+
+async function getSsrEntry(): Promise<ServerEntry> {
+	if (!ssrEntry) {
+		const mod = await import("@tanstack/react-start/server-entry");
+		ssrEntry = mod.default as ServerEntry;
+	}
+	return ssrEntry;
+}
+
+if (import.meta.hot) {
+	import.meta.hot.accept(() => {
+		ssrEntry = null;
+	});
+}
 
 export default {
 	fetch(request: Request, env: Env, ctx: ExecutionContext) {
@@ -30,9 +58,9 @@ export default {
 			return authHono.fetch(request, env, ctx);
 		}
 
-		return handler.fetch(request, {
-			context: { fromFetch: true },
-		});
+		return getSsrEntry().then((handler) =>
+			handler.fetch(request, { context: { fromFetch: true } }),
+		);
 	},
 	async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext) {
 		initDatabase({
