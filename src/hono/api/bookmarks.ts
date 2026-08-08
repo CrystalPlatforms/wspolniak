@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { enrichPosts } from "@/core/feed";
 import {
 	createBookmark,
 	createBookmarkSchema,
@@ -43,11 +45,16 @@ bookmarksEndpoint.delete("/:postId", async (c) => {
 });
 
 // GET /bookmarks — zapisane posty usera, najnowsze pierwsze (pełny kształt jak w feedzie).
+// meta.imageAccountHash pozwala Bibliotece budować URL-e zdjęć bez osobnego zapytania (#127).
 bookmarksEndpoint.get("/", async (c) => {
 	const user = c.get("user");
 	const userBookmarks = await listBookmarksForUser(user.userId);
 	const posts = await listPostsByIds(userBookmarks.map((b) => b.postId));
-	return c.json({ data: posts });
+	const enriched = await enrichPosts(posts);
+	return c.json({
+		data: enriched,
+		meta: { imageAccountHash: c.env.CLOUDFLARE_IMAGES_ACCOUNT_HASH },
+	});
 });
 
 export default bookmarksEndpoint;

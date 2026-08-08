@@ -142,3 +142,74 @@ describe("BookmarkButton (interaction)", () => {
 		expect(button.querySelector("svg")?.style.animation).toContain("bookmark-pop");
 	});
 });
+
+describe("BookmarkButton (optimistic update)", () => {
+	it("flips the icon to saved immediately, before POST resolves", async () => {
+		// POST nigdy się nie rozwiązuje — udowadnia, że ikona zmienia stan optymistycznie
+		// (bez czekania na odpowiedź API) — #126.
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockImplementation((_url: string, opts?: RequestInit) => {
+				if (opts?.method === "POST") return new Promise(() => {});
+				return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: [] }) });
+			}),
+		);
+
+		render(<BookmarkButton postId="post-1" />, { wrapper: createWrapper() });
+
+		const button = await screen.findByRole("button", { name: /zapisz do biblioteki/i });
+		await userEvent.click(button);
+
+		// Natychmiast po kliknięciu ikona pokazuje stan zapisany (żółta, wypełniona).
+		const saved = await screen.findByRole("button", { name: /usuń z biblioteki/i });
+		expect(saved.getAttribute("aria-pressed")).toBe("true");
+		expect(saved.style.color).toBe("rgb(252, 199, 64)");
+		expect(saved.querySelector("svg")?.getAttribute("fill")).toBe("currentColor");
+	});
+
+	it("reverts the icon to unsaved when POST fails", async () => {
+		// POST odrzuca — po błędzie optymistyczny stan zapisany musi wrócić do niezapisanego (#126).
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockImplementation((_url: string, opts?: RequestInit) => {
+				if (opts?.method === "POST") return Promise.reject(new Error("network"));
+				return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: [] }) });
+			}),
+		);
+
+		render(<BookmarkButton postId="post-1" />, { wrapper: createWrapper() });
+
+		const button = await screen.findByRole("button", { name: /zapisz do biblioteki/i });
+		await userEvent.click(button);
+
+		// Po błędzie API ikona wraca do stanu niezapisanego (szara, pusta).
+		const reverted = await screen.findByRole("button", { name: /zapisz do biblioteki/i });
+		expect(reverted.getAttribute("aria-pressed")).toBe("false");
+		expect(reverted.querySelector("svg")?.getAttribute("fill")).not.toBe("currentColor");
+	});
+
+	it("flips the icon to unsaved immediately, before DELETE resolves", async () => {
+		// Symetrycznie: odpinanie też działa optymistycznie — DELETE nigdy się nie rozwiązuje.
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockImplementation((_url: string, opts?: RequestInit) => {
+				if (opts?.method === "DELETE") return new Promise(() => {});
+				return Promise.resolve({
+					ok: true,
+					json: () => Promise.resolve({ data: [{ id: "post-1" }] }),
+				});
+			}),
+		);
+
+		render(<BookmarkButton postId="post-1" />, { wrapper: createWrapper() });
+
+		const button = await screen.findByRole("button", { name: /usuń z biblioteki/i });
+		await userEvent.click(button);
+
+		// Natychmiast po kliknięciu ikona pokazuje stan niezapisany (szara, pusta).
+		const unsaved = await screen.findByRole("button", { name: /zapisz do biblioteki/i });
+		expect(unsaved.getAttribute("aria-pressed")).toBe("false");
+		expect(unsaved.style.color).toBe("");
+		expect(unsaved.querySelector("svg")?.getAttribute("fill")).not.toBe("currentColor");
+	});
+});

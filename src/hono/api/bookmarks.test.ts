@@ -15,6 +15,14 @@ vi.mock("@/db/posts/queries", () => ({
 	listPostsByIds: vi.fn(),
 }));
 
+vi.mock("@/db/comments", () => ({
+	countCommentsByPosts: vi.fn(),
+}));
+
+vi.mock("@/db/videos", () => ({
+	listVideosByPostIds: vi.fn(),
+}));
+
 vi.mock("@/db/bookmarks", async (importOriginal) => {
 	const actual = await importOriginal<typeof import("@/db/bookmarks")>();
 	return {
@@ -26,9 +34,11 @@ vi.mock("@/db/bookmarks", async (importOriginal) => {
 });
 
 import { createBookmark, deleteBookmark, listBookmarksForUser } from "@/db/bookmarks";
+import { countCommentsByPosts } from "@/db/comments";
 import { findActiveUserById } from "@/db/identity/queries";
 import { verifySessionCookie } from "@/db/identity/session";
 import { getPostById, listPostsByIds } from "@/db/posts/queries";
+import { listVideosByPostIds } from "@/db/videos";
 import bookmarksEndpoint from "./bookmarks";
 
 const mockVerify = vi.mocked(verifySessionCookie);
@@ -38,16 +48,18 @@ const mockListPostsByIds = vi.mocked(listPostsByIds);
 const mockCreateBookmark = vi.mocked(createBookmark);
 const mockDeleteBookmark = vi.mocked(deleteBookmark);
 const mockListBookmarks = vi.mocked(listBookmarksForUser);
+const mockCountComments = vi.mocked(countCommentsByPosts);
+const mockListVideos = vi.mocked(listVideosByPostIds);
 
 function createApi() {
 	const api = new Hono<{
-		Bindings: { SESSION_SECRET: string };
+		Bindings: { SESSION_SECRET: string; CLOUDFLARE_IMAGES_ACCOUNT_HASH: string };
 	}>().basePath("/api/app");
 	api.route("/bookmarks", bookmarksEndpoint);
 	return api;
 }
 
-const env = { SESSION_SECRET: "secret" };
+const env = { SESSION_SECRET: "secret", CLOUDFLARE_IMAGES_ACCOUNT_HASH: "hash-1" };
 
 function authedRequest(init?: RequestInit) {
 	return {
@@ -230,12 +242,33 @@ describe("GET /api/app/bookmarks", () => {
 		authedUser();
 	});
 
-	it("returns the logged-in user's saved posts, most recent first", async () => {
+	it("returns the logged-in user's saved posts enriched with commentCount + videos", async () => {
 		mockListBookmarks.mockResolvedValue([
 			{ id: "b2", userId: "u1", postId: "post-2", createdAt: now },
 			{ id: "b1", userId: "u1", postId: "post-1", createdAt: now },
 		]);
 		mockListPostsByIds.mockResolvedValue([samplePost]);
+		mockCountComments.mockResolvedValue(new Map([["post-1", 5]]));
+		mockListVideos.mockResolvedValue(
+			new Map([
+				[
+					"post-1",
+					[
+						{
+							id: "vid-1",
+							youtubeVideoId: "yt-1",
+							title: "Wakacje",
+							description: null,
+							authorId: "u1",
+							thumbnailUrl: "https://i.ytimg.com/vi/yt-1/default.jpg",
+							createdAt: now,
+							position: 0,
+							author: { id: "u1", name: "Tomek" },
+						},
+					],
+				],
+			]),
+		);
 
 		const api = createApi();
 		const res = await api.request("/api/app/bookmarks", authedRequest(), env);
@@ -243,8 +276,16 @@ describe("GET /api/app/bookmarks", () => {
 		expect(res.status).toBe(200);
 		// listPostsByIds wołane z postIds w kolejności zapisu (DESC).
 		expect(mockListPostsByIds).toHaveBeenCalledWith(["post-2", "post-1"]);
-		const json = (await res.json()) as { data: { id: string }[] };
+		const json = (await res.json()) as {
+			data: { id: string; commentCount: number; videos: { id: string }[] }[];
+			meta: { imageAccountHash: string };
+		};
 		expect(json.data).toHaveLength(1);
+		// PostCard w Bibliotece potrzebuje hasha konta do budowy URL-i zdjęć (#127).
+		expect(json.meta.imageAccountHash).toBe("hash-1");
+		// Enrichment jak w feedzie — żeby Biblioteka wyglądała identycznie (#127).
+		expect(json.data[0]?.commentCount).toBe(5);
+		expect(json.data[0]?.videos).toHaveLength(1);
 	});
 
 	it("returns an empty array when the user has no bookmarks", async () => {

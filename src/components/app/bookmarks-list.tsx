@@ -1,32 +1,37 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useQuery } from "@tanstack/react-query";
+import { Bookmark } from "lucide-react";
+import { PostCard, type PostCardPost } from "@/components/app/post-card";
 import { Spinner } from "@/components/ui/spinner";
 
 /** Współdzielony klucz zapytania o pełną listę zapisanych postów (strona Biblioteka). */
 export const BOOKMARKED_POSTS_KEY = ["bookmarks", "list"] as const;
 
-/** Kształt posta zwracany przez GET /api/app/bookmarks (daty po JSON = ISO string). */
-interface SavedPost {
-	id: string;
-	description: string | null;
-	createdAt: string;
-	author: { id: string; name: string };
+/** Odpowiedź GET /api/app/bookmarks — pełne posty + hash konta zdjęć. */
+interface BookmarksResponse {
+	data: PostCardPost[];
+	meta: { imageAccountHash: string };
 }
 
-/** Pobiera zapisane posty zalogowanego użytkownika (najnowsze pierwsze). */
-async function fetchBookmarkedPosts(): Promise<SavedPost[]> {
+/** Pobiera zapisane posty zalogowanego użytkownika (najnowsze pierwsze) z hashem konta zdjęć. */
+async function fetchBookmarkedPosts(): Promise<BookmarksResponse> {
 	const res = await fetch("/api/app/bookmarks");
 	if (!res.ok) throw new Error("Nie udało się pobrać zapisanych postów");
-	const json = (await res.json()) as { data: SavedPost[] };
-	return json.data;
+	return (await res.json()) as BookmarksResponse;
+}
+
+interface BookmarksListProps {
+	currentUserId: string;
+	currentUserRole: string;
 }
 
 /**
- * Lista zapisanych postów (Biblioteka). Sam pobiera dane z GET /api/app/bookmarks
- * i renderuje stany: ładowanie / pusta / lista. Każdy post linkuje do pełnego widoku.
+ * Lista zapisanych postów (Biblioteka). Renderuje te same PostCard co feed, dzięki czemu
+ * Biblioteka wygląda identycznie (reakcje, komentarze, zakładka). Hash konta zdjęć pochodzi
+ * z odpowiedzi API (meta), sesja z propsów — dla uprawnień PostActions w PostCard.
  */
-export function BookmarksList() {
-	const { data: posts, isPending } = useQuery({
+export function BookmarksList({ currentUserId, currentUserRole }: BookmarksListProps) {
+	const { data, isPending } = useQuery({
 		queryKey: BOOKMARKED_POSTS_KEY,
 		queryFn: fetchBookmarkedPosts,
 	});
@@ -42,26 +47,25 @@ export function BookmarksList() {
 		);
 	}
 
-	if (!posts || posts.length === 0) {
-		return <p className="py-12 text-center text-muted-foreground">Brak zapisanych postów</p>;
+	if (!data || data.data.length === 0) {
+		return (
+			<div className="flex flex-col items-center gap-3 py-16 text-center text-muted-foreground">
+				<Bookmark className="size-12" aria-hidden="true" />
+				<p>Nie masz jeszcze zapisanych postów. Kliknij 🔖 przy poście, aby go zapisać.</p>
+			</div>
+		);
 	}
 
 	return (
-		<div className="space-y-4">
-			{posts.map((post) => (
-				<a
+		<div className="space-y-6">
+			{data.data.map((post) => (
+				<PostCard
 					key={post.id}
-					href={`/app/post/${post.id}`}
-					className="block rounded-lg border border-border bg-card p-4 transition-colors hover:bg-accent"
-				>
-					<div className="mb-1 flex items-center gap-2">
-						<span className="font-semibold text-foreground">{post.author.name}</span>
-						<time className="text-sm text-muted-foreground" dateTime={post.createdAt}>
-							{new Date(post.createdAt).toLocaleDateString("pl-PL")}
-						</time>
-					</div>
-					{post.description && <p className="break-words text-foreground">{post.description}</p>}
-				</a>
+					post={post}
+					imageAccountHash={data.meta.imageAccountHash}
+					currentUserId={currentUserId}
+					currentUserRole={currentUserRole}
+				/>
 			))}
 		</div>
 	);

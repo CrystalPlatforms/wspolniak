@@ -7,10 +7,12 @@ export const Route = createFileRoute("/app/biblioteka")({
 });
 
 function BibliotekaPage() {
+	const { session } = Route.useRouteContext();
+
 	return (
 		<div className="max-w-2xl bg-background px-4 py-6 pb-28 sm:pb-6">
 			<h1 className="mb-6 text-2xl font-bold text-foreground">Biblioteka</h1>
-			<BookmarksList />
+			<BookmarksList currentUserId={session.userId} currentUserRole={session.role} />
 		</div>
 	);
 }

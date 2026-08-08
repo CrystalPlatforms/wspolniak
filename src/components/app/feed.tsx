@@ -1,48 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { ExternalLinkIcon, MessageCircleIcon, PinIcon, RotateCcwIcon } from "lucide-react";
-import { useState } from "react";
-import { BookmarkButton } from "@/components/app/bookmark-button";
-import { ImageLightbox } from "@/components/app/image-lightbox";
-import { MarkdownText } from "@/components/app/markdown-text";
-import { PostActions } from "@/components/app/post-actions";
-import { ReactionBar } from "@/components/app/reaction-bar";
-import { ReactionUsers } from "@/components/app/reaction-users";
+import { RotateCcwIcon } from "lucide-react";
+import { PostCard, type PostCardPost } from "@/components/app/post-card";
 import { Spinner } from "@/components/ui/spinner";
-import { VideoThumb } from "@/components/video/video-thumb";
-import { getImageUrl } from "@/images/client";
-
-const MAX_FEED_IMAGES = 2;
-
-interface FeedImage {
-	id: string;
-	postId: string;
-	cfImageId: string;
-	displayOrder: number;
-	createdAt: string;
-}
-
-interface FeedVideo {
-	id: string;
-	title: string;
-	thumbnailUrl: string;
-	position: number;
-}
-
-interface FeedPost {
-	id: string;
-	authorId: string;
-	description: string | null;
-	createdAt: string;
-	updatedAt: string;
-	author: { id: string; name: string };
-	images: FeedImage[];
-	videos?: FeedVideo[];
-	commentCount?: number;
-	pinned?: boolean;
-}
 
 interface FeedProps {
-	posts: FeedPost[];
+	posts: PostCardPost[];
 	imageAccountHash: string;
 	currentUserId: string;
 	currentUserRole: string;
@@ -60,20 +22,6 @@ export function Feed({
 	isFetchingNextPage,
 	onLoadMore,
 }: FeedProps) {
-	const [lightboxPostId, setLightboxPostId] = useState<string | null>(null);
-	const [lightboxIndex, setLightboxIndex] = useState(0);
-
-	const lightboxPost = posts.find((p) => p.id === lightboxPostId);
-	const lightboxImages = lightboxPost?.images.map((img) => ({
-		id: img.id,
-		src: getImageUrl({
-			accountHash: imageAccountHash,
-			cfImageId: img.cfImageId,
-			variant: "public",
-		}),
-		alt: `Zdjęcie ${img.displayOrder + 1}`,
-	}));
-
 	if (posts.length === 0) {
 		return (
 			<div className="py-12 text-center">
@@ -84,121 +32,15 @@ export function Feed({
 
 	return (
 		<div className="space-y-6">
-			{posts.map((post) => {
-				const visibleImages = post.images.slice(0, MAX_FEED_IMAGES);
-				const remaining = post.images.length - MAX_FEED_IMAGES;
-
-				return (
-					<article
-						key={post.id}
-						className={`relative rounded-lg border bg-card p-4 ${
-							post.pinned ? "border-2 border-primary" : "border-border"
-						}`}
-					>
-						{post.pinned && (
-							<span
-								role="img"
-								aria-label="Przypięty post"
-								className="absolute -top-2 -left-2 flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow"
-							>
-								<PinIcon className="size-4" />
-							</span>
-						)}
-						<div className="mb-2 flex items-center gap-2">
-							<span className="font-semibold text-foreground">{post.author.name}</span>
-							<time className="text-sm text-muted-foreground" dateTime={post.createdAt}>
-								{formatRelativeTime(post.createdAt)}
-							</time>
-							<div className="ml-auto flex items-center gap-1">
-								<BookmarkButton postId={post.id} />
-								<ReactionUsers target={{ kind: "post", postId: post.id }} />
-								{(post.authorId === currentUserId || currentUserRole === "admin") && (
-									<PostActions
-										postId={post.id}
-										description={post.description}
-										isAdmin={currentUserRole === "admin"}
-										pinned={post.pinned}
-									/>
-								)}
-							</div>
-						</div>
-
-						{post.description && (
-							<MarkdownText text={post.description} className="mb-3 break-words text-foreground" />
-						)}
-
-						{visibleImages.length > 0 && (
-							<div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-								{visibleImages.map((image, index) => {
-									const showOverlay = index === 1 && remaining > 0;
-									return (
-										<button
-											key={image.id}
-											type="button"
-											onClick={() => {
-												setLightboxPostId(post.id);
-												setLightboxIndex(index);
-											}}
-											className="relative overflow-hidden rounded-md"
-										>
-											<img
-												src={getImageUrl({
-													accountHash: imageAccountHash,
-													cfImageId: image.cfImageId,
-													variant: "thumbnail",
-												})}
-												alt={`Zdjęcie ${image.displayOrder + 1}`}
-												className="aspect-square w-full object-cover transition-transform hover:scale-105"
-												loading="lazy"
-											/>
-											{showOverlay && (
-												<span className="absolute inset-0 flex items-center justify-center bg-black/50 text-lg font-semibold text-white">
-													+{remaining} więcej
-												</span>
-											)}
-										</button>
-									);
-								})}
-							</div>
-						)}
-
-						{post.videos && post.videos.length > 0 && (
-							<div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-								{post.videos.map((video) => (
-									<VideoThumb
-										key={video.id}
-										id={video.id}
-										title={video.title}
-										thumbnailUrl={video.thumbnailUrl}
-									/>
-								))}
-							</div>
-						)}
-
-						<div className="mt-3 flex items-center justify-between">
-							<div className="flex items-center gap-1">
-								<a
-									href={`/app/post/${post.id}#comments`}
-									className="flex items-center gap-1.5 rounded-md px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground sm:gap-1 sm:px-2 sm:py-1"
-								>
-									<MessageCircleIcon className="size-6 sm:size-4" />
-									{post.commentCount ?? 0}
-								</a>
-								<ReactionBar target={{ kind: "post", postId: post.id }} />
-							</div>
-							<a
-								href={`/app/post/${post.id}`}
-								className="flex items-center gap-1.5 rounded-md px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground sm:gap-1 sm:px-2 sm:py-1"
-								aria-label="Otwórz pełny post"
-							>
-								<ExternalLinkIcon className="size-6 sm:size-4" />
-								<span className="sm:hidden">Otwórz</span>
-								<span className="hidden sm:inline">Otwórz pełny post</span>
-							</a>
-						</div>
-					</article>
-				);
-			})}
+			{posts.map((post) => (
+				<PostCard
+					key={post.id}
+					post={post}
+					imageAccountHash={imageAccountHash}
+					currentUserId={currentUserId}
+					currentUserRole={currentUserRole}
+				/>
+			))}
 
 			<div>
 				{isFetchingNextPage && (
@@ -222,33 +64,6 @@ export function Feed({
 					<p className="py-4 text-center text-muted-foreground">Koniec</p>
 				)}
 			</div>
-
-			{lightboxImages && lightboxImages.length > 0 && (
-				<ImageLightbox
-					images={lightboxImages}
-					initialIndex={lightboxIndex}
-					open={lightboxPostId !== null}
-					onClose={() => setLightboxPostId(null)}
-				/>
-			)}
 		</div>
 	);
-}
-
-function formatRelativeTime(isoDate: string): string {
-	const date = new Date(isoDate);
-	const now = new Date();
-	const diffMs = now.getTime() - date.getTime();
-	const diffMin = Math.floor(diffMs / 60_000);
-
-	if (diffMin < 1) return "przed chwilą";
-	if (diffMin < 60) return `${diffMin} min temu`;
-
-	const diffHours = Math.floor(diffMin / 60);
-	if (diffHours < 24) return `${diffHours} godz. temu`;
-
-	const diffDays = Math.floor(diffHours / 24);
-	if (diffDays < 7) return `${diffDays} dn. temu`;
-
-	return date.toLocaleDateString("pl-PL");
 }

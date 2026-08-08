@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { Link, useLocation } from "@tanstack/react-router";
 import {
+	Bookmark,
 	Calendar,
 	ChartNoAxesColumn,
 	Cog,
@@ -17,10 +18,12 @@ import { cn } from "@/lib/utils";
 
 interface NavItem {
 	to: string;
-	icon: React.ComponentType<{ className?: string }>;
+	icon: React.ComponentType<{ className?: string; fill?: string }>;
 	label: string;
 	exact?: boolean;
 	adminOnly?: boolean;
+	/** Wypełnij ikonę (fill) gdy pozycja jest aktywna — np. zakładka w Bibliotece. */
+	fillWhenActive?: boolean;
 }
 
 interface DesktopSidebarProps {
@@ -30,9 +33,16 @@ interface DesktopSidebarProps {
 
 const NAV_ITEMS: NavItem[] = [
 	{ to: "/app", icon: Home, label: "Feed", exact: true },
-	{ to: "/app/video", icon: Video, label: "Wideo" },
+	{ to: "/app/video", icon: Video, label: "Wideo", fillWhenActive: true },
+	{ to: "/app/biblioteka", icon: Bookmark, label: "Biblioteka", fillWhenActive: true },
 	{ to: "/app/admin", icon: SlidersHorizontal, label: "Admin", adminOnly: true },
-	{ to: "/app/calendar", icon: Calendar, label: "Kalendarz", adminOnly: true },
+	{
+		to: "/app/calendar",
+		icon: Calendar,
+		label: "Kalendarz",
+		adminOnly: true,
+		fillWhenActive: true,
+	},
 	{ to: "/app/stats", icon: ChartNoAxesColumn, label: "Statystyki", adminOnly: false },
 	{ to: "/app/settings", icon: Cog, label: "Ustawienia" },
 ];
@@ -75,7 +85,10 @@ export function DesktopSidebar({
 									: "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
 							)}
 						>
-							<Icon className="size-6 shrink-0" />
+							<Icon
+								className="size-6 shrink-0"
+								fill={isActive && item.fillWhenActive ? "currentColor" : "none"}
+							/>
 							<span>{item.label}</span>
 						</Link>
 					);

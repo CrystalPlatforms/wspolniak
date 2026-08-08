@@ -15,6 +15,33 @@ export type FeedPostData = PostWithAuthorAndImages & {
 	videos: PostVideo[];
 };
 
+/** Post z doklejonymi metadanymi (licznik komentarzy + wideo) — kształt wspólny dla feedu i Biblioteki. */
+export type EnrichedPost = PostWithAuthorAndImages & {
+	commentCount: number;
+	videos: PostVideo[];
+};
+
+/**
+ * Dokleja do postów liczniki komentarzy i wideo w jednym batchu (no waterfall).
+ * Współdzielone między feedem (`assembleFeedPage`) a Biblioteką, żeby PostCard
+ * renderował się identycznie w obu miejscach (#127).
+ */
+export async function enrichPosts(
+	posts: (PostWithAuthorAndImages & { pinned?: boolean })[],
+): Promise<EnrichedPost[]> {
+	if (posts.length === 0) return [];
+	const postIds = posts.map((p) => p.id);
+	const [commentCounts, videosByPost] = await Promise.all([
+		countCommentsByPosts(postIds),
+		listVideosByPostIds(postIds),
+	]);
+	return posts.map((p) => ({
+		...p,
+		commentCount: commentCounts.get(p.id) ?? 0,
+		videos: videosByPost.get(p.id) ?? [],
+	}));
+}
+
 export interface FeedPageData {
 	data: FeedPostData[];
 	meta: {
@@ -54,17 +81,7 @@ export async function assembleFeedPage(input: {
 		...result.posts,
 	];
 
-	const postIds = allPosts.map((p) => p.id);
-	// Batch równolegle: liczniki komentarzy + wideo przypięte do postów (no waterfall).
-	const [commentCounts, videosByPost] = await Promise.all([
-		countCommentsByPosts(postIds),
-		listVideosByPostIds(postIds),
-	]);
-	const postsWithComments = allPosts.map((p) => ({
-		...p,
-		commentCount: commentCounts.get(p.id) ?? 0,
-		videos: videosByPost.get(p.id) ?? [],
-	}));
+	const postsWithComments = await enrichPosts(allPosts);
 
 	return {
 		data: postsWithComments,

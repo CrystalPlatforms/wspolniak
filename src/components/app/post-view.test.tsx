@@ -85,4 +85,22 @@ describe("PostView", () => {
 
 		expect(screen.getByLabelText("Przypięty post")).toBeDefined();
 	});
+
+	it("renders a bookmark button in the header next to reactions", async () => {
+		const now = new Date().toISOString();
+		const post = {
+			id: "post-1",
+			authorId: "u1",
+			description: "Wakacje nad morzem",
+			createdAt: now,
+			updatedAt: now,
+			author: { id: "u1", name: "Tomek" },
+			images: [],
+		};
+
+		render(<PostView post={post} imageAccountHash="hash-1" />, { wrapper: createWrapper() });
+
+		// Przycisk zakładki w nagłówku posta (jak w feedzie) — #128.
+		expect(await screen.findByRole("button", { name: /zapisz do biblioteki/i })).toBeDefined();
+	});
 });

@@ -48,8 +48,29 @@ export function BookmarkButton({ postId }: BookmarkButtonProps) {
 
 	const mutation = useMutation({
 		mutationFn: (next: boolean) => setBookmarkState(postId, next),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: SAVED_POSTS_KEY });
+		onMutate: async (next: boolean) => {
+			// Optymistyczna aktualizacja: natychmiast dodaj/usuń ID z cache, by ikona
+			// zareagowała bez czekania na API (#126).
+			await queryClient.cancelQueries({ queryKey: SAVED_POSTS_KEY });
+			const previous = queryClient.getQueryData<Set<string>>(SAVED_POSTS_KEY);
+			queryClient.setQueryData<Set<string>>(SAVED_POSTS_KEY, (old) => {
+				const nextSet = new Set(old ?? []);
+				if (next) nextSet.add(postId);
+				else nextSet.delete(postId);
+				return nextSet;
+			});
+			return { previous };
+		},
+		onError: (_error, _next, context) => {
+			// Rollback do stanu sprzed kliknięcia, gdy API zawiedzie (#126).
+			if (context?.previous !== undefined) {
+				queryClient.setQueryData(SAVED_POSTS_KEY, context.previous);
+			}
+		},
+		onSettled: () => {
+			// Prefix ["bookmarks"] unieważnia i stan ikony (saved), i listę Biblioteki (list),
+			// by odpinany post znikał z listy po przełączeniu (#127).
+			queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
 		},
 	});
 
