@@ -1,3 +1,15 @@
+# [3.7.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.6.0...v3.7.0) (2026-08-08)
+
+
+### Bug Fixes
+
+* **dev:** obejście błędu HMR createStartHandler + wyłączona nakładka ([614b561](https://github.com/CrystalPlatforms/wspolniak/commit/614b5611de025f0be123f402e48932b88de3ea7f)), closes [TanStack/router#7285](https://github.com/TanStack/router/issues/7285)
+
+
+### Features
+
+* **bookmarks:** faza 2-3 biblioteki — optymistyczny zapis, wspólny PostCard, ikona w poście, menu i pusty stan ([#126](https://github.com/CrystalPlatforms/wspolniak/issues/126) [#127](https://github.com/CrystalPlatforms/wspolniak/issues/127) [#128](https://github.com/CrystalPlatforms/wspolniak/issues/128) [#129](https://github.com/CrystalPlatforms/wspolniak/issues/129) [#130](https://github.com/CrystalPlatforms/wspolniak/issues/130)) ([64eb789](https://github.com/CrystalPlatforms/wspolniak/commit/64eb789dab66a28f0006bf775cbb85d35b514542))
+
 # [3.6.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.5.0...v3.6.0) (2026-08-07)
 
 
