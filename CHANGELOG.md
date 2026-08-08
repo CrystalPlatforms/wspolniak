@@ -1,3 +1,10 @@
+# [3.9.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.8.0...v3.9.0) (2026-08-08)
+
+
+### Features
+
+* **bookmarks:** rebrand trasy /biblioteka → /lib ([#134](https://github.com/CrystalPlatforms/wspolniak/issues/134)) ([9d8396f](https://github.com/CrystalPlatforms/wspolniak/commit/9d8396fb83fb4c7a5bf55d21e9dcc5709a366113))
+
 # [3.8.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.7.0...v3.8.0) (2026-08-08)
 
 
