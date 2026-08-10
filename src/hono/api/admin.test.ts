@@ -594,7 +594,7 @@ describe("GET /api/admin/stats", () => {
 
 describe("GET /api/admin/features", () => {
 	it("returns current feature flags", async () => {
-		mockGetFeatureFlags.mockResolvedValue({ video: true, markdown: false });
+		mockGetFeatureFlags.mockResolvedValue({ video: true, markdown: false, library: true });
 
 		const api = createApi();
 		const res = await api.request(
@@ -604,14 +604,16 @@ describe("GET /api/admin/features", () => {
 		);
 
 		expect(res.status).toBe(200);
-		const body = (await res.json()) as { data: { video: boolean; markdown: boolean } };
-		expect(body.data).toEqual({ video: true, markdown: false });
+		const body = (await res.json()) as {
+			data: { video: boolean; markdown: boolean; library: boolean };
+		};
+		expect(body.data).toEqual({ video: true, markdown: false, library: true });
 	});
 });
 
 describe("PUT /api/admin/features", () => {
 	it("updates both flags and returns the new state", async () => {
-		mockGetFeatureFlags.mockResolvedValue({ video: false, markdown: false });
+		mockGetFeatureFlags.mockResolvedValue({ video: false, markdown: false, library: false });
 
 		const api = createApi();
 		const res = await api.request(
@@ -619,17 +621,21 @@ describe("PUT /api/admin/features", () => {
 			{
 				method: "PUT",
 				headers: { ...adminHeaders(), "Content-Type": "application/json" },
-				body: JSON.stringify({ video: false, markdown: false }),
+				body: JSON.stringify({ video: false, markdown: false, library: false }),
 			},
 			{ SESSION_SECRET: "secret" },
 		);
 
 		expect(res.status).toBe(200);
-		expect(mockUpdateFeatureFlags).toHaveBeenCalledWith({ video: false, markdown: false });
+		expect(mockUpdateFeatureFlags).toHaveBeenCalledWith({
+			video: false,
+			markdown: false,
+			library: false,
+		});
 	});
 
 	it("forwards a partial update (only video)", async () => {
-		mockGetFeatureFlags.mockResolvedValue({ video: false, markdown: true });
+		mockGetFeatureFlags.mockResolvedValue({ video: false, markdown: true, library: true });
 
 		const api = createApi();
 		const res = await api.request(
@@ -670,6 +676,22 @@ describe("PUT /api/admin/features", () => {
 				method: "PUT",
 				headers: { ...adminHeaders(), "Content-Type": "application/json" },
 				body: JSON.stringify({ markdown: 1 }),
+			},
+			{ SESSION_SECRET: "secret" },
+		);
+
+		expect(res.status).toBe(400);
+		expect(mockUpdateFeatureFlags).not.toHaveBeenCalled();
+	});
+
+	it("rejects non-boolean library", async () => {
+		const api = createApi();
+		const res = await api.request(
+			"/api/admin/features",
+			{
+				method: "PUT",
+				headers: { ...adminHeaders(), "Content-Type": "application/json" },
+				body: JSON.stringify({ library: "yes" }),
 			},
 			{ SESSION_SECRET: "secret" },
 		);

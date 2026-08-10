@@ -151,31 +151,35 @@ describe("feature flags", () => {
 	}
 
 	it("returns both features enabled when columns are true", async () => {
-		mockSelectRow({ videoEnabled: true, markdownEnabled: true });
+		mockSelectRow({ videoEnabled: true, markdownEnabled: true, libraryEnabled: true });
 
 		const flags = await getFeatureFlags();
 
-		expect(flags).toEqual({ video: true, markdown: true });
+		expect(flags).toEqual({ video: true, markdown: true, library: true });
 	});
 
 	it("returns a disabled flag when its column is false", async () => {
-		mockSelectRow({ videoEnabled: false, markdownEnabled: true });
+		mockSelectRow({ videoEnabled: false, markdownEnabled: true, libraryEnabled: true });
 
 		const flags = await getFeatureFlags();
 
-		expect(flags).toEqual({ video: false, markdown: true });
+		expect(flags).toEqual({ video: false, markdown: true, library: true });
 	});
 
 	it("defaults to enabled when columns are null (no opinion stored yet)", async () => {
-		mockSelectRow({ videoEnabled: null, markdownEnabled: null });
+		mockSelectRow({ videoEnabled: null, markdownEnabled: null, libraryEnabled: null });
 
 		const flags = await getFeatureFlags();
 
-		expect(flags).toEqual({ video: true, markdown: true });
+		expect(flags).toEqual({ video: true, markdown: true, library: true });
 	});
 
 	it("serves cached flags on second call without hitting DB again", async () => {
-		const { select } = mockSelectRow({ videoEnabled: true, markdownEnabled: true });
+		const { select } = mockSelectRow({
+			videoEnabled: true,
+			markdownEnabled: true,
+			libraryEnabled: true,
+		});
 
 		await getFeatureFlags();
 		await getFeatureFlags();
@@ -184,7 +188,11 @@ describe("feature flags", () => {
 	});
 
 	it("re-reads DB after the cache is invalidated", async () => {
-		const { select } = mockSelectRow({ videoEnabled: false, markdownEnabled: true });
+		const { select } = mockSelectRow({
+			videoEnabled: false,
+			markdownEnabled: true,
+			libraryEnabled: true,
+		});
 
 		await getFeatureFlags();
 		invalidateFeatureFlagsCache();
@@ -211,9 +219,13 @@ describe("updateFeatureFlags", () => {
 	it("persists both flags when provided", async () => {
 		const { set } = mockUpdateById("inst-1");
 
-		await updateFeatureFlags({ video: false, markdown: false });
+		await updateFeatureFlags({ video: false, markdown: false, library: false });
 
-		expect(set).toHaveBeenCalledWith({ videoEnabled: false, markdownEnabled: false });
+		expect(set).toHaveBeenCalledWith({
+			videoEnabled: false,
+			markdownEnabled: false,
+			libraryEnabled: false,
+		});
 	});
 
 	it("persists only provided fields and ignores undefined", async () => {
@@ -238,6 +250,7 @@ describe("updateFeatureFlags", () => {
 			id: "inst-1",
 			videoEnabled: true,
 			markdownEnabled: true,
+			libraryEnabled: true,
 		};
 		const limit = vi.fn().mockImplementation(() => Promise.resolve([dbRow]));
 		const from = vi.fn().mockReturnValue({ limit });
@@ -250,7 +263,7 @@ describe("updateFeatureFlags", () => {
 		const first = await getFeatureFlags();
 		expect(first.video).toBe(true);
 
-		dbRow = { id: "inst-1", videoEnabled: false, markdownEnabled: true }; // persisted change
+		dbRow = { id: "inst-1", videoEnabled: false, markdownEnabled: true, libraryEnabled: true }; // persisted change
 		await updateFeatureFlags({ video: false }); // invalidates cache
 
 		const second = await getFeatureFlags();

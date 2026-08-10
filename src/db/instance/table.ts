@@ -15,6 +15,7 @@ export const instanceConfig = pgTable("instance_config", {
 	// instances keep current behaviour once the columns are added.
 	videoEnabled: boolean("video_enabled").notNull().default(true),
 	markdownEnabled: boolean("markdown_enabled").notNull().default(true),
+	libraryEnabled: boolean("library_enabled").notNull().default(true),
 	// YouTube connection (Wspólniak Wideo). refresh token is an encrypted blob;
 	// decryption lives in the `youtube` module, never in this domain.
 	youtubeChannelId: text("youtube_channel_id"),

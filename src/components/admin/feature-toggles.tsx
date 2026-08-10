@@ -7,16 +7,17 @@ import type { FeatureFlags } from "@/db/instance";
 interface FeatureTogglesProps {
 	flags?: FeatureFlags;
 	isSaving: boolean;
-	onChange: (input: { video?: boolean; markdown?: boolean }) => void;
+	onChange: (input: { video?: boolean; markdown?: boolean; library?: boolean }) => void;
 }
 
 /**
- * Sekcja „Funkcje" w panelu admina — master switch dla Wideo i Edytora.
+ * Sekcja „Funkcje" w panelu admina — master switch dla Wideo, Edytora i Biblioteki.
  * Stan jest trzymany w `instance_config`; zmiana natychmiast wysyła PUT.
  */
 export function FeatureToggles({ flags, isSaving, onChange }: FeatureTogglesProps) {
 	const video = flags?.video ?? true;
 	const markdown = flags?.markdown ?? true;
+	const library = flags?.library ?? true;
 
 	return (
 		<div className="rounded-lg border border-border bg-card p-4">
@@ -38,6 +39,13 @@ export function FeatureToggles({ flags, isSaving, onChange }: FeatureTogglesProp
 					checked={markdown}
 					disabled={isSaving}
 					onCheckedChange={(v) => onChange({ markdown: v })}
+				/>
+				<ToggleRow
+					label="Biblioteka"
+					description="Zapisywanie postów do Biblioteki i strona /lib."
+					checked={library}
+					disabled={isSaving}
+					onCheckedChange={(v) => onChange({ library: v })}
 				/>
 			</div>
 		</div>

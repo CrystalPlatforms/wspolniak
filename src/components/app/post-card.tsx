@@ -45,6 +45,7 @@ interface PostCardProps {
 	imageAccountHash: string;
 	currentUserId: string;
 	currentUserRole: string;
+	libraryEnabled?: boolean;
 }
 
 /**
@@ -56,6 +57,7 @@ export function PostCard({
 	imageAccountHash,
 	currentUserId,
 	currentUserRole,
+	libraryEnabled = true,
 }: PostCardProps) {
 	const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
@@ -94,7 +96,7 @@ export function PostCard({
 					{formatRelativeTime(post.createdAt)}
 				</time>
 				<div className="ml-auto flex items-center gap-1">
-					<BookmarkButton postId={post.id} />
+					{libraryEnabled && <BookmarkButton postId={post.id} />}
 					<ReactionUsers target={{ kind: "post", postId: post.id }} />
 					{canManage && (
 						<PostActions

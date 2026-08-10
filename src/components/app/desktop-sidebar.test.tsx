@@ -23,7 +23,7 @@ function setPathname(pathname: string) {
 describe("DesktopSidebar — Wideo feature flag", () => {
 	it("renders Wideo nav link and Dodaj wideo button when video enabled", () => {
 		setPathname("/app");
-		render(<DesktopSidebar featureFlags={{ video: true, markdown: true }} />);
+		render(<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true }} />);
 
 		expect(screen.queryByRole("link", { name: /^wideo$/i })).not.toBeNull();
 		expect(screen.queryByRole("link", { name: /dodaj wideo/i })).not.toBeNull();
@@ -31,7 +31,7 @@ describe("DesktopSidebar — Wideo feature flag", () => {
 
 	it("hides Wideo nav link and Dodaj wideo button when video disabled", () => {
 		setPathname("/app");
-		render(<DesktopSidebar featureFlags={{ video: false, markdown: true }} />);
+		render(<DesktopSidebar featureFlags={{ video: false, markdown: true, library: true }} />);
 
 		expect(screen.queryByRole("link", { name: /^wideo$/i })).toBeNull();
 		expect(screen.queryByRole("link", { name: /dodaj wideo/i })).toBeNull();
@@ -41,7 +41,7 @@ describe("DesktopSidebar — Wideo feature flag", () => {
 describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 	it("renders a Biblioteka nav link to /app/lib", () => {
 		setPathname("/app");
-		render(<DesktopSidebar featureFlags={{ video: true, markdown: true }} />);
+		render(<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true }} />);
 
 		const link = screen.getByRole("link", { name: /^biblioteka$/i });
 		expect(link.getAttribute("href")).toBe("/app/lib");
@@ -49,7 +49,7 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 
 	it("highlights the Biblioteka link when on /app/lib", () => {
 		setPathname("/app/lib");
-		render(<DesktopSidebar featureFlags={{ video: true, markdown: true }} />);
+		render(<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true }} />);
 
 		const link = screen.getByRole("link", { name: /^biblioteka$/i });
 		expect(link.getAttribute("class")).toContain("font-bold");
@@ -57,7 +57,7 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 
 	it("fills the bookmark icon white when Biblioteka is active", () => {
 		setPathname("/app/lib");
-		render(<DesktopSidebar featureFlags={{ video: true, markdown: true }} />);
+		render(<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true }} />);
 
 		const link = screen.getByRole("link", { name: /^biblioteka$/i });
 		// currentColor = aktywny kolor tekstu (biały w trybie ciemnym) — wypełniona zakładka.
@@ -66,7 +66,7 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 
 	it("leaves the bookmark icon unfilled when Biblioteka is not active", () => {
 		setPathname("/app");
-		render(<DesktopSidebar featureFlags={{ video: true, markdown: true }} />);
+		render(<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true }} />);
 
 		const link = screen.getByRole("link", { name: /^biblioteka$/i });
 		expect(link.querySelector("svg")?.getAttribute("fill")).toBe("none");
@@ -74,7 +74,7 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 
 	it("fills the Wideo icon when active", () => {
 		setPathname("/app/video");
-		render(<DesktopSidebar featureFlags={{ video: true, markdown: true }} />);
+		render(<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true }} />);
 
 		const link = screen.getByRole("link", { name: /^wideo$/i });
 		expect(link.querySelector("svg")?.getAttribute("fill")).toBe("currentColor");
@@ -85,16 +85,21 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 		// „admin" przez zmienną — biome traktuje statyczny role="admin" jako niepoprawną rolę ARIA
 		// i usuwa atrybut; DesktopSidebar.role to rola użytkownika, nie ARIA.
 		const adminRole = "admin";
-		render(<DesktopSidebar role={adminRole} featureFlags={{ video: true, markdown: true }} />);
+		render(
+			<DesktopSidebar
+				role={adminRole}
+				featureFlags={{ video: true, markdown: true, library: true }}
+			/>,
+		);
 
 		const link = screen.getByRole("link", { name: /^kalendarz$/i });
 		expect(link.querySelector("svg")?.getAttribute("fill")).toBe("currentColor");
 	});
 
-	it("shows the Biblioteka link regardless of feature flags (no flag gating)", () => {
+	it("hides the Biblioteka nav link when library disabled", () => {
 		setPathname("/app");
-		render(<DesktopSidebar featureFlags={{ video: false, markdown: false }} />);
+		render(<DesktopSidebar featureFlags={{ video: true, markdown: true, library: false }} />);
 
-		expect(screen.queryByRole("link", { name: /^biblioteka$/i })).not.toBeNull();
+		expect(screen.queryByRole("link", { name: /^biblioteka$/i })).toBeNull();
 	});
 });

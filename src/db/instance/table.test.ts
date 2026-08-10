@@ -23,6 +23,7 @@ describe("instance_config table", () => {
 				"maintenanceIcon",
 				"videoEnabled",
 				"markdownEnabled",
+				"libraryEnabled",
 				"youtubeChannelId",
 				"youtubeChannelTitle",
 				"youtubeRefreshToken",
@@ -84,6 +85,12 @@ describe("instance_config table", () => {
 		expect(columns.markdownEnabled.dataType).toBe("boolean");
 		expect(columns.markdownEnabled.notNull).toBe(true);
 		expect(columns.markdownEnabled.hasDefault).toBe(true);
+	});
+
+	it("library_enabled is boolean not null with default true", () => {
+		expect(columns.libraryEnabled.dataType).toBe("boolean");
+		expect(columns.libraryEnabled.notNull).toBe(true);
+		expect(columns.libraryEnabled.hasDefault).toBe(true);
 	});
 
 	it("created_at is timestamp not null with default", () => {

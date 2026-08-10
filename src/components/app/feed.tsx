@@ -8,6 +8,7 @@ interface FeedProps {
 	imageAccountHash: string;
 	currentUserId: string;
 	currentUserRole: string;
+	libraryEnabled?: boolean;
 	hasNextPage?: boolean;
 	isFetchingNextPage?: boolean;
 	onLoadMore?: () => void;
@@ -18,6 +19,7 @@ export function Feed({
 	imageAccountHash,
 	currentUserId,
 	currentUserRole,
+	libraryEnabled = true,
 	hasNextPage,
 	isFetchingNextPage,
 	onLoadMore,
@@ -39,6 +41,7 @@ export function Feed({
 					imageAccountHash={imageAccountHash}
 					currentUserId={currentUserId}
 					currentUserRole={currentUserRole}
+					libraryEnabled={libraryEnabled}
 				/>
 			))}
 

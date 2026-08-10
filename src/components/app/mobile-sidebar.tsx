@@ -57,10 +57,12 @@ export function MobileSidebar({ role, featureFlags = DEFAULT_FEATURE_FLAGS }: Mo
 	const [open, setOpen] = useState(false);
 	const { pathname } = useLocation();
 	const { resolvedTheme } = useTheme();
-	const items = NAV_ITEMS.filter(
-		(item) =>
-			(!item.adminOnly || role === "admin") && (featureFlags.video || item.to !== "/app/video"),
-	);
+	const items = NAV_ITEMS.filter((item) => {
+		if (item.adminOnly && role !== "admin") return false;
+		if (item.to === "/app/video" && !featureFlags.video) return false;
+		if (item.to === "/app/lib" && !featureFlags.library) return false;
+		return true;
+	});
 	const logoSrc =
 		resolvedTheme === "dark" ? "/logo/WspolniakLogoTrans.png" : "/logo/WspolniakLogoTransLIGHT.png";
 

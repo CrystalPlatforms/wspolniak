@@ -36,7 +36,7 @@ export const Route = createFileRoute("/app/post/$id")({
 
 function PostPage() {
 	const { id } = Route.useParams();
-	const { session } = Route.useRouteContext();
+	const { session, featureFlags } = Route.useRouteContext();
 	const navigate = useNavigate();
 	const isDesktop = useIsDesktop();
 	const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -103,6 +103,7 @@ function PostPage() {
 								currentUserRole={session.role}
 								onDeleted={() => navigate({ to: "/app" })}
 								onLightboxChange={setLightboxOpen}
+								libraryEnabled={featureFlags.library}
 							/>
 						</div>
 						<div style={{ flex: "2", minWidth: 0 }}>{commentSection}</div>
@@ -119,6 +120,7 @@ function PostPage() {
 						currentUserRole={session.role}
 						onDeleted={() => navigate({ to: "/app" })}
 						onLightboxChange={setLightboxOpen}
+						libraryEnabled={featureFlags.library}
 					/>
 				</div>
 			)}

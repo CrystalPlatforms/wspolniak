@@ -174,13 +174,15 @@ function AdminPage() {
 		queryFn: async () => {
 			const res = await fetch("/api/admin/features");
 			if (!res.ok) throw new Error("Nie udało się pobrać ustawień funkcji");
-			const json = (await res.json()) as { data: { video: boolean; markdown: boolean } };
+			const json = (await res.json()) as {
+				data: { video: boolean; markdown: boolean; library: boolean };
+			};
 			return json.data;
 		},
 	});
 
 	const featuresMutation = useMutation({
-		mutationFn: async (input: { video?: boolean; markdown?: boolean }) => {
+		mutationFn: async (input: { video?: boolean; markdown?: boolean; library?: boolean }) => {
 			const res = await fetch("/api/admin/features", {
 				method: "PUT",
 				headers: { "Content-Type": "application/json" },

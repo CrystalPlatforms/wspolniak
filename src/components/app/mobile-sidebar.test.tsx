@@ -29,7 +29,7 @@ async function openMenu() {
 describe("MobileSidebar — Biblioteka nav link (#129)", () => {
 	it("renders a Biblioteka nav link to /app/lib", async () => {
 		setPathname("/app");
-		render(<MobileSidebar featureFlags={{ video: true, markdown: true }} />);
+		render(<MobileSidebar featureFlags={{ video: true, markdown: true, library: true }} />);
 		await openMenu();
 
 		const link = screen.getByRole("link", { name: /^biblioteka$/i });
@@ -38,7 +38,7 @@ describe("MobileSidebar — Biblioteka nav link (#129)", () => {
 
 	it("highlights the Biblioteka link when on /app/lib", async () => {
 		setPathname("/app/lib");
-		render(<MobileSidebar featureFlags={{ video: true, markdown: true }} />);
+		render(<MobileSidebar featureFlags={{ video: true, markdown: true, library: true }} />);
 		await openMenu();
 
 		const link = screen.getByRole("link", { name: /^biblioteka$/i });
@@ -47,18 +47,18 @@ describe("MobileSidebar — Biblioteka nav link (#129)", () => {
 
 	it("fills the bookmark icon white when Biblioteka is active", async () => {
 		setPathname("/app/lib");
-		render(<MobileSidebar featureFlags={{ video: true, markdown: true }} />);
+		render(<MobileSidebar featureFlags={{ video: true, markdown: true, library: true }} />);
 		await openMenu();
 
 		const link = screen.getByRole("link", { name: /^biblioteka$/i });
 		expect(link.querySelector("svg")?.getAttribute("fill")).toBe("currentColor");
 	});
 
-	it("shows the Biblioteka link regardless of feature flags (no flag gating)", async () => {
+	it("hides the Biblioteka nav link when library disabled", async () => {
 		setPathname("/app");
-		render(<MobileSidebar featureFlags={{ video: false, markdown: false }} />);
+		render(<MobileSidebar featureFlags={{ video: true, markdown: true, library: false }} />);
 		await openMenu();
 
-		expect(screen.queryByRole("link", { name: /^biblioteka$/i })).not.toBeNull();
+		expect(screen.queryByRole("link", { name: /^biblioteka$/i })).toBeNull();
 	});
 });

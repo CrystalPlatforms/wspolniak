@@ -47,6 +47,7 @@ interface PostViewProps {
 	currentUserRole?: string;
 	onDeleted?: () => void;
 	onLightboxChange?: (open: boolean) => void;
+	libraryEnabled?: boolean;
 }
 
 export function PostView({
@@ -56,6 +57,7 @@ export function PostView({
 	currentUserRole,
 	onDeleted,
 	onLightboxChange,
+	libraryEnabled = true,
 }: PostViewProps) {
 	const canManage = currentUserId === post.authorId || currentUserRole === "admin";
 
@@ -102,7 +104,7 @@ export function PostView({
 					})}
 				</time>
 				<div className="ml-auto flex items-center gap-1">
-					<BookmarkButton postId={post.id} />
+					{libraryEnabled && <BookmarkButton postId={post.id} />}
 					<ReactionUsers target={{ kind: "post", postId: post.id }} />
 					{canManage && (
 						<PostActions

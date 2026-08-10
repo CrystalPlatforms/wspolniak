@@ -31,7 +31,7 @@ export const Route = createFileRoute("/app/")({
 });
 
 function FeedScreen() {
-	const { session } = Route.useRouteContext();
+	const { session, featureFlags } = Route.useRouteContext();
 	const { data, hasNextPage, isFetchingNextPage, fetchNextPage, refetch } =
 		useInfiniteQuery(feedOptions);
 
@@ -51,6 +51,7 @@ function FeedScreen() {
 					imageAccountHash={imageAccountHash}
 					currentUserId={session.userId}
 					currentUserRole={session.role}
+					libraryEnabled={featureFlags.library}
 					hasNextPage={hasNextPage}
 					isFetchingNextPage={isFetchingNextPage}
 					onLoadMore={() => fetchNextPage()}

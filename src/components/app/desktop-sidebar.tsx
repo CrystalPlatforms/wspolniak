@@ -54,9 +54,11 @@ export function DesktopSidebar({
 	const location = useLocation();
 	const { resolvedTheme } = useTheme();
 
-	const items = featureFlags.video
-		? NAV_ITEMS
-		: NAV_ITEMS.filter((item) => item.to !== "/app/video");
+	const items = NAV_ITEMS.filter((item) => {
+		if (item.to === "/app/video" && !featureFlags.video) return false;
+		if (item.to === "/app/lib" && !featureFlags.library) return false;
+		return true;
+	});
 
 	const logoSrc =
 		resolvedTheme === "dark" ? "/logo/WspolniakLogoTrans.png" : "/logo/WspolniakLogoTransLIGHT.png";
