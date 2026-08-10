@@ -1,3 +1,10 @@
+# [3.10.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.9.1...v3.10.0) (2026-08-10)
+
+
+### Features
+
+* **bookmarks:** przełącznik on/off Biblioteki ([8bd895b](https://github.com/CrystalPlatforms/wspolniak/commit/8bd895bba0a701d258cc4a1cd9281a4d569006e8))
+
 ## [3.9.1](https://github.com/CrystalPlatforms/wspolniak/compare/v3.9.0...v3.9.1) (2026-08-10)
 
 # [3.9.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.8.0...v3.9.0) (2026-08-08)
