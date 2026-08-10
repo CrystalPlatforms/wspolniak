@@ -8,7 +8,7 @@ import { assembleFeedPage } from "@/core/feed";
  * Wykorzystywane przez loader routy feedu (preload do HTML) oraz przez fetchNextPage na kliencie.
  */
 export const getFeedPage = createServerFn({ method: "GET" })
-	.inputValidator(
+	.validator(
 		z.object({
 			cursor: z.object({ createdAt: z.string(), id: z.string() }).optional(),
 		}),

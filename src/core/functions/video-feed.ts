@@ -12,7 +12,7 @@ const VIDEO_PAGE_SIZE = 12;
  * fetchNextPage na kliencie. Daty serializują się do ISO (string) przez RPC.
  */
 export const getVideoFeedPage = createServerFn({ method: "GET" })
-	.inputValidator(
+	.validator(
 		z.object({
 			cursor: z.object({ createdAt: z.string(), id: z.string() }).optional(),
 		}),
