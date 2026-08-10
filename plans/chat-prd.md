@@ -14,8 +14,8 @@ Rodzina komunikuje się przez różne komunikatory (np. WhatsApp), ale nie wszys
 
 ## Users
 
-| User type | Opis | Szacunkowa liczba |
-|-----------|------|-------------------|
+| User type       | Opis                                                                    | Szacunkowa liczba             |
+| --------------- | ----------------------------------------------------------------------- | ----------------------------- |
 | Członek rodziny | Każdy zalogowany użytkownik Wspólniaka, mixed tech skills, mobile-first | Wszyscy użytkownicy aplikacji |
 
 ---
@@ -120,20 +120,21 @@ Punkt odniesienia: **Telegram na iOS**. Wszystkie animacje muszą być płynne, 
 
 ### Stack kontekst
 
-| Warstwa | Technologia |
-|---------|-------------|
-| Framework | TanStack Start (SSR + Router + Query) |
-| API | Hono na Cloudflare Workers |
+| Warstwa     | Technologia                                              |
+| ----------- | -------------------------------------------------------- |
+| Framework   | TanStack Start (SSR + Router + Query)                    |
+| API         | Hono na Cloudflare Workers                               |
 | Baza danych | Neon PostgreSQL (serverless, `@neondatabase/serverless`) |
-| ORM | Drizzle ORM |
-| Push | Web Push VAPID (istniejący system) |
-| Styling | Tailwind CSS v4 + shadcn/ui + tw-animate-css |
-| Build | Vite + pnpm |
-| Linting | Biome |
+| ORM         | Drizzle ORM                                              |
+| Push        | Web Push VAPID (istniejący system)                       |
+| Styling     | Tailwind CSS v4 + shadcn/ui + tw-animate-css             |
+| Build       | Vite + pnpm                                              |
+| Linting     | Biome                                                    |
 
 ### Schemat bazy danych (Neon PostgreSQL + Drizzle)
 
 **Tabela `chat_messages`:**
+
 ```
 id           uuid         PK, default gen_random_uuid()
 author_id    uuid         FK → users.id
@@ -145,6 +146,7 @@ expires_at   timestamptz  default now() + interval '24 hours'
 ```
 
 **Tabela `chat_reactions`:**
+
 ```
 id           uuid         PK
 message_id   uuid         FK → chat_messages.id ON DELETE CASCADE
@@ -168,6 +170,7 @@ GET  /api/chat/ws                      — WebSocket endpoint (Durable Object)
 Wiadomości dostarczane bez odświeżania strony przez **Cloudflare Durable Objects**.
 
 Architektura:
+
 - Jeden DO (`ChatRoom`) trzyma aktywne WebSocket connections wszystkich podłączonych klientów
 - Klient łączy się przez `GET /api/chat/ws` → Worker przekierowuje do DO
 - DO rozsyła wiadomości do wszystkich połączonych klientów (broadcast)
@@ -183,17 +186,20 @@ Typing indicator: klient wysyła zdarzenie `{ type: "typing" }` przez WebSocket 
 ### Nawigacja
 
 **Mobile:**
+
 - Hamburger (lewy górny róg) → slide-out drawer z lewej
 - Drawer zawiera wszystkie sekcje: Home, Chat, Kalendarz, Albumy, Profil itd.
 - Nagłówek główny ekranu: "Witamy!"
 - Animacja drawera: slide-in z lewej, ~250ms ease-out (patrz UX & Animacje)
 
 **Desktop:**
+
 - Istniejący sidebar (TanStack Router layout) — dodać pozycję "Chat"
 
 ### Wygasanie wiadomości
 
 Brak natywnych Cron Triggers w obecnym `wrangler.jsonc`. Opcje:
+
 1. **Dodać Cron Trigger do wrangler.jsonc** — Worker odpala się co godzinę i usuwa z Neon rekordy gdzie `expires_at < now()`
 2. **Lazy delete** — przy każdym `GET /api/chat/messages` usuwaj wygasłe wiadomości przed zwróceniem wyniku
 
@@ -207,20 +213,20 @@ Podpiąć pod istniejący system Web Push VAPID — wysyłać przy nowej wiadomo
 
 ## Implementation Decisions
 
-| Decyzja | Wybór | Uzasadnienie |
-|---------|-------|-------------|
-| Zakres chatu | Jeden globalny | Prostota; rodzina jest jedną jednostką |
-| Trwałość wiadomości | 24h rolling, per wiadomość | Efemeryczność odróżnia chat od feedu; brak wyjątków upraszcza logikę |
-| Reakcje | Ten sam zestaw co feed, bez liczników | Spójność UX; czytelniejszy wygląd |
-| Wysyłanie | Optimistic UI + pasek postępu | Natychmiastowe odczucie; pasek informuje o stanie wysyłki |
-| Animacja nowej wiadomości | Slide-in z dołu jak Telegram | Naturalny ruch zgodny z oczekiwaniami użytkownika |
-| Animacja reakcji | Pop/bounce przy kliknięciu | Satysfakcjonujące, natywne odczucie |
-| Edycja / usuwanie | Nie | Prostota; wiadomości i tak znikają po 24h |
-| Read receipts | Nie | Redukuje presję społeczną; prostota implementacji |
-| Badge nieprzeczytanych | Nie | Redukuje anxiety; chat jest efemeryczny z natury |
-| Wygasanie | Cron Trigger (rekomendacja) | Nie blokuje ścieżki odczytu |
-| Real-time transport | Cloudflare Durable Objects + WebSocket | Natywne narzędzie CF do persistent connections; DO rozsyła do wszystkich klientów; jedyna opcja bez timeoutów Workers |
-| Jakość animacji | Telegram na iOS | Punkt odniesienia dla płynności i dopracowania |
+| Decyzja                   | Wybór                                  | Uzasadnienie                                                                                                          |
+| ------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| Zakres chatu              | Jeden globalny                         | Prostota; rodzina jest jedną jednostką                                                                                |
+| Trwałość wiadomości       | 24h rolling, per wiadomość             | Efemeryczność odróżnia chat od feedu; brak wyjątków upraszcza logikę                                                  |
+| Reakcje                   | Ten sam zestaw co feed, bez liczników  | Spójność UX; czytelniejszy wygląd                                                                                     |
+| Wysyłanie                 | Optimistic UI + pasek postępu          | Natychmiastowe odczucie; pasek informuje o stanie wysyłki                                                             |
+| Animacja nowej wiadomości | Slide-in z dołu jak Telegram           | Naturalny ruch zgodny z oczekiwaniami użytkownika                                                                     |
+| Animacja reakcji          | Pop/bounce przy kliknięciu             | Satysfakcjonujące, natywne odczucie                                                                                   |
+| Edycja / usuwanie         | Nie                                    | Prostota; wiadomości i tak znikają po 24h                                                                             |
+| Read receipts             | Nie                                    | Redukuje presję społeczną; prostota implementacji                                                                     |
+| Badge nieprzeczytanych    | Nie                                    | Redukuje anxiety; chat jest efemeryczny z natury                                                                      |
+| Wygasanie                 | Cron Trigger (rekomendacja)            | Nie blokuje ścieżki odczytu                                                                                           |
+| Real-time transport       | Cloudflare Durable Objects + WebSocket | Natywne narzędzie CF do persistent connections; DO rozsyła do wszystkich klientów; jedyna opcja bez timeoutów Workers |
+| Jakość animacji           | Telegram na iOS                        | Punkt odniesienia dla płynności i dopracowania                                                                        |
 
 ---
 
