@@ -1,3 +1,5 @@
+## [3.9.1](https://github.com/CrystalPlatforms/wspolniak/compare/v3.9.0...v3.9.1) (2026-08-10)
+
 # [3.9.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.8.0...v3.9.0) (2026-08-08)
 
 
