@@ -4,7 +4,7 @@ import { useRef } from "react";
 /** Minimum zoom level (image at its natural size). */
 export const MIN_ZOOM = 1;
 /** Maximum zoom level reachable via pinch or buttons. */
-export const MAX_ZOOM = 4;
+export const MAX_ZOOM = 10;
 
 export interface Point {
 	x: number;
@@ -43,6 +43,34 @@ export function scaleZoom(currentDistance: number, gesture: PinchGesture): numbe
 
 function clamp(value: number, min: number, max: number): number {
 	return Math.min(Math.max(value, min), max);
+}
+
+export interface Size {
+	width: number;
+	height: number;
+}
+
+/**
+ * How far (px) the image may be panned along one axis at the given zoom,
+ * i.e. half the extra size the zoom grows beyond the displayed size. Keeps
+ * the image from being dragged outside its frame.
+ */
+export function maxPan(displayedSize: number, zoom: number): number {
+	return Math.max(0, (displayedSize * (zoom - 1)) / 2);
+}
+
+/**
+ * Clamps a pan offset so the zoomed image never leaves its frame.
+ * At zoom 1 there is nothing to pan, so the offset collapses to zero.
+ */
+export function clampOffset(offset: Point, zoom: number, size: Size): Point {
+	if (zoom <= MIN_ZOOM) return { x: 0, y: 0 };
+	const maxX = maxPan(size.width, zoom);
+	const maxY = maxPan(size.height, zoom);
+	return {
+		x: clamp(offset.x, -maxX, maxX),
+		y: clamp(offset.y, -maxY, maxY),
+	};
 }
 
 interface UsePinchZoomArgs {

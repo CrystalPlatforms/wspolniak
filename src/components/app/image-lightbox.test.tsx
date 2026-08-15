@@ -39,6 +39,21 @@ function pinchMove(target: Element, ax: number, ay: number, bx: number, by: numb
 	});
 }
 
+/** JSDOM reports zero-sized rects; give the lightbox a measurable image. */
+function mockImageRect(img: Element, width: number, height: number) {
+	vi.spyOn(img, "getBoundingClientRect").mockReturnValue({
+		width,
+		height,
+		top: 0,
+		left: 0,
+		right: width,
+		bottom: height,
+		x: 0,
+		y: 0,
+		toJSON: () => ({}),
+	} as DOMRect);
+}
+
 describe("ImageLightbox", () => {
 	it("renders nothing when closed", () => {
 		render(<ImageLightbox images={images} open={false} onClose={() => {}} />);
@@ -209,6 +224,29 @@ describe("ImageLightbox", () => {
 			expect(img.style.transform).toContain("scale(2)");
 		});
 
+		it("reaches 10x via zoom-in button and never exceeds it", () => {
+			render(<ImageLightbox images={images} open={true} onClose={() => {}} />);
+			const img = screen.getByRole("img");
+			const zoomIn = screen.getByLabelText("Powiększ zdjęcie");
+
+			for (let i = 0; i < 12; i++) fireEvent.click(zoomIn);
+
+			expect(img.style.transform).toContain("scale(10)");
+			expect(img.style.transform).not.toContain("scale(11)");
+		});
+
+		it("renders crisp pixels at deep zoom and smooth below it", () => {
+			render(<ImageLightbox images={images} open={true} onClose={() => {}} />);
+			const img = screen.getByRole("img");
+			const zoomIn = screen.getByLabelText("Powiększ zdjęcie");
+
+			for (let i = 0; i < 3; i++) fireEvent.click(zoomIn);
+			expect(img.style.imageRendering).toBe("");
+
+			fireEvent.click(zoomIn);
+			expect(img.style.imageRendering).toBe("pixelated");
+		});
+
 		it("decreases zoom on zoom-out but never below 1", () => {
 			render(<ImageLightbox images={images} open={true} onClose={() => {}} />);
 			const img = screen.getByRole("img");
@@ -265,11 +303,43 @@ describe("ImageLightbox", () => {
 			fireEvent.click(screen.getByLabelText("Powiększ zdjęcie"));
 
 			const img = screen.getByRole("img");
+			mockImageRect(img, 200, 100);
 			fireEvent.mouseDown(img, { clientX: 100, clientY: 100 });
 			fireEvent.mouseMove(document, { clientX: 150, clientY: 120 });
 			fireEvent.mouseUp(document);
 
 			expect(img.style.transform).toContain("translate(50px, 20px)");
+		});
+
+		it("clamps panning so the image cannot escape its frame", () => {
+			render(<ImageLightbox images={images} open={true} onClose={() => {}} />);
+
+			fireEvent.click(screen.getByLabelText("Powiększ zdjęcie"));
+
+			const img = screen.getByRole("img");
+			mockImageRect(img, 400, 200);
+			fireEvent.mouseDown(img, { clientX: 100, clientY: 100 });
+			fireEvent.mouseMove(document, { clientX: 500, clientY: 500 });
+			fireEvent.mouseUp(document);
+
+			expect(img.style.transform).toContain("translate(100px, 50px)");
+		});
+
+		it("re-clamps the pan offset when zooming back out", () => {
+			render(<ImageLightbox images={images} open={true} onClose={() => {}} />);
+
+			fireEvent.click(screen.getByLabelText("Powiększ zdjęcie"));
+			fireEvent.click(screen.getByLabelText("Powiększ zdjęcie"));
+
+			const img = screen.getByRole("img");
+			mockImageRect(img, 400, 200);
+			fireEvent.mouseDown(img, { clientX: 100, clientY: 100 });
+			fireEvent.mouseMove(document, { clientX: 300, clientY: 200 });
+			fireEvent.mouseUp(document);
+
+			fireEvent.click(screen.getByLabelText("Pomniejsz zdjęcie"));
+
+			expect(img.style.transform).toContain("translate(100px, 50px) scale(2)");
 		});
 
 		it("does not pan when zoom is 1 (no zoom)", () => {
@@ -289,6 +359,7 @@ describe("ImageLightbox", () => {
 			fireEvent.click(screen.getByLabelText("Powiększ zdjęcie"));
 
 			const dialog = screen.getByRole("dialog");
+			mockImageRect(screen.getByRole("img"), 400, 200);
 			touchStart(dialog, 200, 100);
 			fireEvent.touchMove(dialog, { touches: [{ clientX: 100, clientY: 100 }] });
 			touchEnd(dialog, 100, 100);
@@ -310,12 +381,24 @@ describe("ImageLightbox", () => {
 			expect(img.style.transform).toContain("scale(2)");
 		});
 
+		it("pinches past 4x up to deep zoom levels", () => {
+			render(<ImageLightbox images={images} open={true} onClose={() => {}} />);
+			const dialog = screen.getByRole("dialog");
+			const img = screen.getByRole("img");
+
+			pinchStart(dialog, 100, 100, 200, 100);
+			pinchMove(dialog, 100, 100, 600, 100);
+
+			expect(img.style.transform).toContain("scale(5)");
+		});
+
 		it("resets the pan offset when a pinch returns the zoom to 1x", () => {
 			render(<ImageLightbox images={images} open={true} onClose={() => {}} />);
 			const dialog = screen.getByRole("dialog");
 			const img = screen.getByRole("img");
 
 			fireEvent.click(screen.getByLabelText("Powiększ zdjęcie"));
+			mockImageRect(img, 400, 200);
 			touchStart(dialog, 200, 100);
 			fireEvent.touchMove(dialog, { touches: [{ clientX: 100, clientY: 100 }] });
 			touchEnd(dialog, 100, 100);
@@ -337,6 +420,19 @@ describe("ImageLightbox", () => {
 			touchStart(dialog, 200, 100);
 			pinchStart(dialog, 100, 100, 200, 100);
 			pinchMove(dialog, 100, 100, 300, 100);
+			fireEvent.touchEnd(dialog, { changedTouches: [{ clientX: 100, clientY: 100 }] });
+
+			expect(screen.getByRole("img").getAttribute("src")).toBe("https://example.com/1.jpg");
+		});
+
+		it("does not navigate on the second finger lift after a pinch either", () => {
+			render(<ImageLightbox images={images} initialIndex={0} open={true} onClose={() => {}} />);
+			const dialog = screen.getByRole("dialog");
+
+			touchStart(dialog, 200, 100);
+			pinchStart(dialog, 100, 100, 200, 100);
+			pinchMove(dialog, 100, 100, 300, 100);
+			fireEvent.touchEnd(dialog, { changedTouches: [{ clientX: 100, clientY: 100 }] });
 			fireEvent.touchEnd(dialog, { changedTouches: [{ clientX: 100, clientY: 100 }] });
 
 			expect(screen.getByRole("img").getAttribute("src")).toBe("https://example.com/1.jpg");

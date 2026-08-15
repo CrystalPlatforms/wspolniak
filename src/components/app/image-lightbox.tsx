@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { downloadImage } from "@/lib/download-image";
-import { MAX_ZOOM, MIN_ZOOM, usePinchZoom } from "./use-pinch-zoom";
+import { clampOffset, MAX_ZOOM, MIN_ZOOM, usePinchZoom } from "./use-pinch-zoom";
 
 interface LightboxImage {
 	id: string;
@@ -41,9 +41,21 @@ export function ImageLightbox({ images, initialIndex = 0, open, onClose }: Image
 	const [isPanning, setIsPanning] = useState(false);
 	const touchStartRef = useRef<{ x: number; y: number } | null>(null);
 	const wheelAccumRef = useRef(0);
+	const imgRef = useRef<HTMLImageElement>(null);
 	const panStartRef = useRef<{ x: number; y: number; offsetX: number; offsetY: number } | null>(
 		null,
 	);
+
+	/**
+	 * Keeps the zoomed image inside its frame: the live rect includes the
+	 * current transform, so dividing by the zoom yields the displayed size.
+	 */
+	const clampToFrame = useCallback((value: { x: number; y: number }, z: number) => {
+		const el = imgRef.current;
+		if (!el) return value;
+		const rect = el.getBoundingClientRect();
+		return clampOffset(value, z, { width: rect.width / z, height: rect.height / z });
+	}, []);
 	const pinch = usePinchZoom({
 		zoom,
 		onZoomChange: setZoom,
@@ -137,6 +149,8 @@ export function ImageLightbox({ images, initialIndex = 0, open, onClose }: Image
 			const a = e.touches[0];
 			const b = e.touches[1];
 			if (a && b) {
+				// Stale swipe/pan traces must not leak into post-pinch touchend.
+				touchStartRef.current = null;
 				panStartRef.current = null;
 				setIsPanning(false);
 				pinch.beginPinch([a, b]);
@@ -212,6 +226,7 @@ export function ImageLightbox({ images, initialIndex = 0, open, onClose }: Image
 	if (!image) return null;
 
 	const isOpen = open && !animatingOut;
+	const clamped = zoom > MIN_ZOOM ? clampToFrame(offset, zoom) : { x: 0, y: 0 };
 
 	const slideClass =
 		slideDirection === "right"
@@ -238,12 +253,17 @@ export function ImageLightbox({ images, initialIndex = 0, open, onClose }: Image
 				className={`relative flex max-h-screen min-h-0 flex-1 items-center justify-center p-4 ${slideClass}`}
 			>
 				<img
+					ref={imgRef}
 					src={image.src}
 					alt={image.alt}
 					className={`max-h-[72vh] max-w-full rounded-lg object-contain ${isPanning ? "" : "transition-transform duration-150"}`}
 					style={
 						zoom > MIN_ZOOM
-							? { transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})` }
+							? {
+									transform: `translate(${clamped.x}px, ${clamped.y}px) scale(${zoom})`,
+									// Beyond 4x show real pixels instead of blur.
+									imageRendering: zoom > 4 ? "pixelated" : undefined,
+								}
 							: undefined
 					}
 					onMouseDown={(e) => {
