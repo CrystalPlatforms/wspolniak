@@ -200,6 +200,43 @@ describe("getUserReaction", () => {
 	});
 });
 
+describe("deleteReaction", () => {
+	function mockDeleteChain(returningRows: ReactionRow[]) {
+		const mockReturning = vi.fn().mockResolvedValue(returningRows);
+		const mockWhere = vi.fn().mockReturnValue({ returning: mockReturning });
+		const mockDelete = vi.fn().mockReturnValue({ where: mockWhere });
+		mockGetDb.mockReturnValue({ delete: mockDelete } as never);
+		return { mockDelete, mockWhere };
+	}
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("deletes the user reaction for a POST target and reports it existed", async () => {
+		const { mockWhere } = mockDeleteChain([mockReaction()]);
+		const { deleteReaction } = await import("./queries");
+
+		const existed = await deleteReaction({ kind: "post", postId: "post-1" }, "user-1");
+
+		expect(existed).toBe(true);
+		// deletes scoped to both the target and the user
+		expect(mockWhere).toHaveBeenCalledTimes(1);
+	});
+
+	it("reports false when there was no reaction to delete", async () => {
+		mockDeleteChain([]);
+		const { deleteReaction } = await import("./queries");
+
+		const existed = await deleteReaction(
+			{ kind: "comment", postId: "post-1", commentId: "comment-1" },
+			"user-1",
+		);
+
+		expect(existed).toBe(false);
+	});
+});
+
 describe("getReactionsWithUsers", () => {
 	function mockJoinChain(rows: Record<string, unknown>[]) {
 		const mockWhere = vi.fn().mockResolvedValue(rows);

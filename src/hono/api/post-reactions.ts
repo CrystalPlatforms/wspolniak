@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import {
+	deleteReaction,
 	getReactionCounts,
 	getReactionsWithUsers,
 	getUserReaction,
@@ -57,6 +58,20 @@ reactionsEndpoint.post("/:postId/reactions", async (c) => {
 	});
 
 	return c.json({ data: reaction });
+});
+
+reactionsEndpoint.delete("/:postId/reactions", async (c) => {
+	const user = c.get("user");
+	const postId = c.req.param("postId");
+
+	const post = await getPostById(postId);
+	if (!post) {
+		return c.json({ error: "Not found" }, 404);
+	}
+
+	const existed = await deleteReaction({ kind: "post", postId }, user.userId);
+
+	return c.json({ data: { removed: existed } });
 });
 
 reactionsEndpoint.get("/:postId/reactions", async (c) => {
@@ -117,6 +132,16 @@ reactionsEndpoint.post("/:postId/comments/:commentId/reactions", async (c) => {
 	});
 
 	return c.json({ data: reaction });
+});
+
+reactionsEndpoint.delete("/:postId/comments/:commentId/reactions", async (c) => {
+	const user = c.get("user");
+	const postId = c.req.param("postId");
+	const commentId = c.req.param("commentId");
+
+	const existed = await deleteReaction(commentTarget(postId, commentId), user.userId);
+
+	return c.json({ data: { removed: existed } });
 });
 
 reactionsEndpoint.get("/:postId/comments/:commentId/reactions", async (c) => {

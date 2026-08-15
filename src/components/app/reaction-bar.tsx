@@ -40,6 +40,12 @@ async function postReaction(url: string, reactionType: ReactionType) {
 	return res.json();
 }
 
+async function deleteReactionRequest(url: string) {
+	const res = await fetch(url, { method: "DELETE" });
+	if (!res.ok) throw new Error("Failed to remove reaction");
+	return res.json();
+}
+
 function applyOptimisticCounts(
 	counts: Counts,
 	from: ReactionType | undefined,
@@ -50,6 +56,14 @@ function applyOptimisticCounts(
 		next[from] = Math.max(0, next[from] - 1);
 	}
 	next[to] = (next[to] ?? 0) + 1;
+	return next;
+}
+
+function applyOptimisticRemoval(counts: Counts, from: ReactionType | undefined): Counts {
+	const next = { ...counts };
+	if (from) {
+		next[from] = Math.max(0, next[from] - 1);
+	}
 	return next;
 }
 
@@ -70,9 +84,29 @@ export function ReactionBar({ target }: ReactionBarProps) {
 		queryFn: () => fetchMyReaction(urls.myReaction),
 	});
 
-	const mutation = useMutation({
-		mutationFn: (reactionType: ReactionType) => postReaction(urls.counts, reactionType),
-		onMutate: async (reactionType: ReactionType): Promise<OptimisticContext> => {
+	function rollbackOptimistic(context: OptimisticContext | undefined) {
+		if (context?.previousCounts !== undefined) {
+			queryClient.setQueryData(countsKey, context.previousCounts);
+		}
+		if (context?.previousMyReaction !== undefined) {
+			queryClient.setQueryData(myKey, context.previousMyReaction);
+		}
+	}
+
+	async function invalidateReactionQueries() {
+		await Promise.all([
+			queryClient.invalidateQueries({ queryKey: countsKey }),
+			queryClient.invalidateQueries({ queryKey: myKey }),
+			// Refresh the "who reacted" list so it reflects the change.
+			queryClient.invalidateQueries({ queryKey: usersKey }),
+		]);
+	}
+
+	// One mutation handles both setting (a reaction type) and removing (null).
+	const mutation = useMutation<unknown, Error, ReactionType | null, OptimisticContext>({
+		mutationFn: (reactionType) =>
+			reactionType ? postReaction(urls.counts, reactionType) : deleteReactionRequest(urls.counts),
+		onMutate: async (reactionType): Promise<OptimisticContext> => {
 			await queryClient.cancelQueries({ queryKey: countsKey });
 			await queryClient.cancelQueries({ queryKey: myKey });
 
@@ -81,37 +115,30 @@ export function ReactionBar({ target }: ReactionBarProps) {
 			const currentReaction = previousMyReaction?.reactionType;
 
 			queryClient.setQueryData<Counts>(countsKey, (old = {}) =>
-				applyOptimisticCounts(old, currentReaction, reactionType),
+				reactionType
+					? applyOptimisticCounts(old, currentReaction, reactionType)
+					: applyOptimisticRemoval(old, currentReaction),
 			);
-			const nextReaction: MyReaction = { reactionType };
+			const nextReaction: MyReaction = reactionType ? { reactionType } : null;
 			queryClient.setQueryData<MyReaction>(myKey, nextReaction);
-			setPoppingType(reactionType);
+			if (reactionType) setPoppingType(reactionType);
 
 			return { previousCounts, previousMyReaction };
 		},
-		onError: (_error: Error, _type: ReactionType, context: OptimisticContext | undefined) => {
-			if (context?.previousCounts !== undefined) {
-				queryClient.setQueryData(countsKey, context.previousCounts);
-			}
-			if (context?.previousMyReaction !== undefined) {
-				queryClient.setQueryData(myKey, context.previousMyReaction);
-			}
+		onError: (
+			_error: Error,
+			_type: ReactionType | null,
+			context: OptimisticContext | undefined,
+		) => {
+			rollbackOptimistic(context);
 		},
-		onSuccess: async () => {
-			await Promise.all([
-				queryClient.invalidateQueries({ queryKey: countsKey }),
-				queryClient.invalidateQueries({ queryKey: myKey }),
-				// Refresh the "who reacted" list so the user sees their own reaction.
-				queryClient.invalidateQueries({ queryKey: usersKey }),
-			]);
-		},
+		onSuccess: () => invalidateReactionQueries(),
 	});
 
 	const selected = myReaction?.reactionType;
 
 	const handleSelect = (type: ReactionType) => {
-		if (selected === type) return;
-		mutation.mutate(type);
+		mutation.mutate(selected === type ? null : type);
 	};
 
 	return (

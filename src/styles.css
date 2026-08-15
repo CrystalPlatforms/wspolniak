@@ -522,6 +522,35 @@ code {
     color: var(--muted-foreground) !important;
   }
 }
+/* Ikony w menu kolumny tabeli („⋮" nad kolumną, tablePlugin) — wyrównanie,
+   wstaw/usuń kolumnę. Przyciski mają color: var(--baseTextContrast) i hover
+   TYLKO tło (var(--baseBg)), więc na popoverze ikony bywają nieczytelne.
+   Wymuszamy bezpośrednio: ikona biała (--foreground), po najechaniu szara
+   (--muted-foreground) — spójnie z iconButton/actionButton wyżej. Selektory
+   globalne, bo popover tabeli montuje się do roota edytora (a przy braku
+   refu do body) — poza pewnością dziedziczenia tokenów przez portal. */
+[class*="_tableColumnEditorToolbar_"] > button,
+[class*="_toggleGroupRoot_"] button {
+  color: var(--foreground) !important;
+}
+@media (hover: hover) {
+  [class*="_tableColumnEditorToolbar_"] > button:hover,
+  [class*="_toggleGroupRoot_"] button:hover {
+    color: var(--muted-foreground) !important;
+    background-color: color-mix(in oklab, var(--foreground) 8%, transparent) !important;
+  }
+}
+/* Aktywny przycisk menu tabeli (zaznaczone wyrównanie data-state='on' lub
+   wciśnięcie :active) — odwrócone kolory: jasne tło (--foreground) i czarna
+   ikona (--background), żeby stan był wyraźnie widoczny na ciemnym popoverie.
+   Celowo PO regułach hover — aktywność wygrywa z najechaniem. */
+[class*="_tableColumnEditorToolbar_"] > button[data-state='on'],
+[class*="_toggleGroupRoot_"] button[data-state='on'],
+[class*="_tableColumnEditorToolbar_"] > button:active,
+[class*="_toggleGroupRoot_"] button:active {
+  background-color: var(--foreground) !important;
+  color: var(--background) !important;
+}
 
 /* Aktywny przycisk toolbara (włączone formatowanie, np. pogrubienie pod kursorem):
    zielone obramowanie (ring) + zielona ikona zamiast zielonego wypełnienia.

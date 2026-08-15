@@ -67,6 +67,17 @@ export async function upsertReaction(input: UpsertReactionInput): Promise<PostRe
 	return row;
 }
 
+export async function deleteReaction(target: ReactionTarget, userId: string): Promise<boolean> {
+	const db = getDb();
+
+	const rows = await db
+		.delete(postReactions)
+		.where(and(targetWhere(target), eq(postReactions.userId, userId)))
+		.returning();
+
+	return rows.length > 0;
+}
+
 function targetWhere(target: ReactionTarget) {
 	return target.kind === "post"
 		? and(eq(postReactions.postId, target.postId), isNull(postReactions.commentId))

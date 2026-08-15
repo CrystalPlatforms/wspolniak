@@ -119,12 +119,13 @@ describe("ReactionBar (interaction)", () => {
 		);
 	});
 
-	it("does not mutate when clicking the already-selected icon", async () => {
+	it("sends a DELETE when the already-selected icon is clicked", async () => {
+		let resolveDelete: () => void = () => {};
 		const fetchMock = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
-			if (opts?.method === "POST") {
-				return Promise.resolve({
-					ok: true,
-					json: () => Promise.resolve({ data: { reactionType: "heart" } }),
+			if (opts?.method === "DELETE") {
+				return new Promise((resolve) => {
+					resolveDelete = () =>
+						resolve({ ok: true, json: () => Promise.resolve({ data: { removed: true } }) });
 				});
 			}
 			if (url.includes("/my-reaction")) {
@@ -142,10 +143,73 @@ describe("ReactionBar (interaction)", () => {
 		const heart = await screen.findByRole("button", { name: /serce/ });
 		await userEvent.click(heart);
 
+		expect(fetchMock).toHaveBeenCalledWith(
+			"/api/app/posts/post-1/reactions",
+			expect.objectContaining({ method: "DELETE" }),
+		);
+		// No POST happened — the click toggles off instead of re-setting the reaction.
 		const postCalls = fetchMock.mock.calls.filter(
 			(c) => (c[1] as RequestInit | undefined)?.method === "POST",
 		);
 		expect(postCalls).toHaveLength(0);
+
+		resolveDelete();
+	});
+
+	it("optimistically decrements the counter and clears selection before the server responds", async () => {
+		let resolveDelete: () => void = () => {};
+		const fetchMock = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+			if (opts?.method === "DELETE") {
+				return new Promise((resolve) => {
+					resolveDelete = () =>
+						resolve({ ok: true, json: () => Promise.resolve({ data: { removed: true } }) });
+				});
+			}
+			if (url.includes("/my-reaction")) {
+				return Promise.resolve({
+					ok: true,
+					json: () => Promise.resolve({ data: { reactionType: "heart" } }),
+				});
+			}
+			return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: { heart: 1 } }) });
+		});
+		vi.stubGlobal("fetch", fetchMock);
+
+		render(<ReactionBar target={POST_TARGET} />, { wrapper: createWrapper() });
+
+		const heart = await screen.findByRole("button", { name: /serce/ });
+		await userEvent.click(heart);
+
+		// Before server responds: counter drops to 0 and the icon is no longer pressed.
+		expect(within(heart).getByText("0")).toBeDefined();
+		expect(heart.getAttribute("aria-pressed")).toBe("false");
+
+		resolveDelete();
+	});
+
+	it("rolls back the removal when the DELETE fails", async () => {
+		const fetchMock = vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+			if (opts?.method === "DELETE") {
+				return Promise.resolve({ ok: false, status: 500 });
+			}
+			if (url.includes("/my-reaction")) {
+				return Promise.resolve({
+					ok: true,
+					json: () => Promise.resolve({ data: { reactionType: "heart" } }),
+				});
+			}
+			return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: { heart: 1 } }) });
+		});
+		vi.stubGlobal("fetch", fetchMock);
+
+		render(<ReactionBar target={POST_TARGET} />, { wrapper: createWrapper() });
+
+		const heart = await screen.findByRole("button", { name: /serce/ });
+		await userEvent.click(heart);
+
+		// After error: counter restored to 1 and the icon selected again.
+		expect(within(heart).getByText("1")).toBeDefined();
+		expect(heart.getAttribute("aria-pressed")).toBe("true");
 	});
 
 	it("updates the counter optimistically before the server responds", async () => {

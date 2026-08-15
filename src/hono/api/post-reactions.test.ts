@@ -16,6 +16,7 @@ vi.mock("@/db/posts/queries", () => ({
 
 vi.mock("@/db/post-reactions/queries", () => ({
 	upsertReaction: vi.fn(),
+	deleteReaction: vi.fn(),
 	getReactionCounts: vi.fn(),
 	getUserReaction: vi.fn(),
 	getReactionsWithUsers: vi.fn(),
@@ -24,6 +25,7 @@ vi.mock("@/db/post-reactions/queries", () => ({
 import { findActiveUserById } from "@/db/identity/queries";
 import { verifySessionCookie } from "@/db/identity/session";
 import {
+	deleteReaction,
 	getReactionCounts,
 	getReactionsWithUsers,
 	getUserReaction,
@@ -39,6 +41,7 @@ const mockUpsertReaction = vi.mocked(upsertReaction);
 const mockGetReactionCounts = vi.mocked(getReactionCounts);
 const mockGetUserReaction = vi.mocked(getUserReaction);
 const mockGetReactionsWithUsers = vi.mocked(getReactionsWithUsers);
+const mockDeleteReaction = vi.mocked(deleteReaction);
 
 function createApi() {
 	const api = new Hono<{
@@ -212,6 +215,71 @@ describe("GET /api/app/posts/:postId/reactions", () => {
 		mockVerify.mockResolvedValue(null);
 		const api = createApi();
 		const res = await api.request("/api/app/posts/post-1/reactions", {}, env);
+
+		expect(res.status).toBe(401);
+	});
+});
+
+describe("DELETE /api/app/posts/:postId/reactions", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockVerify.mockResolvedValue({ userId: "u1", name: "Tomek", role: "member" });
+		mockFindUser.mockResolvedValue({
+			id: "u1",
+			name: "Tomek",
+			role: "member",
+			tokenHash: "hash",
+			deletedAt: null,
+			createdAt: new Date(),
+		});
+	});
+
+	it("deletes the user reaction for a post", async () => {
+		mockGetPost.mockResolvedValue(samplePost);
+		mockDeleteReaction.mockResolvedValue(true);
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/posts/post-1/reactions",
+			authedRequest("/api/app/posts/post-1/reactions", { method: "DELETE" }),
+			env,
+		);
+
+		expect(res.status).toBe(200);
+		expect(mockDeleteReaction).toHaveBeenCalledWith({ kind: "post", postId: "post-1" }, "u1");
+	});
+
+	it("is idempotent when there is nothing to delete", async () => {
+		mockGetPost.mockResolvedValue(samplePost);
+		mockDeleteReaction.mockResolvedValue(false);
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/posts/post-1/reactions",
+			authedRequest("/api/app/posts/post-1/reactions", { method: "DELETE" }),
+			env,
+		);
+
+		expect(res.status).toBe(200);
+	});
+
+	it("returns 404 when post does not exist", async () => {
+		mockGetPost.mockResolvedValue(null);
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/posts/non-existent/reactions",
+			authedRequest("/", { method: "DELETE" }),
+			env,
+		);
+
+		expect(res.status).toBe(404);
+	});
+
+	it("returns 401 without session", async () => {
+		mockVerify.mockResolvedValue(null);
+		const api = createApi();
+		const res = await api.request("/api/app/posts/post-1/reactions", { method: "DELETE" }, env);
 
 		expect(res.status).toBe(401);
 	});
@@ -402,6 +470,40 @@ describe("POST /api/app/posts/:postId/comments/:commentId/reactions", () => {
 		);
 
 		expect(res.status).toBe(401);
+	});
+});
+
+describe("DELETE /api/app/posts/:postId/comments/:commentId/reactions", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockVerify.mockResolvedValue({ userId: "u1", name: "Tomek", role: "member" });
+		mockFindUser.mockResolvedValue({
+			id: "u1",
+			name: "Tomek",
+			role: "member",
+			tokenHash: "hash",
+			deletedAt: null,
+			createdAt: new Date(),
+		});
+	});
+
+	it("deletes the user reaction for a comment", async () => {
+		mockDeleteReaction.mockResolvedValue(true);
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/posts/post-1/comments/comment-1/reactions",
+			authedRequest("/api/app/posts/post-1/comments/comment-1/reactions", {
+				method: "DELETE",
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(200);
+		expect(mockDeleteReaction).toHaveBeenCalledWith(
+			{ kind: "comment", postId: "post-1", commentId: "comment-1" },
+			"u1",
+		);
 	});
 });
 
