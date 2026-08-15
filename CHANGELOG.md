@@ -1,3 +1,10 @@
+# [3.11.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.10.0...v3.11.0) (2026-08-15)
+
+
+### Features
+
+* **reactions:** remove reaction by clicking it again ([#136](https://github.com/CrystalPlatforms/wspolniak/issues/136)) ([a278e26](https://github.com/CrystalPlatforms/wspolniak/commit/a278e2655c4854bd8d0d822df819543aefcd026a))
+
 # [3.10.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.9.1...v3.10.0) (2026-08-10)
 
 
