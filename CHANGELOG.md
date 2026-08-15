@@ -1,3 +1,10 @@
+# [3.12.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.11.0...v3.12.0) (2026-08-15)
+
+
+### Features
+
+* **lightbox:** deep 10x zoom, pan clamping and pinch swipe fix ([#137](https://github.com/CrystalPlatforms/wspolniak/issues/137)) ([d378fc6](https://github.com/CrystalPlatforms/wspolniak/commit/d378fc6192b36f3070658a1c1a04aaf7d602ee09))
+
 # [3.11.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.10.0...v3.11.0) (2026-08-15)
 
 
