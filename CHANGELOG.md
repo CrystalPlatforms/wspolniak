@@ -1,3 +1,11 @@
+# [3.13.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.12.0...v3.13.0) (2026-08-15)
+
+
+### Features
+
+* **ui:** blur page behind dialogs and alerts ([#139](https://github.com/CrystalPlatforms/wspolniak/issues/139)) ([a3ba5a0](https://github.com/CrystalPlatforms/wspolniak/commit/a3ba5a031497c4a9d19faee4c13e31d584c86380))
+* **video:** close post video picker dialog after first pick ([#140](https://github.com/CrystalPlatforms/wspolniak/issues/140)) ([a3fc6a1](https://github.com/CrystalPlatforms/wspolniak/commit/a3fc6a1a388db2d2c3446e05ea808ae678ac1de1))
+
 # [3.12.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.11.0...v3.12.0) (2026-08-15)
 
 
