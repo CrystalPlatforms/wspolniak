@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useQuery } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, Film, X } from "lucide-react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -30,6 +31,7 @@ const MAX_VIDEOS = 10;
  * `videoIds` (kolejność) jest jedynym źródłem prawdy — zmiana woła `onChange`.
  */
 export function PostVideoPicker({ videoIds, onChange, disabled }: PostVideoPickerProps) {
+	const [open, setOpen] = useState(false);
 	const { data } = useQuery({
 		queryKey: ["videos", "picker"],
 		queryFn: async () => {
@@ -49,6 +51,8 @@ export function PostVideoPicker({ videoIds, onChange, disabled }: PostVideoPicke
 	const add = (id: string) => {
 		if (videoIds.includes(id) || limitReached) return;
 		onChange([...videoIds, id]);
+		// Pierwsze wideo zamyka dialog (#140) — od razu widać je na liście w formularzu.
+		if (videoIds.length === 0) setOpen(false);
 	};
 	const remove = (id: string) => onChange(videoIds.filter((v) => v !== id));
 	const move = (index: number, dir: -1 | 1) => {
@@ -63,7 +67,7 @@ export function PostVideoPicker({ videoIds, onChange, disabled }: PostVideoPicke
 	// przycisku zdjęć, a lista wybranych (`col-span-full`) rozkłada się pod oboma.
 	return (
 		<>
-			<Dialog>
+			<Dialog open={open} onOpenChange={setOpen}>
 				<DialogTrigger asChild>
 					<Button
 						type="button"
