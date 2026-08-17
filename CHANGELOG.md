@@ -1,3 +1,10 @@
+# [3.14.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.13.1...v3.14.0) (2026-08-17)
+
+
+### Features
+
+* **ui:** replace all spinners with TailChase loader and add instant route pending ([#138](https://github.com/CrystalPlatforms/wspolniak/issues/138)) ([03dd129](https://github.com/CrystalPlatforms/wspolniak/commit/03dd1292b8fdd24efbffbd07ff367253b5fcf426)), closes [#167c51](https://github.com/CrystalPlatforms/wspolniak/issues/167c51)
+
 ## [3.13.1](https://github.com/CrystalPlatforms/wspolniak/compare/v3.13.0...v3.13.1) (2026-08-17)
 
 
