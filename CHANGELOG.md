@@ -1,3 +1,10 @@
+## [3.13.1](https://github.com/CrystalPlatforms/wspolniak/compare/v3.13.0...v3.13.1) (2026-08-17)
+
+
+### Bug Fixes
+
+* **upload:** clear upload errors, 7s timeout, manual retry and failed-uploads panel ([#135](https://github.com/CrystalPlatforms/wspolniak/issues/135)) ([2901d17](https://github.com/CrystalPlatforms/wspolniak/commit/2901d173843632268e1cf14324346b5adfdfdbc0))
+
 # [3.13.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.12.0...v3.13.0) (2026-08-15)
 
 
