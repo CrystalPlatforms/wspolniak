@@ -2,6 +2,7 @@
 
 import { listMembersForMentions } from "@/db/identity/queries";
 import { getLeaderboard, type LeaderboardCategory } from "@/db/stats";
+import { insertUploadFailure, reportUploadFailureSchema } from "@/db/upload-failures";
 import { createHono, getOrigin } from "@/hono/factory";
 import { authMiddleware } from "@/hono/middleware/auth";
 
@@ -43,6 +44,19 @@ appEndpoint.get("/stats/leaderboard", async (c) => {
 		),
 	);
 	return c.json({ data: Object.fromEntries(entries) });
+});
+
+// POST /upload-failures — best-effort raport klienta o nieudanym uploadzie zdjęć
+// (issue #135). userId zawsze z sesji — klient nie może raportować za kogoś innego.
+appEndpoint.post("/upload-failures", async (c) => {
+	const parsed = reportUploadFailureSchema.safeParse(await c.req.json());
+	if (!parsed.success) {
+		return c.json({ error: "Invalid report" }, 400);
+	}
+
+	const user = c.get("user");
+	const failure = await insertUploadFailure({ userId: user.userId, ...parsed.data });
+	return c.json({ data: failure }, 201);
 });
 
 export default appEndpoint;

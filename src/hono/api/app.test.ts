@@ -15,15 +15,23 @@ vi.mock("@/db/stats", () => ({
 	getLeaderboard: vi.fn(),
 }));
 
+vi.mock("@/db/upload-failures", async (importOriginal) => ({
+	// Schemat zod zostaje prawdziwy (używa go endpoint) — mockujemy tylko DB.
+	...(await importOriginal<typeof import("@/db/upload-failures")>()),
+	insertUploadFailure: vi.fn(),
+}));
+
 import { findActiveUserById, listMembersForMentions } from "@/db/identity/queries";
 import { verifySessionCookie } from "@/db/identity/session";
 import { getLeaderboard } from "@/db/stats";
+import { insertUploadFailure } from "@/db/upload-failures";
 import appEndpoint from "./app";
 
 const mockVerify = vi.mocked(verifySessionCookie);
 const mockFindUser = vi.mocked(findActiveUserById);
 const mockListMembers = vi.mocked(listMembersForMentions);
 const mockGetLeaderboard = vi.mocked(getLeaderboard);
+const mockInsertUploadFailure = vi.mocked(insertUploadFailure);
 
 function createApi() {
 	const api = new Hono<{ Bindings: { SESSION_SECRET: string } }>().basePath("/api");
@@ -158,6 +166,92 @@ describe("GET /api/app/stats/leaderboard", () => {
 	it("returns 401 without session cookie", async () => {
 		const api = createApi();
 		const res = await api.request("/api/app/stats/leaderboard", {}, { SESSION_SECRET: "secret" });
+
+		expect(res.status).toBe(401);
+	});
+});
+
+describe("POST /api/app/upload-failures", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockVerify.mockResolvedValue({ userId: "u1", name: "Tomek", role: "member" });
+		mockFindUser.mockResolvedValue({
+			id: "u1",
+			name: "Tomek",
+			role: "member",
+			tokenHash: "hash",
+			deletedAt: null,
+			createdAt: new Date(),
+		});
+	});
+
+	it("reports a failed upload with userId taken from the session", async () => {
+		mockInsertUploadFailure.mockResolvedValue({
+			id: "failure-1",
+			userId: "u1",
+			step: "image-upload",
+			kind: "network",
+			detail: "TypeError: Load failed",
+			fileName: "wakacje.jpg",
+			fileSize: 2048,
+			createdAt: new Date(),
+		});
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/upload-failures",
+			{
+				method: "POST",
+				headers: { Cookie: "session=valid-jwt", "Content-Type": "application/json" },
+				body: JSON.stringify({
+					step: "image-upload",
+					kind: "network",
+					detail: "TypeError: Load failed",
+					fileName: "wakacje.jpg",
+					fileSize: 2048,
+				}),
+			},
+			{ SESSION_SECRET: "secret" },
+		);
+
+		expect(res.status).toBe(201);
+		expect(mockInsertUploadFailure).toHaveBeenCalledWith({
+			userId: "u1",
+			step: "image-upload",
+			kind: "network",
+			detail: "TypeError: Load failed",
+			fileName: "wakacje.jpg",
+			fileSize: 2048,
+		});
+	});
+
+	it("rejects an invalid body with 400", async () => {
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/upload-failures",
+			{
+				method: "POST",
+				headers: { Cookie: "session=valid-jwt", "Content-Type": "application/json" },
+				body: JSON.stringify({ step: "nieznany-krok", kind: "network" }),
+			},
+			{ SESSION_SECRET: "secret" },
+		);
+
+		expect(res.status).toBe(400);
+		expect(mockInsertUploadFailure).not.toHaveBeenCalled();
+	});
+
+	it("returns 401 without session cookie", async () => {
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/upload-failures",
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ step: "compress", kind: "unknown" }),
+			},
+			{ SESSION_SECRET: "secret" },
+		);
 
 		expect(res.status).toBe(401);
 	});

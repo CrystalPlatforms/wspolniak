@@ -73,6 +73,32 @@ describe("NewPostForm", () => {
 		expect(fileInput.multiple).toBe(true);
 	});
 
+	it("blokuje publikację tekstu >2000 znaków z konkretnym komunikatem (zanim poleci do serwera)", () => {
+		const onSubmit = vi.fn();
+		render(<NewPostForm onSubmit={onSubmit} isSubmitting={false} />);
+
+		const long = "a".repeat(2001);
+		const description = screen.getByLabelText(/^tekst$/i);
+		fireEvent.change(description, { target: { value: long } });
+		fireEvent.click(screen.getByRole("button", { name: /publikuj/i }));
+
+		expect(screen.getByText(/za długi/i)).toBeDefined();
+		expect(onSubmit).not.toHaveBeenCalled();
+	});
+
+	it("pozwala opublikować dokładnie 2000 znaków", () => {
+		const onSubmit = vi.fn();
+		render(<NewPostForm onSubmit={onSubmit} isSubmitting={false} />);
+
+		const exact = "a".repeat(2000);
+		const description = screen.getByLabelText(/^tekst$/i);
+		fireEvent.change(description, { target: { value: exact } });
+		fireEvent.click(screen.getByRole("button", { name: /publikuj/i }));
+
+		expect(screen.queryByText(/za długi/i)).toBeNull();
+		expect(onSubmit).toHaveBeenCalledTimes(1);
+	});
+
 	it("disables submit button when submitting", () => {
 		render(<NewPostForm onSubmit={vi.fn()} isSubmitting={true} />);
 

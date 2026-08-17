@@ -19,6 +19,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from "@/db/instance";
+import { MAX_DESCRIPTION_LENGTH } from "@/db/posts/schema";
 import { reorder } from "@/lib/reorder";
 
 const ACCEPTED_IMAGE_TYPES = "image/jpeg,image/png,image/webp,image/heic,image/heif";
@@ -189,6 +190,12 @@ export function NewPostForm({
 			e.preventDefault();
 			if (images.length === 0 && videoIds.length === 0 && !description.trim()) {
 				setError("Dodaj tekst, zdjęcie lub wideo");
+				return;
+			}
+			if (description.length > MAX_DESCRIPTION_LENGTH) {
+				setError(
+					`Tekst posta jest za długi — limit to ${MAX_DESCRIPTION_LENGTH} znaków (wpisanych: ${description.length})`,
+				);
 				return;
 			}
 			const files = images.map((i) => i.file!).filter(Boolean);

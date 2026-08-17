@@ -5,8 +5,8 @@ import { ArrowLeft } from "lucide-react";
 import { useCallback } from "react";
 import { EditPostForm } from "@/components/app/edit-post-form";
 import type { Mention } from "@/components/app/mention-input";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { compressImage } from "@/images/compress";
+import { UploadErrorAlert } from "@/components/app/upload-error-alert";
+import { uploadImages } from "@/images/upload";
 
 interface PostImage {
 	id: string;
@@ -32,20 +32,6 @@ async function fetchPost(id: string): Promise<PostResponse | null> {
 	if (res.status === 404) return null;
 	if (!res.ok) throw new Error("Nie udało się pobrać posta");
 	return res.json() as Promise<PostResponse>;
-}
-
-async function uploadFile(file: File): Promise<string> {
-	const urlRes = await fetch("/api/app/images/upload-url", { method: "POST" });
-	if (!urlRes.ok) throw new Error("Nie udało się uzyskać URL do uploadu");
-	const { data } = (await urlRes.json()) as { data: { cfImageId: string; uploadURL: string } };
-
-	const compressed = await compressImage(file);
-	const form = new FormData();
-	form.append("file", compressed);
-	const uploadRes = await fetch(data.uploadURL, { method: "POST", body: form });
-	if (!uploadRes.ok) throw new Error(`Upload nie powiódł się dla: ${file.name}`);
-
-	return data.cfImageId;
 }
 
 export const Route = createFileRoute("/app/post/$id_/edit")({
@@ -81,7 +67,9 @@ function EditPostPage() {
 
 			// Upload new files
 			if (input.files.length > 0) {
-				const cfImageIds = await Promise.all(input.files.map(uploadFile));
+				// Wspólny pipeline uploadu (issue #135): batch URL-i, kompresja, twardy timeout,
+				// jasne błędy zamiast "Load failed".
+				const cfImageIds = await uploadImages(input.files);
 				const res = await fetch(`/api/app/posts/${id}`, {
 					method: "PATCH",
 					headers: { "Content-Type": "application/json" },
@@ -172,9 +160,18 @@ function EditPostPage() {
 			</div>
 
 			{mutation.isError && (
-				<Alert variant="destructive" className="mb-4">
-					<AlertDescription>{mutation.error.message}</AlertDescription>
-				</Alert>
+				<UploadErrorAlert
+					error={mutation.error}
+					// Ręczne ponowienie (issue #135): react-query trzyma ostatnie
+					// `variables`, więc retry odtwarza dokładnie ten sam zapis.
+					onRetry={() => {
+						const last = mutation.variables;
+						if (!last) return;
+						mutation.reset();
+						mutation.mutate(last);
+					}}
+					retryDisabled={mutation.isPending}
+				/>
 			)}
 
 			<EditPostForm

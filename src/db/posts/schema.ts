@@ -2,10 +2,13 @@
 import { z } from "zod";
 import { mentionSchema } from "@/db/mentions/schema";
 
+/** Limit długości opisu posta — jedno źródło prawdy dla serwera i formularzy. */
+export const MAX_DESCRIPTION_LENGTH = 2000;
+
 export const createPostSchema = z.object({
 	description: z
 		.string()
-		.max(2000)
+		.max(MAX_DESCRIPTION_LENGTH)
 		.nullish()
 		.transform((v) => v ?? null),
 	cfImageIds: z.array(z.string().min(1)).max(10).optional(),
@@ -18,7 +21,7 @@ export type CreatePostRequest = z.infer<typeof createPostSchema>;
 export const updatePostSchema = z.object({
 	description: z
 		.string()
-		.max(2000)
+		.max(MAX_DESCRIPTION_LENGTH)
 		.nullish()
 		.transform((v) => v ?? null),
 	cfImageIds: z.array(z.string().min(1)).max(10).optional(),

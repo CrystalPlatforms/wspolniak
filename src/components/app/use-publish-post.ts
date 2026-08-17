@@ -5,7 +5,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
 import { feedQueryKey } from "@/components/app/feed-query";
 import type { Mention } from "@/components/app/mention-input";
-import { compressImage } from "@/images/compress";
+import { reportUploadFailure, UploadFlowError, uploadFetch, uploadImages } from "@/images/upload";
 
 /** Wejście publikacji posta (tekst + pliki + wideo + wzmianki). */
 export interface PublishPostInput {
@@ -52,64 +52,73 @@ export async function runPublishFlow(options: RunPublishFlowOptions): Promise<vo
 	await options.navigate({ to: "/app" });
 }
 
-async function uploadCompressed(uploadURL: string, file: File): Promise<void> {
-	const form = new FormData();
-	form.append("file", file);
-	const uploadRes = await fetch(uploadURL, { method: "POST", body: form });
-	if (!uploadRes.ok) throw new Error(`Upload nie powiódł się dla: ${file.name}`);
-}
-
 /**
  * Realna funkcja create (granica sieci): kompresuje + uploaduje zdjęcia i tworzy post.
  *
- * Optymalizacja batch (issue #95): jeden `POST /upload-urls` zwraca N par
- * `{cfImageId, uploadURL}` zamiast N sekwencyjnych round-tripów; kompresja i upload
- * wszystkich plików lecą równolegle (kompresja po głównym wątku przez workera w Slice 4).
+ * Zdjęcia idą przez `uploadImages` (issue #135: batch upload-urls, kompresja w workerze,
+ * równoległy upload, twardy timeout 7 s i jasne błędy zamiast "Load failed").
  * `cfImageId` zachowują kolejność plików.
  */
 export async function createPost(input: PublishPostInput): Promise<unknown> {
-	const cfImageIds: string[] = [];
+	const cfImageIds = input.files.length > 0 ? await uploadImages(input.files) : [];
 
-	if (input.files.length > 0) {
-		const batchRes = await fetch("/api/app/images/upload-urls", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify({ count: input.files.length }),
-		});
-		if (!batchRes.ok) throw new Error("Nie udało się uzyskać URL-i do uploadu");
-		const { data: pairs } = (await batchRes.json()) as {
-			data: { cfImageId: string; uploadURL: string }[];
-		};
-
-		cfImageIds.push(
-			...(await Promise.all(
-				input.files.map(async (file, index) => {
-					const pair = pairs[index];
-					if (!pair) throw new Error("Brak pary upload dla pliku");
-					const compressed = await compressImage(file);
-					await uploadCompressed(pair.uploadURL, compressed);
-					return pair.cfImageId;
+	let res: Response;
+	try {
+		res = await uploadFetch(
+			"/api/app/posts",
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					description: input.description || null,
+					cfImageIds,
+					videoIds: input.videoIds,
+					mentions: input.mentions,
 				}),
-			)),
+			},
+			"create-post",
 		);
+	} catch (error) {
+		// Awaria sieci/timeout przy tworzeniu posta — serwer jej nie zna, więc
+		// zgłaszamy do panelu admina (issue #135); http (np. 429) serwer zna sam.
+		if (error instanceof UploadFlowError && error.kind !== "http") {
+			reportUploadFailure({
+				step: error.step,
+				kind: error.kind,
+				detail: error.detail,
+			});
+		}
+		throw error;
 	}
-
-	const res = await fetch("/api/app/posts", {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			description: input.description || null,
-			cfImageIds,
-			videoIds: input.videoIds,
-			mentions: input.mentions,
-		}),
-	});
 
 	if (res.status === 429) {
-		throw new Error("Osiągnięto dzienny limit postów (50)");
+		throw new UploadFlowError(
+			"create-post",
+			"http",
+			"Osiągnięto dzienny limit postów (50)",
+			"HTTP 429",
+		);
 	}
 	if (!res.ok) {
-		throw new Error("Nie udało się utworzyć posta");
+		// Serwer mówi konkretnie CZEMU odrzucił (np. "Validation failed" + pole) —
+		// przepuszczamy jego przyczynę do komunikatu/szczegółów (issue #135).
+		const body = (await res.json().catch(() => null)) as {
+			error?: string;
+			details?: { fieldErrors?: Record<string, string[]> };
+		} | null;
+		const fieldErrors = body?.details?.fieldErrors ?? {};
+		const fieldsText = Object.entries(fieldErrors)
+			.map(([field, errors]) => `${field}: ${(errors ?? []).join(", ")}`)
+			.join("; ");
+		const detail = [`HTTP ${res.status}`, body?.error, fieldsText].filter(Boolean).join(" — ");
+
+		// Znane przypadki walidacji tłumaczymy na konkretny polski komunikat.
+		let message = "Nie udało się utworzyć posta";
+		if (fieldErrors.description?.some((e) => e.includes("2000"))) {
+			message = `Tekst posta jest za długi — limit to 2000 znaków (wpisanych: ${input.description?.length ?? "?"})`;
+		}
+
+		throw new UploadFlowError("create-post", "http", message, detail);
 	}
 
 	return res.json();

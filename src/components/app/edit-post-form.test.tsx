@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 // Picker wideo ma własne zależności (server fn + QueryClient) — izolujemy test formularza.
@@ -97,5 +97,28 @@ describe("EditPostForm", () => {
 		// Edycja wysyła videoIds (kolejność = position) tak jak tworzenie — backend
 		// robi setPostVideos(postId, videoIds) (replace). Idempotentne.
 		expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ videoIds: ["v2", "v1"] }));
+	});
+
+	it("blokuje zapis tekstu >2000 znaków z konkretnym komunikatem", async () => {
+		const onSubmit = vi.fn();
+		const user = userEvent.setup();
+		render(
+			<EditPostForm
+				postId="p1"
+				description="hello"
+				existingImages={[]}
+				imageAccountHash="hash"
+				onSubmit={onSubmit}
+				isSubmitting={false}
+			/>,
+		);
+
+		const long = "a".repeat(2001);
+		const description = screen.getByLabelText(/^tekst$/i);
+		fireEvent.change(description, { target: { value: long } });
+		await user.click(screen.getByRole("button", { name: /zapisz zmiany/i }));
+
+		expect(screen.getByText(/za długi/i)).toBeDefined();
+		expect(onSubmit).not.toHaveBeenCalled();
 	});
 });

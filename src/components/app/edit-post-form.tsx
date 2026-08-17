@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { LoaderIcon } from "@/components/ui/spinner";
 import { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from "@/db/instance";
+import { MAX_DESCRIPTION_LENGTH } from "@/db/posts/schema";
 import { getImageUrl } from "@/images/client";
 import { reorder } from "@/lib/reorder";
 
@@ -225,6 +226,12 @@ export function EditPostForm({
 			e.preventDefault();
 			if (description.trim() === "" && items.length === 0) {
 				setError("Dodaj tekst lub zdjęcie");
+				return;
+			}
+			if (description.length > MAX_DESCRIPTION_LENGTH) {
+				setError(
+					`Tekst posta jest za długi — limit to ${MAX_DESCRIPTION_LENGTH} znaków (wpisanych: ${description.length})`,
+				);
 				return;
 			}
 

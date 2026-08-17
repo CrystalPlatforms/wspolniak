@@ -26,6 +26,10 @@ vi.mock("@/db/stats", () => ({
 	getStatsSummary: vi.fn(),
 }));
 
+vi.mock("@/db/upload-failures", () => ({
+	listRecentUploadFailures: vi.fn(),
+}));
+
 import {
 	createMember,
 	findActiveUserById,
@@ -42,6 +46,7 @@ import {
 	updateMaintenance,
 } from "@/db/instance/queries";
 import { getStatsSummary } from "@/db/stats";
+import { listRecentUploadFailures } from "@/db/upload-failures";
 import adminEndpoint from "./admin";
 
 const mockVerify = vi.mocked(verifySessionCookie);
@@ -56,6 +61,7 @@ const mockUpdateMaintenance = vi.mocked(updateMaintenance);
 const mockGetFeatureFlags = vi.mocked(getFeatureFlags);
 const mockUpdateFeatureFlags = vi.mocked(updateFeatureFlags);
 const mockGetStatsSummary = vi.mocked(getStatsSummary);
+const mockListRecentUploadFailures = vi.mocked(listRecentUploadFailures);
 
 function createApi() {
 	const api = new Hono<{ Bindings: { SESSION_SECRET: string } }>().basePath("/api");
@@ -698,5 +704,69 @@ describe("PUT /api/admin/features", () => {
 
 		expect(res.status).toBe(400);
 		expect(mockUpdateFeatureFlags).not.toHaveBeenCalled();
+	});
+});
+
+describe("GET /api/admin/upload-failures", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockVerify.mockResolvedValue({ userId: "u1", name: "Tomek", role: "admin" });
+		mockFindUser.mockResolvedValue({
+			id: "u1",
+			name: "Tomek",
+			role: "admin",
+			tokenHash: "hash",
+			deletedAt: null,
+			createdAt: new Date(),
+		});
+	});
+
+	it("returns recent upload failures for the admin panel", async () => {
+		mockListRecentUploadFailures.mockResolvedValue([
+			{
+				id: "failure-1",
+				userId: "u2",
+				step: "image-upload",
+				kind: "timeout",
+				detail: "TimeoutError: aborted",
+				fileName: "duze.jpg",
+				fileSize: 4096,
+				createdAt: new Date("2026-08-17T10:00:00Z"),
+			},
+		]);
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/admin/upload-failures",
+			{ headers: adminHeaders() },
+			{ SESSION_SECRET: "secret" },
+		);
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { data: Array<{ id: string; kind: string }> };
+		expect(body.data).toHaveLength(1);
+		expect(body.data[0]?.kind).toBe("timeout");
+		expect(mockListRecentUploadFailures).toHaveBeenCalledWith(50);
+	});
+
+	it("returns 403 for a non-admin member", async () => {
+		mockVerify.mockResolvedValue({ userId: "u2", name: "Kasia", role: "member" });
+		mockFindUser.mockResolvedValue({
+			id: "u2",
+			name: "Kasia",
+			role: "member",
+			tokenHash: "hash",
+			deletedAt: null,
+			createdAt: new Date(),
+		});
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/admin/upload-failures",
+			{ headers: adminHeaders() },
+			{ SESSION_SECRET: "secret" },
+		);
+
+		expect(res.status).toBe(403);
 	});
 });

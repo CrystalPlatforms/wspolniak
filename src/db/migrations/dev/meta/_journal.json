@@ -169,6 +169,13 @@
       "when": 1786371737840,
       "tag": "0023_supreme_sue_storm",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1786965165162,
+      "tag": "0024_worried_spencer_smythe",
+      "breakpoints": true
     }
   ]
 }

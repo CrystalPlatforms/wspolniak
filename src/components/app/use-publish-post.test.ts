@@ -2,6 +2,7 @@
 import { QueryClient } from "@tanstack/react-query";
 import { feedQueryKey } from "@/components/app/feed-query";
 import { compressImage } from "@/images/compress";
+import { UploadFlowError } from "@/images/upload";
 import {
 	createPost,
 	PUBLISH_BAR_DURATION_MS,
@@ -167,5 +168,104 @@ describe("createPost", () => {
 		const calls = fetchMock.mock.calls.map(([u]) => String(u));
 		expect(calls.filter((u) => u.endsWith("/api/app/images/upload-urls"))).toHaveLength(0);
 		expect(calls.filter((u) => u.endsWith("/api/app/posts"))).toHaveLength(1);
+	});
+
+	it("awaria sieci przy tworzeniu posta → UploadFlowError (network, step create-post), nie 'Load failed'", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => {
+				throw new TypeError("Load failed");
+			}),
+		);
+
+		const error = await createPost({
+			description: "tekst",
+			files: [],
+			videoIds: [],
+			mentions: [],
+		}).catch((e: unknown) => e);
+
+		expect(error).toBeInstanceOf(UploadFlowError);
+		const flowError = error as UploadFlowError;
+		expect(flowError.step).toBe("create-post");
+		expect(flowError.kind).toBe("network");
+		expect(flowError.message).toContain("sprawdź połączenie");
+		expect(flowError.message).not.toContain("Load failed");
+	});
+
+	it("awaria sieci przy tworzeniu posta → raport na /api/app/upload-failures", async () => {
+		const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => {
+			throw new TypeError("Load failed");
+		});
+		vi.stubGlobal("fetch", fetchMock);
+
+		await createPost({ description: "tekst", files: [], videoIds: [], mentions: [] }).catch(
+			() => {},
+		);
+
+		const reportCalls = fetchMock.mock.calls.filter(([u]) =>
+			String(u).endsWith("/api/app/upload-failures"),
+		);
+		expect(reportCalls).toHaveLength(1);
+		const body = JSON.parse(String(reportCalls[0]?.[1]?.body)) as { step: string; kind: string };
+		expect(body.step).toBe("create-post");
+		expect(body.kind).toBe("network");
+	});
+
+	it("HTTP 400 z serwera → detail zawiera komunikat błędu serwera (np. dlugość opisu)", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => ({
+				ok: false,
+				status: 400,
+				json: async () => ({
+					error: "Validation failed",
+					details: {
+						fieldErrors: { description: ["Too big: expected string to have <=2000 characters"] },
+					},
+				}),
+			})),
+		);
+
+		const error = await createPost({
+			description: "za długi",
+			files: [],
+			videoIds: [],
+			mentions: [],
+		}).catch((e: unknown) => e);
+
+		expect(error).toBeInstanceOf(UploadFlowError);
+		const flowError = error as UploadFlowError;
+		expect(flowError.kind).toBe("http");
+		expect(flowError.detail).toContain("HTTP 400");
+		expect(flowError.detail).toContain("Validation failed");
+	});
+
+	it("HTTP 400 za długi opis → konkretny komunikat 'tekst za długi' zamiast ogólnego", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async () => ({
+				ok: false,
+				status: 400,
+				json: async () => ({
+					error: "Validation failed",
+					details: {
+						fieldErrors: { description: ["Too big: expected string to have <=2000 characters"] },
+					},
+				}),
+			})),
+		);
+
+		const error = await createPost({
+			description: "za długi",
+			files: [],
+			videoIds: [],
+			mentions: [],
+		}).catch((e: unknown) => e);
+
+		expect(error).toBeInstanceOf(UploadFlowError);
+		const flowError = error as UploadFlowError;
+		expect(flowError.message).toContain("za długi");
+		expect(flowError.message).toContain("2000");
 	});
 });
