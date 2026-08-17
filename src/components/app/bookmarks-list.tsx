@@ -2,7 +2,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Bookmark } from "lucide-react";
 import { PostCard, type PostCardPost } from "@/components/app/post-card";
-import { Spinner } from "@/components/ui/spinner";
+import { Loader } from "@/components/ui/loader";
 
 /** Współdzielony klucz zapytania o pełną listę zapisanych postów (strona Biblioteka). */
 export const BOOKMARKED_POSTS_KEY = ["bookmarks", "list"] as const;
@@ -38,12 +38,9 @@ export function BookmarksList({ currentUserId, currentUserRole }: BookmarksListP
 
 	if (isPending) {
 		return (
-			<output
-				aria-label="Ładowanie zapisanych postów"
-				className="flex items-center justify-center py-12"
-			>
-				<Spinner loading size={6} />
-			</output>
+			<div className="flex items-center justify-center py-12">
+				<Loader loading size={6} />
+			</div>
 		);
 	}
 

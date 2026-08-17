@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { RotateCcwIcon } from "lucide-react";
-import { Spinner } from "@/components/ui/spinner";
+import { Loader } from "@/components/ui/loader";
 import type { VideoFeedItem } from "@/db/videos";
 import { VideoCard } from "./video-card";
 
@@ -35,7 +35,7 @@ export function VideoFeed({ videos, hasNextPage, isFetchingNextPage, onLoadMore 
 			<div>
 				{isFetchingNextPage && (
 					<div className="flex items-center justify-center py-4">
-						<Spinner loading size={6} />
+						<Loader loading size={6} />
 					</div>
 				)}
 				{hasNextPage && !isFetchingNextPage && (

@@ -3,7 +3,7 @@
 import { Youtube } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { LoaderIcon } from "@/components/ui/spinner";
+import { Loader } from "@/components/ui/loader";
 
 export interface YoutubeConnectionStatus {
 	connected: boolean;
@@ -59,7 +59,7 @@ export function YoutubeConnection({
 					>
 						{isDisconnecting ? (
 							<>
-								<LoaderIcon loading={isDisconnecting} />
+								<Loader loading={isDisconnecting} />
 								<span>Rozłączam…</span>
 							</>
 						) : (

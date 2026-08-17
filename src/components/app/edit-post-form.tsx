@@ -18,7 +18,7 @@ import { PostVideoPicker } from "@/components/app/post-video-picker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { LoaderIcon } from "@/components/ui/spinner";
+import { Loader } from "@/components/ui/loader";
 import { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from "@/db/instance";
 import { MAX_DESCRIPTION_LENGTH } from "@/db/posts/schema";
 import { getImageUrl } from "@/images/client";
@@ -344,7 +344,7 @@ export function EditPostForm({
 			)}
 
 			<Button type="submit" className="w-full" disabled={!canSubmit}>
-				<LoaderIcon loading={isSubmitting} />
+				<Loader loading={isSubmitting} />
 				{isSubmitting ? "Zapisywanie..." : "Zapisz zmiany"}
 			</Button>
 		</form>

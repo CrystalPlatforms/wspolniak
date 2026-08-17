@@ -10,7 +10,7 @@ import { ReactionBar } from "@/components/app/reaction-bar";
 import { ReactionUsers } from "@/components/app/reaction-users";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { LoaderIcon } from "@/components/ui/spinner";
+import { Loader } from "@/components/ui/loader";
 import { canAddReply } from "@/db/comments/queries";
 
 interface CommentItemProps {
@@ -157,7 +157,7 @@ export function CommentItem({ comment, postId, currentUserId, currentUserRole }:
 								}}
 								disabled={replyMutation.isPending || !replyBody.trim()}
 							>
-								<LoaderIcon loading={replyMutation.isPending} />
+								<Loader loading={replyMutation.isPending} />
 								{replyMutation.isPending ? "Wysyłanie..." : "Wyślij"}
 							</Button>
 						</div>

@@ -7,7 +7,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { LoaderIcon } from "@/components/ui/spinner";
+import { Loader } from "@/components/ui/loader";
 
 interface CalendarEventDTO {
 	id: string;
@@ -206,7 +206,7 @@ function CalendarPage() {
 						<EventFormFields form={addForm} setForm={setAddForm} />
 						<Button type="submit" disabled={createMutation.isPending} className="w-full">
 							{createMutation.isPending ? (
-								<LoaderIcon loading={createMutation.isPending} />
+								<Loader loading={createMutation.isPending} />
 							) : (
 								<Plus className="h-4 w-4" />
 							)}
@@ -238,7 +238,7 @@ function CalendarPage() {
 						<EventFormFields form={editForm} setForm={setEditForm} />
 						<Button type="submit" disabled={updateMutation.isPending} className="w-full">
 							{updateMutation.isPending ? (
-								<LoaderIcon loading={updateMutation.isPending} />
+								<Loader loading={updateMutation.isPending} />
 							) : (
 								<Pencil className="h-4 w-4" />
 							)}
@@ -289,7 +289,7 @@ function CalendarPage() {
 							onClick={() => deleting && deleteMutation.mutate(deleting.id)}
 						>
 							{deleteMutation.isPending ? (
-								<LoaderIcon loading={deleteMutation.isPending} />
+								<Loader loading={deleteMutation.isPending} />
 							) : (
 								<Trash2 className="h-4 w-4" />
 							)}

@@ -13,7 +13,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
-import { LoaderIcon } from "@/components/ui/spinner";
+import { Loader } from "@/components/ui/loader";
 
 interface VideoActionsProps {
 	videoId: string;
@@ -97,7 +97,7 @@ export function VideoActions({ videoId }: VideoActionsProps) {
 							disabled={deleteMutation.isPending}
 							className="h-12 text-base sm:h-auto sm:text-sm flex-1 sm:flex-none"
 						>
-							<LoaderIcon loading={deleteMutation.isPending} />
+							<Loader loading={deleteMutation.isPending} />
 							{deleteMutation.isPending ? "Usuwanie..." : "Usuń"}
 						</Button>
 					</DialogFooter>

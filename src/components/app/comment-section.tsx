@@ -7,7 +7,7 @@ import { type Mention, MentionInput } from "@/components/app/mention-input";
 import { optimisticCommentMutation } from "@/components/app/optimistic-comments";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { LoaderIcon } from "@/components/ui/spinner";
+import { Loader } from "@/components/ui/loader";
 
 export interface CommentWithAuthor {
 	id: string;
@@ -120,7 +120,7 @@ export function CommentSection({ postId, currentUserId, currentUserRole }: Comme
 						}}
 						disabled={mutation.isPending || !newComment.trim()}
 					>
-						<LoaderIcon loading={mutation.isPending} />
+						<Loader loading={mutation.isPending} />
 						{mutation.isPending ? "Wysyłanie..." : "Skomentuj"}
 					</Button>
 				</div>

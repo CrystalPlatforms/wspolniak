@@ -1,15 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import {
-	ChevronLeft,
-	ChevronRight,
-	Download,
-	Loader2,
-	Maximize,
-	X,
-	ZoomIn,
-	ZoomOut,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Maximize, X, ZoomIn, ZoomOut } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Loader } from "@/components/ui/loader";
 import { downloadImage } from "@/lib/download-image";
 import { clampOffset, MAX_ZOOM, MIN_ZOOM, usePinchZoom } from "./use-pinch-zoom";
 
@@ -304,7 +296,7 @@ export function ImageLightbox({ images, initialIndex = 0, open, onClose }: Image
 						/>
 					)}
 					{downloading ? (
-						<Loader2 className="relative h-8 w-8 animate-spin sm:h-5 sm:w-5" />
+						<Loader className="relative" />
 					) : (
 						<Download className="relative h-8 w-8 sm:h-5 sm:w-5" />
 					)}

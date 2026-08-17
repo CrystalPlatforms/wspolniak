@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { RotateCcwIcon } from "lucide-react";
 import { PostCard, type PostCardPost } from "@/components/app/post-card";
-import { Spinner } from "@/components/ui/spinner";
+import { Loader } from "@/components/ui/loader";
 
 interface FeedProps {
 	posts: PostCardPost[];
@@ -48,7 +48,7 @@ export function Feed({
 			<div>
 				{isFetchingNextPage && (
 					<div className="flex items-center justify-center py-4">
-						<Spinner loading size={6} />
+						<Loader loading size={6} />
 					</div>
 				)}
 				{hasNextPage && !isFetchingNextPage && (

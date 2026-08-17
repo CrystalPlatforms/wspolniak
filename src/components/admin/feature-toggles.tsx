@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { LoaderIcon } from "@/components/ui/spinner";
+import { Loader } from "@/components/ui/loader";
 import { Switch } from "@/components/ui/switch";
 import type { FeatureFlags } from "@/db/instance";
 
@@ -23,7 +23,7 @@ export function FeatureToggles({ flags, isSaving, onChange }: FeatureTogglesProp
 		<div className="rounded-lg border border-border bg-card p-4">
 			<div className="mb-3 flex items-center gap-2">
 				<h2 className="text-lg font-semibold text-foreground">Funkcje</h2>
-				{isSaving ? <LoaderIcon loading={isSaving} /> : null}
+				{isSaving ? <Loader loading={isSaving} /> : null}
 			</div>
 			<div className="space-y-3">
 				<ToggleRow

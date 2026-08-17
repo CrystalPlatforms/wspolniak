@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LoaderIcon } from "@/components/ui/spinner";
+import { Loader } from "@/components/ui/loader";
 
 interface SetupResponse {
 	magicLink: string;
@@ -138,7 +138,7 @@ export function SetupPage() {
 					<form.Subscribe selector={(s) => s.canSubmit}>
 						{(canSubmit) => (
 							<Button type="submit" className="w-full" disabled={!canSubmit || mutation.isPending}>
-								<LoaderIcon loading={mutation.isPending} />
+								<Loader loading={mutation.isPending} />
 								{mutation.isPending ? "Konfigurowanie..." : "Skonfiguruj"}
 							</Button>
 						)}

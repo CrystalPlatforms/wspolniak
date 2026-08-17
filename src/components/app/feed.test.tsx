@@ -205,7 +205,7 @@ describe("Feed", () => {
 		});
 
 		await act(() => vi.advanceTimersByTimeAsync(1500));
-		expect(document.querySelector(".animate-spin")).not.toBeNull();
+		expect(document.querySelector("output.loader")).not.toBeNull();
 	});
 
 	it("shows who-reacted button on someone else's post for member", () => {

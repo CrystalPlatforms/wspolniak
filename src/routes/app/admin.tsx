@@ -18,7 +18,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { LoaderIcon } from "@/components/ui/spinner";
+import { Loader } from "@/components/ui/loader";
 
 interface Member {
 	id: string;
@@ -325,7 +325,7 @@ function AdminPage() {
 						/>
 						<Button type="submit" disabled={!newName.trim() || createMutation.isPending}>
 							{createMutation.isPending ? (
-								<LoaderIcon loading={createMutation.isPending} />
+								<Loader loading={createMutation.isPending} />
 							) : (
 								<Plus className="h-4 w-4" />
 							)}
@@ -478,7 +478,7 @@ function MemberRow({
 							disabled={saving}
 						/>
 						<Button size="sm" onClick={handleSave} disabled={saving} title="Zapisz">
-							{saving ? <LoaderIcon loading={saving} /> : <Check className="h-4 w-4" />}
+							{saving ? <Loader loading={saving} /> : <Check className="h-4 w-4" />}
 						</Button>
 						<Button size="sm" variant="ghost" onClick={cancelEdit} disabled={saving} title="Anuluj">
 							<X className="h-4 w-4" />
