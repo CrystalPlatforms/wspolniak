@@ -1,3 +1,10 @@
+# [3.16.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.15.0...v3.16.0) (2026-08-21)
+
+
+### Features
+
+* **ui:** static cold-start splash with min-600ms rule and nav reveal ([#144](https://github.com/CrystalPlatforms/wspolniak/issues/144)) ([8b7331a](https://github.com/CrystalPlatforms/wspolniak/commit/8b7331a517ed56d303e4ee423d1d50b72d5d0fd6))
+
 # [3.15.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.14.0...v3.15.0) (2026-08-21)
 
 
