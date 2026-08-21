@@ -10,7 +10,6 @@ import {
 	SlidersHorizontal,
 	Video,
 } from "lucide-react";
-import { ThemeToggle } from "@/components/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import { Button } from "@/components/ui/button";
 import { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from "@/db/instance";
@@ -95,8 +94,6 @@ export function DesktopSidebar({
 						</Link>
 					);
 				})}
-
-				<ThemeNavItem />
 			</nav>
 
 			<div className="mt-6 flex flex-col gap-2 px-3">
@@ -116,16 +113,5 @@ export function DesktopSidebar({
 				</Link>
 			</div>
 		</aside>
-	);
-}
-
-function ThemeNavItem() {
-	return (
-		<ThemeToggle
-			variant="ghost"
-			size="lg"
-			showLabel
-			className="h-auto w-full justify-start gap-3 rounded-full px-3 py-3 text-lg font-medium"
-		/>
 	);
 }

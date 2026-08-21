@@ -12,7 +12,6 @@ import {
 	Video,
 } from "lucide-react";
 import { useState } from "react";
-import { ThemeToggle } from "@/components/theme";
 import { useTheme } from "@/components/theme/theme-provider";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
@@ -52,7 +51,7 @@ interface MobileSidebarProps {
 }
 
 // Hamburger (tylko mobile, sm:hidden) otwierający drawer animowany od lewej.
-// Zawiera wszystkie pozycje jak desktop-sidebar + Nowy post + przełącznik motywu.
+// Zawiera wszystkie pozycje jak desktop-sidebar + Nowy post.
 export function MobileSidebar({ role, featureFlags = DEFAULT_FEATURE_FLAGS }: MobileSidebarProps) {
 	const [open, setOpen] = useState(false);
 	const { pathname } = useLocation();
@@ -124,12 +123,6 @@ export function MobileSidebar({ role, featureFlags = DEFAULT_FEATURE_FLAGS }: Mo
 							Nowy post
 						</Button>
 					</Link>
-					<ThemeToggle
-						variant="ghost"
-						size="lg"
-						showLabel
-						className="h-auto w-full justify-start gap-3 rounded-full px-3 py-3 text-lg font-medium"
-					/>
 				</div>
 			</SheetContent>
 		</Sheet>
