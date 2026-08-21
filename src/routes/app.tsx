@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { DesktopSidebar } from "@/components/app/desktop-sidebar";
 import { MobileNav } from "@/components/app/mobile-nav";
 import {
@@ -7,25 +8,37 @@ import {
 	shouldShowMaintenanceOverlay,
 } from "@/components/maintenance/maintenance-overlay";
 import { PwaShell } from "@/components/pwa/pwa-shell";
-import { getFeatureFlagsState } from "@/core/functions/feature-flags";
-import { getMaintenanceState } from "@/core/functions/maintenance";
-import { getSession } from "@/core/functions/session";
+import { Loader } from "@/components/ui/loader";
+import { loadAppBootstrap, useAppBootstrap } from "@/core/app-bootstrap";
 
 export const Route = createFileRoute("/app")({
-	beforeLoad: async () => {
-		const session = await getSession();
-		if (!session) {
-			throw redirect({ to: "/" });
-		}
-		const maintenance = await getMaintenanceState();
-		const featureFlags = await getFeatureFlagsState();
-		return { session, maintenance, featureFlags };
-	},
+	// Bootstrap (sesja/maintenance/flagi) get-or-fetch z query cache: sieć tylko
+	// przy pierwszym wejściu, każda kolejna nawigacja czyta cache (microtask).
+	beforeLoad: async ({ context }) => loadAppBootstrap(context),
+	// Layout /app nigdy nie jest zastępowany pendingem — ładowanie podstron
+	// pokazuje się w <Outlet> (obszar treści), nawigacja zostaje interaktywna.
+	pendingMs: Number.POSITIVE_INFINITY,
 	component: AppLayout,
 });
 
 function AppLayout() {
-	const { session, maintenance, featureFlags } = Route.useRouteContext();
+	const navigate = useNavigate();
+	const { session, maintenance, featureFlags, isPending } = useAppBootstrap();
+
+	// Live redirect: background refresh wykrył wygasłą sesję w trakcie sesji.
+	useEffect(() => {
+		if (!isPending && session === null) {
+			void navigate({ to: "/", replace: true });
+		}
+	}, [isPending, session, navigate]);
+
+	if (isPending || !session || !maintenance || !featureFlags) {
+		return (
+			<div className="flex min-h-dvh items-center justify-center bg-background">
+				<Loader size={10} />
+			</div>
+		);
+	}
 
 	if (shouldShowMaintenanceOverlay(maintenance, session.role)) {
 		return (
