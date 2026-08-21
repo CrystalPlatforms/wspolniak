@@ -1,0 +1,24 @@
+/* Szkielety kart (#145): bloki z delikatnym shimmerem na zmiennych motywu.
+   Reduced-motion: bez animacji — zgodnie z dostępnością loadera (#138). */
+.skeleton {
+	background: linear-gradient(
+		100deg,
+		var(--muted) 45%,
+		var(--accent) 50%,
+		var(--muted) 55%
+	);
+	background-size: 200% 100%;
+	animation: skeleton-shimmer 1.6s linear infinite;
+}
+
+@keyframes skeleton-shimmer {
+	to {
+		background-position: -200% 0;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.skeleton {
+		animation: none;
+	}
+}

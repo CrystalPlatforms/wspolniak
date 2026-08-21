@@ -5,12 +5,22 @@ import { BookmarkButton } from "@/components/app/bookmark-button";
 import { ImageLightbox } from "@/components/app/image-lightbox";
 import { MarkdownText } from "@/components/app/markdown-text";
 import { PostActions } from "@/components/app/post-actions";
+import {
+	SkeletonDescription,
+	SkeletonHeader,
+	SkeletonMeta,
+} from "@/components/app/post-card-skeleton";
 import { ReactionBar } from "@/components/app/reaction-bar";
 import { ReactionUsers } from "@/components/app/reaction-users";
 import { VideoThumb } from "@/components/video/video-thumb";
+import { useBootSequence } from "@/core/boot-sequence";
 import { getImageUrl } from "@/images/client";
 
 const MAX_FEED_IMAGES = 2;
+
+/** Etapy choreografii karty (#145): nagłówek+opis → reakcje+komentarze → media. */
+export const POST_CARD_STAGES = ["text", "reactions", "photos"] as const;
+export type PostCardStage = (typeof POST_CARD_STAGES)[number];
 
 export interface PostCardImage {
 	id: string;
@@ -51,6 +61,10 @@ interface PostCardProps {
 /**
  * Pojedyncza karta posta — współdzielona przez feed i Bibliotekę (#127).
  * Hermetyzuje własny lightbox, by rodzic (Feed / BookmarksList) był prostym mapem.
+ * Od #145 zarządza też sekwencją odsłaniania (useBootSequence): zimny start
+ * pokazuje szkielety etapów, warm (nawigacja kliencka) — pełną treść od razu.
+ * Zdjęcia pobierają się równolegle od montażu; nakładka znika, gdy zdjęcie
+ * jest załadowane ORAZ etap reactions już widoczny (kolejność wymuszona).
  */
 export function PostCard({
 	post,
@@ -60,10 +74,27 @@ export function PostCard({
 	libraryEnabled = true,
 }: PostCardProps) {
 	const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+	const [loadedImages, setLoadedImages] = useState<ReadonlySet<string>>(() => new Set());
 
 	const canManage = post.authorId === currentUserId || currentUserRole === "admin";
 	const visibleImages = post.images.slice(0, MAX_FEED_IMAGES);
 	const remaining = post.images.length - MAX_FEED_IMAGES;
+
+	const allImagesLoaded = visibleImages.length === 0 || loadedImages.size >= visibleImages.length;
+	const visible = useBootSequence<PostCardStage>(POST_CARD_STAGES, {
+		text: true,
+		reactions: true,
+		photos: allImagesLoaded,
+	});
+
+	const registerImageLoad = (imageId: string) => {
+		setLoadedImages((prev) => {
+			if (prev.has(imageId)) return prev;
+			const next = new Set(prev);
+			next.add(imageId);
+			return next;
+		});
+	};
 
 	const lightboxImages = post.images.map((img) => ({
 		id: img.id,
@@ -90,33 +121,44 @@ export function PostCard({
 					<PinIcon className="size-4" />
 				</span>
 			)}
-			<div className="mb-2 flex items-center gap-2">
-				<span className="font-semibold text-foreground">{post.author.name}</span>
-				<time className="text-sm text-muted-foreground" dateTime={post.createdAt}>
-					{formatRelativeTime(post.createdAt)}
-				</time>
-				<div className="ml-auto flex items-center gap-1">
-					{libraryEnabled && <BookmarkButton postId={post.id} />}
-					<ReactionUsers target={{ kind: "post", postId: post.id }} />
-					{canManage && (
-						<PostActions
-							postId={post.id}
-							description={post.description}
-							isAdmin={currentUserRole === "admin"}
-							pinned={post.pinned}
-						/>
-					)}
-				</div>
-			</div>
 
-			{post.description && (
-				<MarkdownText text={post.description} className="mb-3 break-words text-foreground" />
+			{visible.text ? (
+				<>
+					<div className="mb-2 flex items-center gap-2">
+						<span className="font-semibold text-foreground">{post.author.name}</span>
+						<time className="text-sm text-muted-foreground" dateTime={post.createdAt}>
+							{formatRelativeTime(post.createdAt)}
+						</time>
+						<div className="ml-auto flex items-center gap-1">
+							{libraryEnabled && <BookmarkButton postId={post.id} />}
+							<ReactionUsers target={{ kind: "post", postId: post.id }} />
+							{canManage && (
+								<PostActions
+									postId={post.id}
+									description={post.description}
+									isAdmin={currentUserRole === "admin"}
+									pinned={post.pinned}
+								/>
+							)}
+						</div>
+					</div>
+
+					{post.description && (
+						<MarkdownText text={post.description} className="mb-3 break-words text-foreground" />
+					)}
+				</>
+			) : (
+				<>
+					<SkeletonHeader />
+					{post.description !== null && <SkeletonDescription />}
+				</>
 			)}
 
 			{visibleImages.length > 0 && (
 				<div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
 					{visibleImages.map((image, index) => {
 						const showOverlay = index === 1 && remaining > 0;
+						const mediaVisible = visible.reactions && loadedImages.has(image.id);
 						return (
 							<button
 								key={image.id}
@@ -133,8 +175,16 @@ export function PostCard({
 									alt={`Zdjęcie ${image.displayOrder + 1}`}
 									className="aspect-square w-full object-cover transition-transform hover:scale-105"
 									loading="lazy"
+									onLoad={() => registerImageLoad(image.id)}
+									ref={(el) => {
+										// zdjęcia z cache bywają gotowe przed podpięciem onLoad
+										if (el?.complete) registerImageLoad(image.id);
+									}}
 								/>
-								{showOverlay && (
+								{!mediaVisible && (
+									<div className="skeleton absolute inset-0 rounded-md" aria-hidden="true" />
+								)}
+								{showOverlay && mediaVisible && (
 									<span className="absolute inset-0 flex items-center justify-center bg-black/50 text-lg font-semibold text-white">
 										+{remaining} więcej
 									</span>
@@ -145,7 +195,7 @@ export function PostCard({
 				</div>
 			)}
 
-			{post.videos && post.videos.length > 0 && (
+			{visible.photos && post.videos && post.videos.length > 0 && (
 				<div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
 					{post.videos.map((video) => (
 						<VideoThumb
@@ -158,27 +208,31 @@ export function PostCard({
 				</div>
 			)}
 
-			<div className="mt-3 flex items-center justify-between">
-				<div className="flex items-center gap-1">
+			{visible.reactions ? (
+				<div className="mt-3 flex items-center justify-between">
+					<div className="flex items-center gap-1">
+						<a
+							href={`/app/post/${post.id}#comments`}
+							className="flex items-center gap-1.5 rounded-md px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground sm:gap-1 sm:px-2 sm:py-1"
+						>
+							<MessageCircleIcon className="size-6 sm:size-4" />
+							{post.commentCount ?? 0}
+						</a>
+						<ReactionBar target={{ kind: "post", postId: post.id }} />
+					</div>
 					<a
-						href={`/app/post/${post.id}#comments`}
+						href={`/app/post/${post.id}`}
 						className="flex items-center gap-1.5 rounded-md px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground sm:gap-1 sm:px-2 sm:py-1"
+						aria-label="Otwórz pełny post"
 					>
-						<MessageCircleIcon className="size-6 sm:size-4" />
-						{post.commentCount ?? 0}
+						<ExternalLinkIcon className="size-6 sm:size-4" />
+						<span className="sm:hidden">Otwórz</span>
+						<span className="hidden sm:inline">Otwórz pełny post</span>
 					</a>
-					<ReactionBar target={{ kind: "post", postId: post.id }} />
 				</div>
-				<a
-					href={`/app/post/${post.id}`}
-					className="flex items-center gap-1.5 rounded-md px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground sm:gap-1 sm:px-2 sm:py-1"
-					aria-label="Otwórz pełny post"
-				>
-					<ExternalLinkIcon className="size-6 sm:size-4" />
-					<span className="sm:hidden">Otwórz</span>
-					<span className="hidden sm:inline">Otwórz pełny post</span>
-				</a>
-			</div>
+			) : (
+				<SkeletonMeta />
+			)}
 
 			{lightboxImages.length > 0 && (
 				<ImageLightbox
@@ -200,10 +254,8 @@ function formatRelativeTime(isoDate: string): string {
 
 	if (diffMin < 1) return "przed chwilą";
 	if (diffMin < 60) return `${diffMin} min temu`;
-
 	const diffHours = Math.floor(diffMin / 60);
 	if (diffHours < 24) return `${diffHours} godz. temu`;
-
 	const diffDays = Math.floor(diffHours / 24);
 	if (diffDays < 7) return `${diffDays} dn. temu`;
 

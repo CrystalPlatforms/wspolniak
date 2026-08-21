@@ -1,8 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { Feed } from "./feed";
+
+// Testy feedu opisują stan warm (choreografia bootu zakończona, #145);
+// zimny start (szkielety etapów) mają własne testy w post-card.test.tsx.
+vi.mock("@/core/boot-splash", () => ({
+	useBootSettled: () => true,
+}));
 
 function createWrapper() {
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -60,6 +66,16 @@ describe("Feed", () => {
 		render(<Feed posts={[]} {...defaultProps} />, { wrapper: createWrapper() });
 
 		expect(screen.getByText(/brak postów/i)).toBeDefined();
+	});
+
+	it("renders skeleton cards while the first page is pending (#145)", () => {
+		const { container } = render(<Feed posts={[]} {...defaultProps} isPending />, {
+			wrapper: createWrapper(),
+		});
+
+		const skeletons = container.querySelectorAll("article[aria-hidden='true']");
+		expect(skeletons.length).toBe(10); // tyle, ile strona feedu — zero shiftu po danych
+		expect(screen.queryByText(/brak postów/i)).toBeNull();
 	});
 
 	it("renders image thumbnails", () => {
@@ -181,6 +197,9 @@ describe("Feed", () => {
 
 		render(<Feed posts={posts} {...defaultProps} />, { wrapper: createWrapper() });
 
+		// #145: plakietka pojawia się razem ze zdjęciem (nakładka szkieletu znika po onLoad)
+		const imgs = screen.getAllByRole("img");
+		for (const img of imgs) fireEvent.load(img);
 		expect(screen.getByText("+3 więcej")).toBeDefined();
 	});
 

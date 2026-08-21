@@ -32,7 +32,7 @@ export const Route = createFileRoute("/app/")({
 
 function FeedScreen() {
 	const { session, featureFlags } = Route.useRouteContext();
-	const { data, hasNextPage, isFetchingNextPage, fetchNextPage, refetch } =
+	const { data, hasNextPage, isFetchingNextPage, fetchNextPage, refetch, isPending } =
 		useInfiniteQuery(feedOptions);
 
 	const allPosts = data?.pages.flatMap((page) => page.data) ?? [];
@@ -55,6 +55,7 @@ function FeedScreen() {
 					hasNextPage={hasNextPage}
 					isFetchingNextPage={isFetchingNextPage}
 					onLoadMore={() => fetchNextPage()}
+					isPending={isPending}
 				/>
 			</div>
 		</PullToRefresh>

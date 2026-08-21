@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { RotateCcwIcon } from "lucide-react";
 import { PostCard, type PostCardPost } from "@/components/app/post-card";
+import { PostCardSkeleton } from "@/components/app/post-card-skeleton";
 import { Loader } from "@/components/ui/loader";
+
+/** Tyle szkieletów, ile postów na stronie feedu (FEED_PAGE_SIZE w core/feed) — zero shiftu po danych. */
+const PENDING_SKELETONS = 10;
 
 interface FeedProps {
 	posts: PostCardPost[];
@@ -12,6 +16,8 @@ interface FeedProps {
 	hasNextPage?: boolean;
 	isFetchingNextPage?: boolean;
 	onLoadMore?: () => void;
+	/** Pierwsza strona danych jeszcze leci (#145) — szkielety zamiast mylącego „Brak postów". */
+	isPending?: boolean;
 }
 
 export function Feed({
@@ -23,7 +29,19 @@ export function Feed({
 	hasNextPage,
 	isFetchingNextPage,
 	onLoadMore,
+	isPending = false,
 }: FeedProps) {
+	if (isPending) {
+		return (
+			<div className="space-y-6" aria-busy="true">
+				{Array.from({ length: PENDING_SKELETONS }, (_, index) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: statyczna lista dekoracyjna o stałej długości
+					<PostCardSkeleton key={index} />
+				))}
+			</div>
+		);
+	}
+
 	if (posts.length === 0) {
 		return (
 			<div className="py-12 text-center">

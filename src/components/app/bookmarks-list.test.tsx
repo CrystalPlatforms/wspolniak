@@ -6,6 +6,12 @@ import type { ReactNode } from "react";
 import type { PostCardPost } from "@/components/app/post-card";
 import { BookmarksList } from "./bookmarks-list";
 
+// Te testy opisują rendering w stanie warm (choreografia bootu zakończona) —
+// #145: przed osiadnięciem pasków PostCard pokazuje szkielety etapów.
+vi.mock("@/core/boot-splash", () => ({
+	useBootSettled: () => true,
+}));
+
 function createWrapper() {
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	return function Wrapper({ children }: { children: ReactNode }) {

@@ -147,4 +147,72 @@ describe("boot splash", () => {
 			}
 		});
 	});
+
+	describe("useBootSettled", () => {
+		function SettledProbe({ useSettled }: { useSettled: () => boolean }) {
+			const settled = useSettled();
+			return <div data-testid="settled">{settled ? "true" : "false"}</div>;
+		}
+
+		it("false w chwili ukrycia splasha, true dopiero po BOOT_SLIDE_MS (wjazd pasków)", async () => {
+			const { BootSplash: FreshSplash, useBootSettled, BOOT_SLIDE_MS } = await freshBootSplash();
+			vi.useFakeTimers({ now: 0 });
+			const nowSpy = vi.spyOn(performance, "now").mockImplementation(() => Date.now());
+			try {
+				render(
+					<>
+						<FreshSplash />
+						<SettledProbe useSettled={useBootSettled} />
+					</>,
+				);
+
+				act(() => vi.advanceTimersByTime(SPLASH_MIN_MS));
+				expect(screen.getByTestId("settled").textContent).toBe("false");
+
+				act(() => vi.advanceTimersByTime(BOOT_SLIDE_MS - 1));
+				expect(screen.getByTestId("settled").textContent).toBe("false");
+
+				act(() => vi.advanceTimersByTime(1));
+				expect(screen.getByTestId("settled").textContent).toBe("true");
+			} finally {
+				nowSpy.mockRestore();
+				vi.useRealTimers();
+			}
+		});
+
+		it("subskrybent zamontowany między reveal a osiadnięciem dostaje false, potem true", async () => {
+			const { BootSplash: FreshSplash, useBootSettled, BOOT_SLIDE_MS } = await freshBootSplash();
+			vi.useFakeTimers({ now: 0 });
+			const nowSpy = vi.spyOn(performance, "now").mockImplementation(() => Date.now());
+			try {
+				render(<FreshSplash />);
+				act(() => vi.advanceTimersByTime(SPLASH_MIN_MS)); // reveal
+
+				render(<SettledProbe useSettled={useBootSettled} />);
+				expect(screen.getByTestId("settled").textContent).toBe("false");
+
+				act(() => vi.advanceTimersByTime(BOOT_SLIDE_MS));
+				expect(screen.getByTestId("settled").textContent).toBe("true");
+			} finally {
+				nowSpy.mockRestore();
+				vi.useRealTimers();
+			}
+		});
+
+		it("późny montaż po osiadnięciu dostaje true od razu", async () => {
+			const { BootSplash: FreshSplash, useBootSettled, BOOT_SLIDE_MS } = await freshBootSplash();
+			vi.useFakeTimers({ now: 0 });
+			const nowSpy = vi.spyOn(performance, "now").mockImplementation(() => Date.now());
+			try {
+				render(<FreshSplash />);
+				act(() => vi.advanceTimersByTime(SPLASH_MIN_MS + BOOT_SLIDE_MS));
+
+				render(<SettledProbe useSettled={useBootSettled} />);
+				expect(screen.getByTestId("settled").textContent).toBe("true");
+			} finally {
+				nowSpy.mockRestore();
+				vi.useRealTimers();
+			}
+		});
+	});
 });
