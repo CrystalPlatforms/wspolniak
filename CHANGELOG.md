@@ -1,3 +1,10 @@
+# [3.20.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.19.0...v3.20.0) (2026-08-21)
+
+
+### Features
+
+* **pwa:** offline fast-path — cached /app shell and instant boot reveal ([#148](https://github.com/CrystalPlatforms/wspolniak/issues/148)) ([aaa81d1](https://github.com/CrystalPlatforms/wspolniak/commit/aaa81d1033db02e23ccfce06f4b24aee3a2149eb))
+
 # [3.19.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.18.0...v3.19.0) (2026-08-21)
 
 
