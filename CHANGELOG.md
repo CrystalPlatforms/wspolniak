@@ -1,3 +1,10 @@
+# [3.19.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.18.0...v3.19.0) (2026-08-21)
+
+
+### Features
+
+* **app:** stage post view, video and library loading ([#147](https://github.com/CrystalPlatforms/wspolniak/issues/147)) ([3cdd135](https://github.com/CrystalPlatforms/wspolniak/commit/3cdd13557e967e1ca7d079f522925b2c5b87ab8b))
+
 # [3.18.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.17.0...v3.18.0) (2026-08-21)
 
 
