@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { Button } from "@/components/ui/button";
+import { useBootReveal } from "@/core/boot-splash";
 import { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from "@/db/instance";
 import { cn } from "@/lib/utils";
 
@@ -62,8 +63,15 @@ export function DesktopSidebar({
 	const logoSrc =
 		resolvedTheme === "dark" ? "/logo/WspolniakLogoTrans.png" : "/logo/WspolniakLogoTransLIGHT.png";
 
+	const bootRevealed = useBootReveal();
+
 	return (
-		<aside className="hidden sm:flex sm:flex-col sm:fixed sm:left-0 sm:top-0 sm:bottom-0 sm:w-[220px] sm:bg-background sm:px-4 sm:py-4">
+		<aside
+			className={cn(
+				"hidden sm:flex sm:flex-col sm:fixed sm:left-0 sm:top-0 sm:bottom-0 sm:w-[220px] sm:bg-background sm:px-4 sm:py-4",
+				bootRevealed && "boot-reveal-side",
+			)}
+		>
 			<img src={logoSrc} alt="Wspólniak" className="mx-auto mb-6 h-48 w-auto" />
 
 			<nav className="flex flex-1 flex-col gap-1 pl-2">

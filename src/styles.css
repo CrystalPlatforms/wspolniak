@@ -366,6 +366,41 @@ code {
   }
 }
 
+/* Loading Harmony P2 (#144) — cold-start reveal choreography for nav bars.
+   Klasa doklejana po ukryciu splasha (useBootReveal); reduced-motion = bez animacji. */
+@keyframes boot-slide-up {
+  0% {
+    transform: translateY(100%);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes boot-slide-in {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.boot-reveal-up {
+  animation: boot-slide-up 0.4s ease-out both;
+}
+
+.boot-reveal-side {
+  animation: boot-slide-in 0.4s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .boot-reveal-up,
+  .boot-reveal-side {
+    animation: none;
+  }
+}
+
 @utility pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0);
 }

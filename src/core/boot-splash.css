@@ -1,0 +1,27 @@
+/* Static cold-start splash (Loading Harmony P2, #144) — czarne tło, TailChase, tytuł.
+   Nieprzezroczysty overlay nad całą aplikacją (także nad MaintenanceOverlay z-9999):
+   treść SSR renderuje się pod spodem, więc usunięcie splasha nie mignie bielą.
+   Animacja TailChase i reduced-motion dziedziczą z loader.css (klasa .loader). */
+.boot-splash {
+	position: fixed;
+	inset: 0;
+	z-index: 10000;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 24px;
+	background-color: #000;
+}
+
+.boot-splash-loader {
+	--uib-size: 56px;
+}
+
+.boot-splash-title {
+	margin: 0;
+	font-size: 28px;
+	font-weight: 700;
+	letter-spacing: 0.02em;
+	color: #fafafa;
+}
