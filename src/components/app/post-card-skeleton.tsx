@@ -7,8 +7,11 @@ const SKELETON_DESCRIPTION_LINES = 3;
 /** Domyślna liczba slotów zdjęć — tyle, ile maksymalnie widoczne w feedzie. */
 export const SKELETON_IMAGE_SLOTS = 2;
 
-/** Pojedyncza szara linia szkieletu z shimmerem. */
-function SkeletonLine({ className = "" }: { className?: string }) {
+/** Liczba szkieletów kart na liście pending — feed i Biblioteka (#147). */
+export const PENDING_SKELETONS = 10;
+
+/** Pojedyncza szara linia szkieletu z shimmerem (eksport: szkielety komentarzy #147). */
+export function SkeletonLine({ className = "" }: { className?: string }) {
 	return <div aria-hidden="true" className={`skeleton h-4 rounded-sm ${className}`} />;
 }
 

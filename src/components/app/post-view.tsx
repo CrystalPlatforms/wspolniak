@@ -7,11 +7,25 @@ import { FadeImage } from "@/components/app/fade-image";
 import { ImageLightbox } from "@/components/app/image-lightbox";
 import { MarkdownText } from "@/components/app/markdown-text";
 import { PostActions } from "@/components/app/post-actions";
+import {
+	SkeletonDescription,
+	SkeletonHeader,
+	SkeletonMeta,
+} from "@/components/app/post-card-skeleton";
 import { ReactionBar } from "@/components/app/reaction-bar";
 import { ReactionUsers } from "@/components/app/reaction-users";
 import { VideoThumb } from "@/components/video/video-thumb";
 import { getImageUrl } from "@/images/client";
 import { downloadImage } from "@/lib/download-image";
+
+/**
+ * Etapy choreografii widoku posta (#147) — kolejność ODWROTNA do feedu:
+ * najpierw zdjęcia (użytkownik otwiera post po zdjęcia), potem komentarze,
+ * na końcu reszta (autor, opis, reakcje). Sekwencer prowadzi strona
+ * (komentarze to rodzeństwo PostView), PostView dostaje wynik w propsach.
+ */
+export const POST_VIEW_STAGES = ["photos", "comments", "text"] as const;
+export type PostViewStage = (typeof POST_VIEW_STAGES)[number];
 
 interface PostImage {
 	id: string;
@@ -49,6 +63,14 @@ interface PostViewProps {
 	onDeleted?: () => void;
 	onLightboxChange?: (open: boolean) => void;
 	libraryEnabled?: boolean;
+	/**
+	 * Choreografia #147: czy etap `text` (autor, opis, reakcje) jest już
+	 * odsłonięty. `false` → lustra układu (szkielety). Default `true`
+	 * (warm — PostView używany poza choreografią pokazuje treść od razu).
+	 */
+	revealText?: boolean;
+	/** Sygnał gotowości etapu `photos` — pierwsze zdjęcie wygasło (bramka sekwencera strony). */
+	onFirstImageLoad?: () => void;
 }
 
 export function PostView({
@@ -59,6 +81,8 @@ export function PostView({
 	onDeleted,
 	onLightboxChange,
 	libraryEnabled = true,
+	revealText = true,
+	onFirstImageLoad,
 }: PostViewProps) {
 	const canManage = currentUserId === post.authorId || currentUserRole === "admin";
 
@@ -93,41 +117,53 @@ export function PostView({
 					<Pin className="size-4" />
 				</span>
 			)}
-			<div className="flex items-center gap-2">
-				<span className="font-semibold text-foreground">{post.author.name}</span>
-				<time className="text-sm text-muted-foreground" dateTime={post.createdAt}>
-					{new Date(post.createdAt).toLocaleDateString("pl-PL", {
-						day: "numeric",
-						month: "long",
-						year: "numeric",
-						hour: "2-digit",
-						minute: "2-digit",
-					})}
-				</time>
-				<div className="ml-auto flex items-center gap-1">
-					{libraryEnabled && <BookmarkButton postId={post.id} />}
-					<ReactionUsers target={{ kind: "post", postId: post.id }} />
-					{canManage && (
-						<PostActions
-							postId={post.id}
-							description={post.description}
-							onDeleted={onDeleted}
-							isAdmin={currentUserRole === "admin"}
-							pinned={post.pinned}
-						/>
+			{revealText ? (
+				<>
+					<div className="flex items-center gap-2">
+						<span className="font-semibold text-foreground">{post.author.name}</span>
+						<time className="text-sm text-muted-foreground" dateTime={post.createdAt}>
+							{new Date(post.createdAt).toLocaleDateString("pl-PL", {
+								day: "numeric",
+								month: "long",
+								year: "numeric",
+								hour: "2-digit",
+								minute: "2-digit",
+							})}
+						</time>
+						<div className="ml-auto flex items-center gap-1">
+							{libraryEnabled && <BookmarkButton postId={post.id} />}
+							<ReactionUsers target={{ kind: "post", postId: post.id }} />
+							{canManage && (
+								<PostActions
+									postId={post.id}
+									description={post.description}
+									onDeleted={onDeleted}
+									isAdmin={currentUserRole === "admin"}
+									pinned={post.pinned}
+								/>
+							)}
+						</div>
+					</div>
+
+					{post.description && (
+						<MarkdownText text={post.description} className="break-words text-foreground" />
 					)}
-				</div>
-			</div>
-
-			{post.description && (
-				<MarkdownText text={post.description} className="break-words text-foreground" />
+				</>
+			) : (
+				<>
+					<SkeletonHeader />
+					{post.description !== null && <SkeletonDescription />}
+				</>
 			)}
 
-			{currentUserId && (
-				<div className="flex items-center gap-2">
-					<ReactionBar target={{ kind: "post", postId: post.id }} />
-				</div>
-			)}
+			{currentUserId &&
+				(revealText ? (
+					<div className="flex items-center gap-2">
+						<ReactionBar target={{ kind: "post", postId: post.id }} />
+					</div>
+				) : (
+					<SkeletonMeta />
+				))}
 
 			<div className="space-y-2">
 				{post.images.map((image, index) => {
@@ -151,6 +187,7 @@ export function PostView({
 									src={src}
 									alt={`Zdjęcie ${image.displayOrder + 1}`}
 									className="w-full rounded-lg"
+									onImageLoad={index === 0 ? onFirstImageLoad : undefined}
 								/>
 							</button>
 							<button

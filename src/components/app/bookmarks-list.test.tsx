@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import type { PostCardPost } from "@/components/app/post-card";
 import { BookmarksList } from "./bookmarks-list";
+import { PENDING_SKELETONS } from "./post-card-skeleton";
 
 // Te testy opisują rendering w stanie warm (choreografia bootu zakończona) —
 // #145: przed osiadnięciem pasków PostCard pokazuje szkielety etapów.
@@ -70,7 +71,7 @@ describe("BookmarksList", () => {
 		expect(await screen.findByRole("button", { name: /usuń z biblioteki/i })).toBeDefined();
 	});
 
-	it("shows a loading indicator while the saved posts are being fetched", () => {
+	it("shows card skeletons while the saved posts are being fetched (#147)", () => {
 		vi.stubGlobal(
 			"fetch",
 			vi.fn().mockImplementation(() => new Promise(() => {})),
@@ -80,7 +81,10 @@ describe("BookmarksList", () => {
 			wrapper: createWrapper(),
 		});
 
-		expect(screen.getByRole("status")).toBeDefined();
+		// Mirror feedu: PENDING_SKELETONS szkieletów kart zamiast centrowanego loadera.
+		const skeletons = document.querySelectorAll('article[aria-hidden="true"]');
+		expect(skeletons).toHaveLength(PENDING_SKELETONS);
+		expect(screen.queryByRole("status")).toBeNull();
 	});
 
 	it("shows a friendly empty-state message with a bookmark icon when there are no saved posts", async () => {

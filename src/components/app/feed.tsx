@@ -1,11 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { RotateCcwIcon } from "lucide-react";
 import { PostCard, type PostCardPost } from "@/components/app/post-card";
-import { PostCardSkeleton } from "@/components/app/post-card-skeleton";
+import { PENDING_SKELETONS, PostCardSkeleton } from "@/components/app/post-card-skeleton";
 import { Loader } from "@/components/ui/loader";
-
-/** Tyle szkieletów, ile postów na stronie feedu (FEED_PAGE_SIZE w core/feed) — zero shiftu po danych. */
-const PENDING_SKELETONS = 10;
 
 interface FeedProps {
 	posts: PostCardPost[];

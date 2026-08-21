@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MessageCircleIcon } from "lucide-react";
 import { useState } from "react";
 import { CommentItem } from "@/components/app/comment-item";
 import { type Mention, MentionInput } from "@/components/app/mention-input";
 import { optimisticCommentMutation } from "@/components/app/optimistic-comments";
+import { SkeletonLine } from "@/components/app/post-card-skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
@@ -25,7 +26,24 @@ interface CommentSectionProps {
 	postId: string;
 	currentUserId: string;
 	currentUserRole: string;
+	/**
+	 * Choreografia #147: czy etap `comments` jest odsłonięty. `false` →
+	 * szkielety linii (lista i formularz czekają; fetch leci w tle).
+	 * Default `true` — użycie poza choreografią pokazuje sekcję od razu.
+	 */
+	reveal?: boolean;
 }
+
+/**
+ * Opcje zapytania o komentarze — współdzielone przez CommentSection i stronę
+ * posta (#147): ten sam klucz = jeden fetch, a strona odczytuje `isPending`
+ * jako gotowość etapu `comments` bez callbacków.
+ */
+export const commentsQueryOptions = (postId: string) =>
+	queryOptions({
+		queryKey: ["comments", postId] as const,
+		queryFn: () => fetchComments(postId),
+	});
 
 async function fetchComments(postId: string): Promise<CommentWithAuthor[]> {
 	const res = await fetch(`/api/app/posts/${postId}/comments`);
@@ -47,15 +65,17 @@ async function addComment(postId: string, body: string, mentions: Mention[]) {
 	return res.json();
 }
 
-export function CommentSection({ postId, currentUserId, currentUserRole }: CommentSectionProps) {
+export function CommentSection({
+	postId,
+	currentUserId,
+	currentUserRole,
+	reveal = true,
+}: CommentSectionProps) {
 	const queryClient = useQueryClient();
 	const [newComment, setNewComment] = useState("");
 	const [mentions, setMentions] = useState<Mention[]>([]);
 
-	const { data: comments = [] } = useQuery({
-		queryKey: ["comments", postId],
-		queryFn: () => fetchComments(postId),
-	});
+	const { data: comments = [] } = useQuery(commentsQueryOptions(postId));
 
 	const optimistic = optimisticCommentMutation(queryClient, postId, {
 		id: currentUserId,
@@ -73,6 +93,24 @@ export function CommentSection({ postId, currentUserId, currentUserRole }: Comme
 			await optimistic.onSuccess();
 		},
 	});
+
+	if (!reveal) {
+		return (
+			<section className="space-y-4" aria-busy="true">
+				<div className="space-y-4" data-testid="skeleton-comments" aria-hidden="true">
+					<SkeletonLine className="h-6 w-36" />
+					{Array.from({ length: 3 }, (_, index) => (
+						// biome-ignore lint/suspicious/noArrayIndexKey: statyczna lista dekoracyjna o stałej długości
+						<div key={index} className="space-y-2">
+							<SkeletonLine className="w-24" />
+							<SkeletonLine className="w-full" />
+							<SkeletonLine className="w-2/3" />
+						</div>
+					))}
+				</div>
+			</section>
+		);
+	}
 
 	return (
 		<section className="space-y-4">

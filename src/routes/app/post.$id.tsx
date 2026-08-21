@@ -2,8 +2,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { CommentSection } from "@/components/app/comment-section";
-import { PostView } from "@/components/app/post-view";
+import { CommentSection, commentsQueryOptions } from "@/components/app/comment-section";
+import { POST_VIEW_STAGES, PostView } from "@/components/app/post-view";
+import { useBootSequence } from "@/core/boot-sequence";
 
 function useIsDesktop() {
 	const [isDesktop, setIsDesktop] = useState(false);
@@ -45,6 +46,22 @@ function PostPage() {
 		queryFn: () => fetchPost(id),
 	});
 
+	// Choreografia #147: photos → comments → text. Komentarze pobierane RÓWNOLEGLE
+	// z postem (ten sam klucz co CommentSection — jeden fetch), gotowość = koniec
+	// pending (sukces lub błąd). Etap photos odblokowuje wygaszenie PIERWSZEGO
+	// zdjęcia (post bez zdjęć → od razu) — dalsze fade'ują niezależnie.
+	const commentsQuery = useQuery(commentsQueryOptions(id));
+	// Bramka zapamiętana per id posta — nawigacja do innego posta wraca do czekania.
+	const [firstImageLoadedFor, setFirstImageLoadedFor] = useState<string | null>(null);
+
+	const postData = response?.data as { images?: unknown[] } | undefined;
+	const visible = useBootSequence(POST_VIEW_STAGES, {
+		photos: !postData || (postData.images?.length ?? 0) === 0 || firstImageLoadedFor === id,
+		comments: !commentsQuery.isPending,
+		text: true,
+	});
+	const handleFirstImageLoad = () => setFirstImageLoadedFor(id);
+
 	if (isLoading) {
 		return (
 			<div className="flex min-h-screen items-center justify-center bg-background">
@@ -63,7 +80,12 @@ function PostPage() {
 
 	const commentSection = (
 		<div id="comments">
-			<CommentSection postId={id} currentUserId={session.userId} currentUserRole={session.role} />
+			<CommentSection
+				postId={id}
+				currentUserId={session.userId}
+				currentUserRole={session.role}
+				reveal={visible.comments}
+			/>
 		</div>
 	);
 
@@ -104,6 +126,8 @@ function PostPage() {
 								onDeleted={() => navigate({ to: "/app" })}
 								onLightboxChange={setLightboxOpen}
 								libraryEnabled={featureFlags.library}
+								revealText={visible.text}
+								onFirstImageLoad={handleFirstImageLoad}
 							/>
 						</div>
 						<div style={{ flex: "2", minWidth: 0 }}>{commentSection}</div>
@@ -121,6 +145,8 @@ function PostPage() {
 						onDeleted={() => navigate({ to: "/app" })}
 						onLightboxChange={setLightboxOpen}
 						libraryEnabled={featureFlags.library}
+						revealText={visible.text}
+						onFirstImageLoad={handleFirstImageLoad}
 					/>
 				</div>
 			)}

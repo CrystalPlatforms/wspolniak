@@ -16,7 +16,7 @@ export const Route = createFileRoute("/app/video/")({
 });
 
 function VideoFeedScreen() {
-	const { data, hasNextPage, isFetchingNextPage, fetchNextPage, refetch } =
+	const { data, hasNextPage, isFetchingNextPage, fetchNextPage, refetch, isPending } =
 		useInfiniteQuery(videoFeedOptions);
 
 	const allVideos = data?.pages.flatMap((page) => page.data) ?? [];
@@ -42,6 +42,7 @@ function VideoFeedScreen() {
 					hasNextPage={hasNextPage}
 					isFetchingNextPage={isFetchingNextPage}
 					onLoadMore={() => fetchNextPage()}
+					isPending={isPending}
 				/>
 			</div>
 		</PullToRefresh>

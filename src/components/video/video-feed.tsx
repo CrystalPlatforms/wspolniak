@@ -2,20 +2,44 @@
 import { RotateCcwIcon } from "lucide-react";
 import { Loader } from "@/components/ui/loader";
 import type { VideoFeedItem } from "@/db/videos";
-import { VideoCard } from "./video-card";
+import { VideoCard, VideoCardSkeleton } from "./video-card";
+
+/** Tyle szkieletów, ile wideo na stronie (VIDEO_PAGE_SIZE w core/functions/video-feed). */
+const PENDING_SKELETONS = 12;
 
 interface VideoFeedProps {
 	videos: VideoFeedItem[];
 	hasNextPage: boolean;
 	isFetchingNextPage: boolean;
 	onLoadMore: () => void;
+	/** Pierwsza strona danych jeszcze leci (#147) — szkielety zamiast mylącego „Brak wideo". */
+	isPending?: boolean;
 }
 
 /**
  * Feed wideo: lista kart najnowsze-pierwsze + empty state + paginacja
  * przyciskiem "Załaduj więcej" (mirror `Feed` dla postów).
  */
-export function VideoFeed({ videos, hasNextPage, isFetchingNextPage, onLoadMore }: VideoFeedProps) {
+export function VideoFeed({
+	videos,
+	hasNextPage,
+	isFetchingNextPage,
+	onLoadMore,
+	isPending = false,
+}: VideoFeedProps) {
+	if (isPending) {
+		return (
+			<div className="space-y-4" aria-busy="true">
+				<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+					{Array.from({ length: PENDING_SKELETONS }, (_, index) => (
+						// biome-ignore lint/suspicious/noArrayIndexKey: statyczna lista dekoracyjna o stałej długości
+						<VideoCardSkeleton key={index} />
+					))}
+				</div>
+			</div>
+		);
+	}
+
 	if (videos.length === 0) {
 		return (
 			<div className="py-12 text-center">

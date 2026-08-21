@@ -2,7 +2,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Bookmark } from "lucide-react";
 import { PostCard, type PostCardPost } from "@/components/app/post-card";
-import { Loader } from "@/components/ui/loader";
+import { PENDING_SKELETONS, PostCardSkeleton } from "@/components/app/post-card-skeleton";
 
 /** Współdzielony klucz zapytania o pełną listę zapisanych postów (strona Biblioteka). */
 export const BOOKMARKED_POSTS_KEY = ["bookmarks", "list"] as const;
@@ -37,9 +37,13 @@ export function BookmarksList({ currentUserId, currentUserRole }: BookmarksListP
 	});
 
 	if (isPending) {
+		// Mirror feedu (#147): szkielety kart zamiast centrowanego loadera.
 		return (
-			<div className="flex items-center justify-center py-12">
-				<Loader loading size={6} />
+			<div className="space-y-6" aria-busy="true">
+				{Array.from({ length: PENDING_SKELETONS }, (_, index) => (
+					// biome-ignore lint/suspicious/noArrayIndexKey: statyczna lista dekoracyjna o stałej długości
+					<PostCardSkeleton key={index} />
+				))}
 			</div>
 		);
 	}

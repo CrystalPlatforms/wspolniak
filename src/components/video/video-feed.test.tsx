@@ -35,6 +35,23 @@ function makeVideo(id: string): VideoFeedItem {
 const noop = () => {};
 
 describe("VideoFeed", () => {
+	it("isPending: tyle szkieletów, ile kart na stronie (mirror feedu #147)", () => {
+		render(
+			<VideoFeed
+				videos={[]}
+				hasNextPage={false}
+				isFetchingNextPage={false}
+				onLoadMore={noop}
+				isPending
+			/>,
+		);
+
+		const skeletons = screen.getAllByTestId("video-card-skeleton");
+		expect(skeletons).toHaveLength(12);
+		// mylący empty state dopiero po osiadnięciu danych
+		expect(screen.queryByText("Brak wideo")).toBeNull();
+	});
+
 	it("shows empty state when there are no videos", () => {
 		render(
 			<VideoFeed videos={[]} hasNextPage={false} isFetchingNextPage={false} onLoadMore={noop} />,
