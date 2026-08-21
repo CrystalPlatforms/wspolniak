@@ -2,6 +2,7 @@
 import { ExternalLinkIcon, MessageCircleIcon, PinIcon } from "lucide-react";
 import { useState } from "react";
 import { BookmarkButton } from "@/components/app/bookmark-button";
+import { FadeImage } from "@/components/app/fade-image";
 import { ImageLightbox } from "@/components/app/image-lightbox";
 import { MarkdownText } from "@/components/app/markdown-text";
 import { PostActions } from "@/components/app/post-actions";
@@ -63,8 +64,9 @@ interface PostCardProps {
  * Hermetyzuje własny lightbox, by rodzic (Feed / BookmarksList) był prostym mapem.
  * Od #145 zarządza też sekwencją odsłaniania (useBootSequence): zimny start
  * pokazuje szkielety etapów, warm (nawigacja kliencka) — pełną treść od razu.
- * Zdjęcia pobierają się równolegle od montażu; nakładka znika, gdy zdjęcie
- * jest załadowane ORAZ etap reactions już widoczny (kolejność wymuszona).
+ * Zdjęcia pobierają się równolegle od montażu (lazy); placeholder wygasa
+ * płynnym fade'em (#146), gdy zdjęcie jest załadowane ORAZ etap reactions
+ * już widoczny (kolejność wymuszona).
  */
 export function PostCard({
 	post,
@@ -166,7 +168,7 @@ export function PostCard({
 								onClick={() => setLightboxIndex(index)}
 								className="relative overflow-hidden rounded-md"
 							>
-								<img
+								<FadeImage
 									src={getImageUrl({
 										accountHash: imageAccountHash,
 										cfImageId: image.cfImageId,
@@ -174,16 +176,9 @@ export function PostCard({
 									})}
 									alt={`Zdjęcie ${image.displayOrder + 1}`}
 									className="aspect-square w-full object-cover transition-transform hover:scale-105"
-									loading="lazy"
-									onLoad={() => registerImageLoad(image.id)}
-									ref={(el) => {
-										// zdjęcia z cache bywają gotowe przed podpięciem onLoad
-										if (el?.complete) registerImageLoad(image.id);
-									}}
+									reveal={mediaVisible}
+									onImageLoad={() => registerImageLoad(image.id)}
 								/>
-								{!mediaVisible && (
-									<div className="skeleton absolute inset-0 rounded-md" aria-hidden="true" />
-								)}
 								{showOverlay && mediaVisible && (
 									<span className="absolute inset-0 flex items-center justify-center bg-black/50 text-lg font-semibold text-white">
 										+{remaining} więcej

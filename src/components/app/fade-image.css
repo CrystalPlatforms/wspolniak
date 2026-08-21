@@ -1,0 +1,16 @@
+/* Fade-in zdjęć (#146): szary placeholder (shimmer z #145) wygasa płynnie,
+   zdjęcie wyłania się spod niego. Reduced-motion: bez fade — od razu widoczne. */
+.fade-image-placeholder {
+	pointer-events: none;
+	transition: opacity 0.3s ease-out;
+}
+
+.fade-image-out {
+	opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.fade-image-placeholder {
+		transition: none;
+	}
+}

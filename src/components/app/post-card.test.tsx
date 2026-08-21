@@ -4,8 +4,8 @@
  * - PostCard sam zarządza sekwencją (useBootSequence); interfejs publiczny bez zmian.
  * - Etapy: text (nagłówek+opis) → reactions (reakcje+l. komentarzy) → photos (media).
  * - Zdjęcia pobierają się RÓWNOLEGLE od montażu (img z src zawsze w DOM); szary
- *   overlay .skeleton znika dopiero, gdy zdjęcie jest załadowane ORAZ etap
- *   reactions widoczny (kolejność photos-po-reactions wymuszona per zdjęcie).
+ *   overlay .skeleton wygasa fade'em dopiero, gdy zdjęcie jest załadowane ORAZ
+ *   etap reactions widoczny (kolejność photos-po-reactions wymuszona per zdjęcie).
  * - Warm (settled=true od montażu): wygląd jak przed #145 — pełna treść od razu.
  * - Wideo odsłania się z etapem photos (bez własnego szkieletu — P5 dorobi).
  * - `useBootSettled` mockujemy jako granicę czasu; jego timery mają testy w boot-splash.
@@ -66,7 +66,8 @@ function renderCard(post: PostCardPost) {
 }
 
 function skeletonCount(): number {
-	return document.querySelectorAll("article .skeleton").length;
+	// Od #146 wygaszony placeholder ZOSTAJE w DOM (fade w CSS) — liczymy tylko zakryte
+	return document.querySelectorAll('article .skeleton:not([data-revealed="true"])').length;
 }
 
 describe("PostCard — choreografia odsłaniania (#145)", () => {
@@ -119,7 +120,7 @@ describe("PostCard — choreografia odsłaniania (#145)", () => {
 		expect(skeletonCount()).toBe(2);
 	});
 
-	it("nakładka zdjęcia znika po jego onLoad — niezależnie per zdjęcie", () => {
+	it("nakładka zdjęcia wygasa po jego onLoad — niezależnie per zdjęcie (#146: fade, zostaje w DOM)", () => {
 		mockedSettled.mockReturnValue(true);
 		const { container } = renderCard(makePost());
 
@@ -132,6 +133,12 @@ describe("PostCard — choreografia odsłaniania (#145)", () => {
 
 		fireEvent.load(imgs[1] as HTMLElement);
 		expect(skeletonCount()).toBe(0);
+
+		// placeholdery NIE są odmontowywane — przechodzą w stan wygaszenia (fade w CSS)
+		const overlays = container.querySelectorAll("article .fade-image-placeholder");
+		expect(overlays.length).toBe(2);
+		expect(overlays[0]?.getAttribute("data-revealed")).toBe("true");
+		expect(overlays[1]?.getAttribute("data-revealed")).toBe("true");
 	});
 
 	it("kolejność wymuszona: zdjęcie załadowane przed osiadnięciem pasków zostaje zakryte", () => {

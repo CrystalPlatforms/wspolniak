@@ -3,6 +3,7 @@
 import { Download, Pin } from "lucide-react";
 import { useEffect, useState } from "react";
 import { BookmarkButton } from "@/components/app/bookmark-button";
+import { FadeImage } from "@/components/app/fade-image";
 import { ImageLightbox } from "@/components/app/image-lightbox";
 import { MarkdownText } from "@/components/app/markdown-text";
 import { PostActions } from "@/components/app/post-actions";
@@ -140,14 +141,16 @@ export function PostView({
 							<button
 								type="button"
 								onClick={() => setLightboxIndex(index)}
-								className="w-full"
+								// min-h rezerwuje slot zanim zdjęcie poda własne proporcje —
+								// wariant public zachowuje naturalny aspect (fit), więc dokładna
+								// rezerwacja wymagałaby wymiarów w DB (poza planem #146, zero migracji)
+								className="relative block min-h-48 w-full overflow-hidden rounded-lg"
 								aria-label={`Otwórz zdjęcie ${image.displayOrder + 1}`}
 							>
-								<img
+								<FadeImage
 									src={src}
 									alt={`Zdjęcie ${image.displayOrder + 1}`}
 									className="w-full rounded-lg"
-									loading="lazy"
 								/>
 							</button>
 							<button

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { PostView } from "./post-view";
 
@@ -46,6 +46,37 @@ describe("PostView", () => {
 		expect(screen.getByText("Wakacje nad morzem")).toBeDefined();
 		const images = screen.getAllByRole("img");
 		expect(images).toHaveLength(2);
+		// lazy: off-screen nie pobiera się do czasu zbliżenia do viewportu (#146)
+		expect(images[0]?.getAttribute("loading")).toBe("lazy");
+	});
+
+	it("zdjęcia mają szary placeholder na zarezerwowanym slocie (min-h) i wygasają po load (#146)", () => {
+		const now = new Date().toISOString();
+		const post = {
+			id: "post-1",
+			authorId: "u1",
+			description: null,
+			createdAt: now,
+			updatedAt: now,
+			author: { id: "u1", name: "Kasia" },
+			images: [
+				{ id: "img-1", postId: "post-1", cfImageId: "cf-aaa", displayOrder: 0, createdAt: now },
+			],
+		};
+
+		render(<PostView post={post} imageAccountHash="hash-1" />, { wrapper: createWrapper() });
+
+		const img = screen.getByRole("img", { name: "Zdjęcie 1" });
+		const slot = img.closest("button");
+		expect(slot?.className).toContain("min-h-");
+
+		const overlay = slot?.querySelector(".fade-image-placeholder");
+		expect(overlay).toBeDefined();
+		expect(overlay?.getAttribute("data-revealed")).toBe("false");
+
+		fireEvent.load(img);
+		expect(overlay?.getAttribute("data-revealed")).toBe("true");
+		expect(overlay?.className).toContain("fade-image-out");
 	});
 
 	it("renders post without description", () => {
