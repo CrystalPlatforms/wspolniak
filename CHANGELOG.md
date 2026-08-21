@@ -1,3 +1,10 @@
+# [3.17.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.16.0...v3.17.0) (2026-08-21)
+
+
+### Features
+
+* **app:** staged feed reveal with boot sequencer and skeleton cards ([#145](https://github.com/CrystalPlatforms/wspolniak/issues/145)) ([2a4c527](https://github.com/CrystalPlatforms/wspolniak/commit/2a4c527066410325fbfd7adb5a9239c2a1990b20))
+
 # [3.16.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.15.0...v3.16.0) (2026-08-21)
 
 
