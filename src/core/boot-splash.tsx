@@ -14,6 +14,16 @@ export function splashRemainingMs(elapsedMs: number): number {
 }
 
 /**
+ * #148 (offline fast-path): stan offline sprawdzany w tle w trakcie splashu.
+ * Wykryty offline omija całą choreografię bootu — splash chowa się bez
+ * czekania na min. czas, a treść bez czekania na osiadanie pasków
+ * (cache'owany feed ma być widoczny natychmiast, banner offline informuje).
+ */
+function isOfflineBoot(): boolean {
+	return typeof navigator !== "undefined" && navigator.onLine === false;
+}
+
+/**
  * Stan bootu jako singleton modułu: timer żyje niezależnie od remountów
  * (error boundary nie przywraca splasha ani nie tworzy drugiego timera).
  */
@@ -29,9 +39,13 @@ function markBootReady() {
 	for (const listener of readyListeners) listener();
 }
 
-/** Jednorazowe uruchomienie odliczania: hydratacja + min. SPLASH_MIN_MS od nawigacji. */
+/** Jednorazowe uruchomienie odliczania: hydratacja + min. SPLASH_MIN_MS od nawigacji (offline: natychmiast). */
 function ensureBootTimer() {
 	if (bootReady || hideTimer !== null) return;
+	if (isOfflineBoot()) {
+		markBootReady();
+		return;
+	}
 	const remaining = splashRemainingMs(performance.now());
 	if (remaining === 0) {
 		markBootReady();
@@ -76,9 +90,13 @@ function markBootSettled() {
 	for (const listener of settledListeners) listener();
 }
 
-/** Jednorazowe uruchomienie odliczania osiadnięcia: reveal + BOOT_SLIDE_MS (natychmiast, gdy już po czasie). */
+/** Jednorazowe uruchomienie odliczania osiadnięcia: reveal + BOOT_SLIDE_MS (natychmiast, gdy już po czasie; offline: od razu). */
 function ensureSettleTimer() {
 	if (bootSettled || settleTimer !== null || !bootReady || bootReadyAt === null) return;
+	if (isOfflineBoot()) {
+		markBootSettled();
+		return;
+	}
 	const remaining = Math.max(0, BOOT_SLIDE_MS - (performance.now() - bootReadyAt));
 	if (remaining === 0) {
 		markBootSettled();

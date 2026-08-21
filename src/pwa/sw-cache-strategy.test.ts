@@ -196,6 +196,61 @@ describe("public/sw.js caching strategy (issue #62)", () => {
 		});
 	});
 
+	describe("HTML navigation /app: network-first with offline fallback (#148)", () => {
+		it("serves fresh SSR HTML from network when online and caches the /app shell", async () => {
+			const { listeners, cacheStorage, fetchMock } = loadSw();
+			const fetchHandler = listeners.get("fetch");
+			expect(fetchHandler).toBeDefined();
+
+			const freshHtml = new Response('<html data-view="app-fresh"></html>', { status: 200 });
+			fetchMock.mockResolvedValueOnce(freshHtml);
+
+			const event = makeFetchEvent("https://wspolniak.com/app", "navigate");
+			fetchHandler?.(event as unknown);
+
+			const response = await event.responded;
+			expect(await response?.text()).toContain("app-fresh");
+			expect(fetchMock).toHaveBeenCalled();
+
+			// Response cached so the next offline cold start has a fallback.
+			const cache = await cacheStorage.open(`wspolniak-${TEST_BUILD_ID}`);
+			const cached = await cache.match("https://wspolniak.com/app");
+			expect(cached).toBeDefined();
+			expect(await cached?.text()).toContain("app-fresh");
+		});
+
+		it("falls back to the cached /app shell when the network fails (offline cold start)", async () => {
+			const { listeners, cacheStorage, fetchMock } = loadSw();
+
+			// Seed the cache the way a previous online visit would have.
+			const cache = await cacheStorage.open(`wspolniak-${TEST_BUILD_ID}`);
+			await cache.put(
+				"https://wspolniak.com/app",
+				new Response('<html data-view="app-cached"></html>'),
+			);
+
+			fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+			const fetchHandler = listeners.get("fetch");
+			const event = makeFetchEvent("https://wspolniak.com/app", "navigate");
+			fetchHandler?.(event as unknown);
+
+			const response = await event.responded;
+			expect(await response?.text()).toContain("app-cached");
+		});
+
+		it("leaves /app deep links untouched — only the feed shell (start_url) is cached", async () => {
+			const { listeners, fetchMock } = loadSw();
+			const fetchHandler = listeners.get("fetch");
+
+			const event = makeFetchEvent("https://wspolniak.com/app/video", "navigate");
+			fetchHandler?.(event as unknown);
+
+			expect(event.responded).toBeUndefined();
+			expect(fetchMock).not.toHaveBeenCalled();
+		});
+	});
+
 	describe("Static assets on localhost (dev): network-first", () => {
 		it("serves fresh JS from network even when a stale copy is cached", async () => {
 			const { listeners, cacheStorage, fetchMock } = loadSw({

@@ -38,7 +38,27 @@ self.addEventListener("fetch", (event) => {
 	// Skip API calls — they need fresh data
 	if (url.pathname.startsWith("/api/")) return;
 
-	// Skip /app routes — let TanStack Start handle them without service worker interference
+	// HTML navigation: network-first so a fresh shell always references the
+	// current build's hashed assets. Fall back to cache only when offline.
+	// #148: /app (PWA start_url) cached too — its SSR HTML carries the
+	// dehydrated feed state, so an offline cold start renders the cached
+	// feed instead of a network error page.
+	if (event.request.mode === "navigate" && (url.pathname === "/" || url.pathname === "/app")) {
+		event.respondWith(
+			fetch(event.request)
+				.then((response) => {
+					if (response.ok) {
+						const clone = response.clone();
+						caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+					}
+					return response;
+				})
+				.catch(() => caches.match(event.request).then((cached) => cached ?? Response.error())),
+		);
+		return;
+	}
+
+	// Skip /app subresources — let TanStack Start handle them without service worker interference
 	if (url.pathname.startsWith("/app")) return;
 
 	// Static assets: cache-first w produkcji, network-first na localhost (dev).
@@ -70,22 +90,6 @@ self.addEventListener("fetch", (event) => {
 			}),
 		);
 		return;
-	}
-
-	// HTML navigation: network-first so a fresh shell always references the
-	// current build's hashed assets. Fall back to cache only when offline.
-	if (event.request.mode === "navigate" && url.pathname === "/") {
-		event.respondWith(
-			fetch(event.request)
-				.then((response) => {
-					if (response.ok) {
-						const clone = response.clone();
-						caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-					}
-					return response;
-				})
-				.catch(() => caches.match(event.request).then((cached) => cached ?? Response.error())),
-		);
 	}
 });
 

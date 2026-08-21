@@ -8,7 +8,9 @@
  * - Splash jest całodokumentowy (shell HTML), stan modułu przeżywa remounty
  *   (error boundary nie przywraca splasha).
  * - `useBootReveal` odblokowuje choreografię pasków dokładnie w chwili ukrycia splasha.
- * - NIE testujemy tu: okablowania pasków/klas CSS (HITL), wyglądu, offline (P6).
+ * - Offline fast-path (#148): boot przy navigator.onLine=false pomija min. czas splasha
+ *   i osiadanie pasków — cache'owany feed ma być widoczny natychmiast.
+ * - NIE testujemy tu: okablowania pasków/klas CSS (HITL), wyglądu.
  */
 import { act, render, screen } from "@testing-library/react";
 import { SPLASH_MIN_MS, splashRemainingMs } from "./boot-splash";
@@ -208,6 +210,82 @@ describe("boot splash", () => {
 				act(() => vi.advanceTimersByTime(SPLASH_MIN_MS + BOOT_SLIDE_MS));
 
 				render(<SettledProbe useSettled={useBootSettled} />);
+				expect(screen.getByTestId("settled").textContent).toBe("true");
+			} finally {
+				nowSpy.mockRestore();
+				vi.useRealTimers();
+			}
+		});
+	});
+
+	describe("offline fast-path (#148)", () => {
+		function RevealProbe({ useReveal }: { useReveal: () => boolean }) {
+			const revealed = useReveal();
+			return <div data-testid="reveal">{revealed ? "true" : "false"}</div>;
+		}
+
+		function SettledProbeLocal({ useSettled }: { useSettled: () => boolean }) {
+			const settled = useSettled();
+			return <div data-testid="settled">{settled ? "true" : "false"}</div>;
+		}
+
+		function setOnline(value: boolean) {
+			Object.defineProperty(navigator, "onLine", { value, configurable: true });
+		}
+
+		afterEach(() => {
+			setOnline(true);
+		});
+
+		it("splash znika natychmiast — bez czekania na min. 600 ms od nawigacji", async () => {
+			setOnline(false);
+			const { BootSplash: FreshSplash } = await freshBootSplash();
+			vi.useFakeTimers();
+			const nowSpy = vi.spyOn(performance, "now").mockReturnValue(100);
+			try {
+				render(<FreshSplash />);
+
+				// Zero advanceTimers — ukrycie w tej samej ticki efektu.
+				expect(screen.queryByText("Wspólniak")).toBeNull();
+			} finally {
+				nowSpy.mockRestore();
+				vi.useRealTimers();
+			}
+		});
+
+		it("useBootReveal zwraca true natychmiast — paski nie czekają na splash", async () => {
+			setOnline(false);
+			const { BootSplash: FreshSplash, useBootReveal } = await freshBootSplash();
+			vi.useFakeTimers();
+			const nowSpy = vi.spyOn(performance, "now").mockReturnValue(100);
+			try {
+				render(
+					<>
+						<FreshSplash />
+						<RevealProbe useReveal={useBootReveal} />
+					</>,
+				);
+
+				expect(screen.getByTestId("reveal").textContent).toBe("true");
+			} finally {
+				nowSpy.mockRestore();
+				vi.useRealTimers();
+			}
+		});
+
+		it("useBootSettled zwraca true natychmiast — choreografia treści się nie odtwarza", async () => {
+			setOnline(false);
+			const { BootSplash: FreshSplash, useBootSettled } = await freshBootSplash();
+			vi.useFakeTimers({ now: 0 });
+			const nowSpy = vi.spyOn(performance, "now").mockImplementation(() => Date.now());
+			try {
+				render(
+					<>
+						<FreshSplash />
+						<SettledProbeLocal useSettled={useBootSettled} />
+					</>,
+				);
+
 				expect(screen.getByTestId("settled").textContent).toBe("true");
 			} finally {
 				nowSpy.mockRestore();
