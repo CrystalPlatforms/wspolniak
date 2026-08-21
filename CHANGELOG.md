@@ -1,3 +1,11 @@
+# [3.15.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.14.0...v3.15.0) (2026-08-21)
+
+
+### Features
+
+* **app:** non-blocking /app navigation via bootstrap query cache ([#143](https://github.com/CrystalPlatforms/wspolniak/issues/143)) ([9989e58](https://github.com/CrystalPlatforms/wspolniak/commit/9989e5865ebfefe0b0a1f27dbe95ab7fa9bcdc78))
+* **ui:** move theme toggle from sidebars to settings ([bcb6602](https://github.com/CrystalPlatforms/wspolniak/commit/bcb660217d4b92dbcf9f88a6a3e315cc4233fa84))
+
 # [3.14.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.13.1...v3.14.0) (2026-08-17)
 
 
