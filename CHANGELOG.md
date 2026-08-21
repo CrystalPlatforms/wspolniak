@@ -1,3 +1,10 @@
+# [3.18.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.17.0...v3.18.0) (2026-08-21)
+
+
+### Features
+
+* **ui:** lazy fade-in images with gray placeholders ([#146](https://github.com/CrystalPlatforms/wspolniak/issues/146)) ([3a84424](https://github.com/CrystalPlatforms/wspolniak/commit/3a84424fcacc5685a816fd9e8b09295345ec453a))
+
 # [3.17.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.16.0...v3.17.0) (2026-08-21)
 
 
