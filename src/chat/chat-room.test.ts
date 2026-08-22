@@ -122,6 +122,59 @@ describe("ChatRoom — connected users", () => {
 	});
 });
 
+describe("ChatRoom — typing indicator (F3 #154)", () => {
+	it("broadcasts an anonymous typing event to other users, never back to the sender", async () => {
+		const state = createMockState();
+		const sender = mockSocket({ deserializeAttachment: vi.fn(() => ({ userId: "u1" })) });
+		// Druga karta tego samego usera — też nie może widzieć własnego typingu.
+		const sameUserTab = mockSocket({ deserializeAttachment: vi.fn(() => ({ userId: "u1" })) });
+		const other = mockSocket({ deserializeAttachment: vi.fn(() => ({ userId: "u2" })) });
+		state.getWebSockets = () => [sender, sameUserTab, other];
+
+		const room = new ChatRoom(state as never, {} as never);
+		await room.webSocketMessage(sender as never, JSON.stringify({ type: "typing" }));
+
+		// Payload anonimowy — samo {type:"typing"}, bez żadnej tożsamości (PRD).
+		expect(other.send).toHaveBeenCalledWith(JSON.stringify({ type: "typing" }));
+		expect(sender.send).not.toHaveBeenCalled();
+		expect(sameUserTab.send).not.toHaveBeenCalled();
+	});
+
+	it("ignores malformed and non-typing messages without broadcasting anything", async () => {
+		const state = createMockState();
+		const sender = mockSocket({ deserializeAttachment: vi.fn(() => ({ userId: "u1" })) });
+		const other = mockSocket({ deserializeAttachment: vi.fn(() => ({ userId: "u2" })) });
+		state.getWebSockets = () => [sender, other];
+
+		const room = new ChatRoom(state as never, {} as never);
+		await room.webSocketMessage(sender as never, "nie-json");
+		await room.webSocketMessage(sender as never, JSON.stringify({ type: "message", data: {} }));
+		await room.webSocketMessage(sender as never, new ArrayBuffer(0));
+
+		expect(other.send).not.toHaveBeenCalled();
+	});
+});
+
+describe("ChatRoom — generic event broadcast (F4 #155)", () => {
+	it("broadcasts an event of any type to every connected socket", async () => {
+		const sockets = [mockSocket(), mockSocket()];
+		const state = createMockState();
+		state.getWebSockets = () => sockets;
+
+		const room = new ChatRoom(state as never, {} as never);
+		await room.broadcastEvent("reaction", { messageId: "m1", reaction: "heart", action: "added" });
+
+		for (const ws of sockets) {
+			expect(ws.send).toHaveBeenCalledWith(
+				JSON.stringify({
+					type: "reaction",
+					data: { messageId: "m1", reaction: "heart", action: "added" },
+				}),
+			);
+		}
+	});
+});
+
 describe("ChatRoom — WebSocket upgrade", () => {
 	afterEach(() => {
 		vi.unstubAllGlobals();

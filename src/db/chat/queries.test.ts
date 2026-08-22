@@ -4,9 +4,24 @@
 //   expires_at ustawia baza (default now() + interval '24 hours' — PRD czatu).
 // - listChatMessages zwraca wiadomości z ostatnich 24h (filtr expires_at > now()
 //   zawsze w SQL) z dołączonym autorem {id, name}, posortowane ASC po created_at.
-// - W F1 domena nie obsługuje reply ani reakcji (kolumny/tabele istnieją w 0025).
-import { type ChatMessageWithAuthor, createChatMessage, listChatMessages } from "./queries";
-import { chatMessages } from "./table";
+//
+// Założenia kontraktu reakcji (F4 #155, poprawka po HITL: limit JEDNA reakcja
+// na usera na wiadomość — jak w feedzie):
+// - toggleChatReaction delete-first: kasuje wiersz usera dla wiadomości (DOWOLNY
+//   typ); ten sam typ → "removed"; inny typ → "replaced" (previous = stary typ,
+//   INSERT nowego); brak → "added". onConflictDoNothing — UNIQUE(message,user)
+//   nigdy nie wycieka błędem.
+// - listChatReactions: reakcje NIEWYGAŚNIĘTYCH wiadomości (inner join + expires_at
+//   > now() w SQL) z imionami userów (leftJoin; null → user null).
+import {
+	type ChatMessageWithAuthor,
+	type ChatReactionWithUser,
+	createChatMessage,
+	listChatMessages,
+	listChatReactions,
+	toggleChatReaction,
+} from "./queries";
+import { chatMessages, chatReactions } from "./table";
 
 vi.mock("@/db/setup", () => ({
 	getDb: vi.fn(),
@@ -115,6 +130,131 @@ describe("listChatMessages", () => {
 
 		await listChatMessages();
 
+		const cond = mockWhere.mock.calls[0]?.[0] as
+			| { queryChunks?: { name?: string; value?: unknown }[] }
+			| undefined;
+		const chunks = cond?.queryChunks ?? [];
+		expect(chunks.find((chunk) => chunk?.name === "expires_at")).toBeDefined();
+		const dateParam = chunks.find((chunk) => chunk?.value instanceof Date)?.value as Date;
+		expect(Math.abs(Date.now() - dateParam.getTime())).toBeLessThan(5_000);
+	});
+});
+
+describe("toggleChatReaction (F4 #155 — jedna reakcja per user)", () => {
+	function mockToggleDb(deletedRows: unknown[]) {
+		const mockReturning = vi.fn().mockResolvedValue(deletedRows);
+		const mockDeleteWhere = vi.fn().mockReturnValue({ returning: mockReturning });
+		const mockDelete = vi.fn().mockReturnValue({ where: mockDeleteWhere });
+
+		const mockOnConflict = vi.fn().mockResolvedValue(undefined);
+		const mockValues = vi.fn().mockReturnValue({ onConflictDoNothing: mockOnConflict });
+		const mockInsert = vi.fn().mockReturnValue({ values: mockValues });
+
+		mockGetDb.mockReturnValue({ delete: mockDelete, insert: mockInsert } as never);
+		return { mockDelete, mockInsert, mockValues, mockOnConflict };
+	}
+
+	it("removes the reaction when the user taps their only (same-type) reaction", async () => {
+		const { mockDelete, mockInsert } = mockToggleDb([
+			{ id: "r-1", messageId: "m-1", userId: "u1", reaction: "heart" },
+		]);
+
+		const result = await toggleChatReaction({
+			messageId: "m-1",
+			userId: "u1",
+			reaction: "heart",
+		});
+
+		expect(result).toEqual({ action: "removed", reaction: "heart" });
+		expect(mockDelete).toHaveBeenCalledWith(chatReactions);
+		expect(mockInsert).not.toHaveBeenCalled();
+	});
+
+	it("adds the reaction with a generated id when the user has none", async () => {
+		const { mockValues } = mockToggleDb([]);
+
+		const result = await toggleChatReaction({
+			messageId: "m-1",
+			userId: "u1",
+			reaction: "flame",
+		});
+
+		expect(result).toEqual({ action: "added", reaction: "flame" });
+		expect(mockValues).toHaveBeenCalledWith(
+			expect.objectContaining({ messageId: "m-1", userId: "u1", reaction: "flame" }),
+		);
+		const inserted = mockValues.mock.calls[0]?.[0] as { id?: string };
+		expect(inserted.id).toEqual(expect.any(String));
+	});
+
+	it("replaces a different reaction type instead of allowing a second one", async () => {
+		const { mockValues } = mockToggleDb([
+			{ id: "r-1", messageId: "m-1", userId: "u1", reaction: "heart" },
+		]);
+
+		const result = await toggleChatReaction({
+			messageId: "m-1",
+			userId: "u1",
+			reaction: "laugh",
+		});
+
+		expect(result).toEqual({ action: "replaced", reaction: "laugh", previous: "heart" });
+		expect(mockValues).toHaveBeenCalledWith(
+			expect.objectContaining({ messageId: "m-1", userId: "u1", reaction: "laugh" }),
+		);
+	});
+
+	it("swallows the UNIQUE(message,user) conflict on insert instead of leaking an error", async () => {
+		// Wyścig: delete nic nie usunął, a wiersz istnieje — onConflictDoNothing
+		// gwarantuje brak błędu.
+		const { mockOnConflict } = mockToggleDb([]);
+
+		await expect(
+			toggleChatReaction({ messageId: "m-1", userId: "u1", reaction: "laugh" }),
+		).resolves.toEqual({ action: "added", reaction: "laugh" });
+		expect(mockOnConflict).toHaveBeenCalled();
+	});
+});
+
+describe("listChatReactions (F4 #155)", () => {
+	function mockReactionsSelectChain(mockRows: unknown[]) {
+		const mockWhere = vi.fn().mockResolvedValue(mockRows);
+		const mockLeftJoin = vi.fn().mockReturnValue({ where: mockWhere });
+		const mockInnerJoin = vi.fn().mockReturnValue({ leftJoin: mockLeftJoin });
+		const mockFrom = vi.fn().mockReturnValue({ innerJoin: mockInnerJoin });
+		const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
+		mockGetDb.mockReturnValue({ select: mockSelect } as never);
+		return { mockWhere, mockInnerJoin };
+	}
+
+	it("returns reactions of unexpired messages with user names", async () => {
+		mockReactionsSelectChain([
+			{
+				reaction: { messageId: "m-1", userId: "u1", reaction: "heart" },
+				userName: "Tomek",
+			},
+			{
+				reaction: { messageId: "m-1", userId: "u2", reaction: "heart" },
+				userName: null,
+			},
+		]);
+
+		const result = await listChatReactions();
+
+		const expected: ChatReactionWithUser[] = [
+			{ messageId: "m-1", userId: "u1", reaction: "heart", user: { id: "u1", name: "Tomek" } },
+			{ messageId: "m-1", userId: "u2", reaction: "heart", user: null },
+		];
+		expect(result).toEqual(expected);
+	});
+
+	it("always filters reactions of expired messages out in SQL (join + expires_at > now)", async () => {
+		const { mockWhere, mockInnerJoin } = mockReactionsSelectChain([]);
+
+		await listChatReactions();
+
+		// Inner join z chat_messages — reakcje wygasłych wiadomości nie istnieją.
+		expect(mockInnerJoin).toHaveBeenCalledWith(chatMessages, expect.anything());
 		const cond = mockWhere.mock.calls[0]?.[0] as
 			| { queryChunks?: { name?: string; value?: unknown }[] }
 			| undefined;

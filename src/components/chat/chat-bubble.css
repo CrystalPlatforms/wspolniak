@@ -30,11 +30,50 @@
 	animation: chat-progress-indeterminate 1.1s ease-in-out infinite;
 }
 
+/* Reakcje czatu (F4 #155) — pop przy dodaniu (0→1.3→1, ~200ms), fade-out przy
+   usunięciu; wyłącznie transform/opacity. Klasa zdejmuje się po ~350ms (TSX). */
+@keyframes chat-reaction-pop {
+	0% {
+		transform: scale(0);
+	}
+	60% {
+		transform: scale(1.3);
+	}
+	100% {
+		transform: scale(1);
+	}
+}
+
+.chat-reaction-pop {
+	animation: chat-reaction-pop 200ms ease-out;
+}
+
+@keyframes chat-reaction-fade-out {
+	from {
+		opacity: 1;
+		transform: scale(1);
+	}
+	to {
+		opacity: 0;
+		transform: scale(0.6);
+	}
+}
+
+.chat-reaction-fade-out {
+	animation: chat-reaction-fade-out 200ms ease-in;
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.chat-bubble-in {
 		animation: none;
 	}
 	.chat-progress-indeterminate {
+		animation: none;
+	}
+	.chat-reaction-pop {
+		animation: none;
+	}
+	.chat-reaction-fade-out {
 		animation: none;
 	}
 }

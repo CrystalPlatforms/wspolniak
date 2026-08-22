@@ -4,8 +4,13 @@ import { MessageSquare, SendHorizontal } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
+import { ChatReactionBar } from "./chat-reactions";
 import { isNearBottom, scrollToBottom } from "./chat-scroll";
+import { TypingIndicator } from "./typing-indicator";
 import { appendChatMessageIfNew, useChatSocket } from "./use-chat-socket";
+// Animacje czatu (bąbelki, pasek wysyłki, reakcje) — klasy używane w tym pliku
+// i w ChatReactionBar; plik był wcześniej nieimportowany (bug F1, naprawiony w F4).
+import "./chat-bubble.css";
 
 /** Współdzielony klucz zapytania o listę wiadomości czatu. */
 export const CHAT_MESSAGES_KEY = ["chat", "messages"] as const;
@@ -63,10 +68,12 @@ interface PendingMessage {
 
 interface ChatViewProps {
 	currentUserId: string;
+	/** Imię usera z sesji — trafia do optymistycznych reakcji (lista kto-zareagował). */
+	currentUserName: string;
 }
 
-/** Widok czatu rodzinnego (F1+F2): lista z 24h, optymistyczna wysyłka, live WS. */
-export function ChatView({ currentUserId }: ChatViewProps) {
+/** Widok czatu rodzinnego (F1+F2+F3+F4): lista z 24h, optymistyczna wysyłka, live WS. */
+export function ChatView({ currentUserId, currentUserName }: ChatViewProps) {
 	const queryClient = useQueryClient();
 	const { data: messages } = useQuery({
 		queryKey: CHAT_MESSAGES_KEY,
@@ -76,7 +83,8 @@ export function ChatView({ currentUserId }: ChatViewProps) {
 	const [pending, setPending] = useState<PendingMessage[]>([]);
 
 	// Live delivery (F2): WS dokleja wiadomości do cache'a + refetch po reconnect.
-	useChatSocket();
+	// Typing (F3): kropki „ktoś pisze…" + throttlowane powiadomienia o własnym pisaniu.
+	const { isSomeoneTyping, notifyTyping } = useChatSocket();
 
 	const containerRef = useRef<HTMLDivElement>(null);
 	const prevIdsRef = useRef<Set<string> | null>(null);
@@ -212,6 +220,12 @@ export function ChatView({ currentUserId }: ChatViewProps) {
 											{formatChatTime(message.createdAt)}
 										</span>
 									</div>
+									{/* F4: rząd reakcji pod bąbelkiem — wyrównany do strony bąbla. */}
+									<ChatReactionBar
+										messageId={message.id}
+										currentUserId={currentUserId}
+										currentUserName={currentUserName}
+									/>
 								</li>
 							);
 						})}
@@ -266,25 +280,32 @@ export function ChatView({ currentUserId }: ChatViewProps) {
 				}}
 				className="border-t border-border bg-background p-3 sm:mb-1"
 			>
-				<div className="mx-auto flex max-w-2xl items-center gap-2">
-					<input
-						value={draft}
-						onChange={(event) => setDraft(event.target.value)}
-						maxLength={MAX_MESSAGE_LENGTH}
-						placeholder="Wiadomość…"
-						aria-label="Wiadomość"
-						autoComplete="off"
-						className="flex-1 rounded-full border border-input bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-					/>
-					<Button
-						type="submit"
-						size="icon"
-						className="h-11 w-11 shrink-0 rounded-full"
-						aria-label="Wyślij"
-						disabled={!draft.trim() || sendMutation.isPending}
-					>
-						<SendHorizontal className="h-5 w-5" />
-					</Button>
+				<div className="mx-auto flex max-w-2xl flex-col">
+					{/* F3: anonimowy wskaźnik nad inputem — zawsze zamontowany (fade, bez skoku layoutu). */}
+					<TypingIndicator visible={isSomeoneTyping} />
+					<div className="flex items-center gap-2">
+						<input
+							value={draft}
+							onChange={(event) => {
+								setDraft(event.target.value);
+								notifyTyping();
+							}}
+							maxLength={MAX_MESSAGE_LENGTH}
+							placeholder="Wiadomość…"
+							aria-label="Wiadomość"
+							autoComplete="off"
+							className="flex-1 rounded-full border border-input bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+						/>
+						<Button
+							type="submit"
+							size="icon"
+							className="h-11 w-11 shrink-0 rounded-full"
+							aria-label="Wyślij"
+							disabled={!draft.trim() || sendMutation.isPending}
+						>
+							<SendHorizontal className="h-5 w-5" />
+						</Button>
+					</div>
 				</div>
 			</form>
 		</div>

@@ -18,10 +18,14 @@ import { ChatView } from "./chat-view";
 /** Fake WebSocket (granica przeglądarki) — lapany przez useChatSocket w każdym teście. */
 class FakeWebSocket {
 	static instances: FakeWebSocket[] = [];
+	/** WebSocket.OPEN === 1 (wartość z przeglądarki; używana przez throttle typingu). */
+	static readonly OPEN = 1;
 	url: string;
 	onopen: (() => void) | null = null;
 	onmessage: ((event: { data: string }) => void) | null = null;
 	onclose: (() => void) | null = null;
+	send = vi.fn();
+	readyState: number = FakeWebSocket.OPEN;
 
 	constructor(url: string) {
 		this.url = url;
@@ -29,6 +33,7 @@ class FakeWebSocket {
 	}
 
 	close() {
+		this.readyState = 3; // CLOSED
 		this.onclose?.();
 	}
 }
@@ -113,7 +118,7 @@ describe("ChatView — lista wiadomości", () => {
 			}),
 		]);
 
-		render(<ChatView currentUserId="u1" />, { wrapper: createWrapper() });
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" />, { wrapper: createWrapper() });
 
 		// Czekaj na załadowanie listy.
 		expect(await screen.findByText("Cześć wam")).toBeDefined();
@@ -138,7 +143,7 @@ describe("ChatView — lista wiadomości", () => {
 	it("pokazuje przyjazny pusty stan, gdy nie ma żadnych wiadomości", async () => {
 		mockChatApi([]);
 
-		render(<ChatView currentUserId="u1" />, { wrapper: createWrapper() });
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" />, { wrapper: createWrapper() });
 
 		expect(await screen.findByText(/Nie ma jeszcze żadnych wiadomości/i)).toBeDefined();
 	});
@@ -149,7 +154,7 @@ describe("ChatView — lista wiadomości", () => {
 		);
 		mockChatApi(many);
 
-		render(<ChatView currentUserId="u1" />, { wrapper: createWrapper() });
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" />, { wrapper: createWrapper() });
 
 		// Najnowsza (50) widoczna, najstarsza (0) ukryta — renderujemy tylko 50.
 		expect(await screen.findByText("Wiadomość numer 50")).toBeDefined();
@@ -171,7 +176,7 @@ describe("ChatView — wysyłka wiadomości", () => {
 			}),
 		);
 
-		render(<ChatView currentUserId="u1" />, { wrapper: createWrapper() });
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" />, { wrapper: createWrapper() });
 		const input = await screen.findByRole("textbox", { name: /wiadomość/i });
 		await userEvent.type(input, "Idziemy na obiad?");
 		await userEvent.click(screen.getByRole("button", { name: /wyślij/i }));
@@ -207,7 +212,7 @@ describe("ChatView — wysyłka wiadomości", () => {
 		});
 		vi.stubGlobal("fetch", fetchMock);
 
-		render(<ChatView currentUserId="u1" />, { wrapper: createWrapper() });
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" />, { wrapper: createWrapper() });
 		const input = await screen.findByRole("textbox", { name: /wiadomość/i });
 		await userEvent.type(input, "Idziemy na obiad?");
 		await userEvent.click(screen.getByRole("button", { name: /wyślij/i }));
@@ -248,7 +253,7 @@ describe("ChatView — wysyłka wiadomości", () => {
 		});
 		vi.stubGlobal("fetch", fetchMock);
 
-		render(<ChatView currentUserId="u1" />, { wrapper: createWrapper() });
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" />, { wrapper: createWrapper() });
 		const input = await screen.findByRole("textbox", { name: /wiadomość/i });
 		await userEvent.type(input, "Wyścig broadcastu");
 		await userEvent.click(screen.getByRole("button", { name: /wyślij/i }));
@@ -278,7 +283,7 @@ describe("ChatView — wysyłka wiadomości", () => {
 	it("egzekwuje limit 200 znaków (maxLength) i blokuje wysyłkę pustej wiadomości", async () => {
 		const { fetchMock } = mockChatApi([]);
 
-		render(<ChatView currentUserId="u1" />, { wrapper: createWrapper() });
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" />, { wrapper: createWrapper() });
 		const input = await screen.findByRole("textbox", { name: /wiadomość/i });
 
 		// Limit UI = limit API (Zod): input nie przyjmie 201. znaku.
@@ -326,7 +331,7 @@ describe("ChatView — real-time (WS)", () => {
 	it("incoming WS message renders live with the slide-in class; initial list does not animate", async () => {
 		mockChatApi([apiMessage({ id: "m1", text: "Starsza wiadomość" })]);
 
-		render(<ChatView currentUserId="u1" />, { wrapper: createWrapper() });
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" />, { wrapper: createWrapper() });
 		expect(await screen.findByText("Starsza wiadomość")).toBeDefined();
 
 		// Początkowa lista się NIE animuje (brak chat-bubble-in).
@@ -345,7 +350,7 @@ describe("ChatView — real-time (WS)", () => {
 
 	it("auto-scrolls to the new message when the user is near the bottom (no button)", async () => {
 		mockChatApi([apiMessage({ id: "m1", text: "Starsza" })]);
-		render(<ChatView currentUserId="u1" />, { wrapper: createWrapper() });
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" />, { wrapper: createWrapper() });
 		expect(await screen.findByText("Starsza")).toBeDefined();
 		const scroller = prepareScroller(50); // 50px od dna → blisko
 
@@ -360,7 +365,7 @@ describe("ChatView — real-time (WS)", () => {
 
 	it("shows the „↓ nowe wiadomości” button when scrolled up; click scrolls down", async () => {
 		mockChatApi([apiMessage({ id: "m1", text: "Starsza" })]);
-		render(<ChatView currentUserId="u1" />, { wrapper: createWrapper() });
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" />, { wrapper: createWrapper() });
 		expect(await screen.findByText("Starsza")).toBeDefined();
 		const scroller = prepareScroller(500); // 500px od dna → przewinięte w górę
 
@@ -376,5 +381,59 @@ describe("ChatView — real-time (WS)", () => {
 		await waitFor(() => {
 			expect(screen.queryByRole("button", { name: /nowe wiadomości/i })).toBeNull();
 		});
+	});
+});
+
+describe("ChatView — typing indicator wiring (F3 #154)", () => {
+	beforeEach(() => {
+		vi.stubGlobal("WebSocket", FakeWebSocket);
+		FakeWebSocket.instances = [];
+	});
+
+	it("sends a typing event while the local user types and shows the indicator for incoming typing", async () => {
+		mockChatApi([]);
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" />, { wrapper: createWrapper() });
+		const socket = FakeWebSocket.instances[0];
+		expect(socket).toBeDefined();
+
+		// Lokalne pisanie → wychodzący event typing (pierwsze uderzenie, throttle 2s).
+		await userEvent.type(screen.getByLabelText("Wiadomość"), "Cześć");
+		expect(socket?.send).toHaveBeenCalledWith(JSON.stringify({ type: "typing" }));
+
+		// Przychodzący anonimowy typing → wskaźnik widoczny nad inputem.
+		act(() => {
+			socket?.onmessage?.({ data: JSON.stringify({ type: "typing" }) });
+		});
+		const indicator = screen
+			.getByText("ktoś pisze…")
+			.closest("[data-typing-indicator]") as HTMLElement | null;
+		expect(indicator).not.toBeNull();
+		expect(indicator?.getAttribute("data-visible")).toBe("true");
+	});
+});
+
+describe("ChatView — reaction row wiring (F4 #155)", () => {
+	beforeEach(() => {
+		vi.stubGlobal("WebSocket", FakeWebSocket);
+		FakeWebSocket.instances = [];
+	});
+
+	it("renders the reaction row under each bubble; tapping toggles mine optimistically", async () => {
+		const user = userEvent.setup();
+		const { fetchMock } = mockChatApi([apiMessage({ id: "m1", text: "Cześć" })]);
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" />, {
+			wrapper: createWrapper(),
+		});
+		expect(await screen.findByText("Cześć")).toBeDefined();
+
+		const heart = screen.getByRole("button", { name: "serce" });
+		expect(heart.getAttribute("aria-pressed")).toBe("false");
+		await user.click(heart);
+
+		expect(fetchMock).toHaveBeenCalledWith(
+			"/api/chat/messages/m1/reactions",
+			expect.objectContaining({ method: "POST" }),
+		);
+		expect(heart.getAttribute("aria-pressed")).toBe("true");
 	});
 });

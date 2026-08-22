@@ -14,7 +14,7 @@ function ChatPage() {
 		// widokach) + dokładny safe-area (notch) — input i Wyślij nie chowają się pod pasek.
 		<div className="flex h-[calc(100dvh-7rem-env(safe-area-inset-bottom))] flex-col bg-background sm:h-dvh">
 			<h1 className="sr-only">Czat</h1>
-			<ChatView currentUserId={session.userId} />
+			<ChatView currentUserId={session.userId} currentUserName={session.name} />
 		</div>
 	);
 }

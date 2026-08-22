@@ -7,16 +7,25 @@ import { DurableObject } from "cloudflare:workers";
  * sockety tagowane userId (attachment {userId} pod connected set z F7).
  *
  * DO nie pisze wiadomości — wysyłka idzie przez HTTP POST (Hono), a Worker po
- * zapisie do DB woła `broadcastMessage`. DO trzyma też licznik anty-spamowy
- * (10 wiadomości/min, check-and-increment PRZED zapisem).
+ * zapisie do DB woła `broadcastMessage`. DO rozsyła też anonimowe eventy typing
+ * (F3 #154) i trzyma licznik anty-spamowy (10 wiadomości/min, check-and-increment
+ * PRZED zapisem).
  */
 export class ChatRoom extends DurableObject<Env> {
-	/** Rozsyła wiadomość do wszystkich podłączonych socketów. Dedupe po id robi klient. */
-	async broadcastMessage(message: unknown): Promise<void> {
-		const payload = JSON.stringify({ type: "message", data: message });
+	/**
+	 * Rozsyła dowolny event ({type, data}) do wszystkich podłączonych socketów —
+	 * F4 #155 (reakcje) potrzebowało typów innych niż "message". Dedupe robi klient.
+	 */
+	async broadcastEvent(type: string, data: unknown): Promise<void> {
+		const payload = JSON.stringify({ type, data });
 		for (const socket of this.ctx.getWebSockets()) {
 			socket.send(payload);
 		}
+	}
+
+	/** Wiadomość = event typu "message". Dedupe po id robi klient. */
+	async broadcastMessage(message: unknown): Promise<void> {
+		await this.broadcastEvent("message", message);
 	}
 
 	/**
@@ -42,16 +51,36 @@ export class ChatRoom extends DurableObject<Env> {
 		return count <= CHAT_RATE_LIMIT_PER_MINUTE;
 	}
 
+	/**
+	 * Typing indicator (F3 #154): klient przesyła `{type:"typing"}` przez WS, DO
+	 * rozsyla anonimowy event pozostałym userom. Wykluczenie per userId (attachment),
+	 * nie per socket — druga karta piszącego też nie widzi własnego typingu.
+	 * Wszystko poza poprawnym typingem jest ignorowane (socket żyje dalej).
+	 */
+	async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+		if (typeof message !== "string") return;
+		let parsed: unknown;
+		try {
+			parsed = JSON.parse(message);
+		} catch {
+			return;
+		}
+		if ((parsed as { type?: string } | null)?.type !== "typing") return;
+
+		const senderUserId = attachmentUserId(ws);
+		const payload = JSON.stringify({ type: "typing" });
+		for (const socket of this.ctx.getWebSockets()) {
+			if (attachmentUserId(socket) === senderUserId) continue;
+			socket.send(payload);
+		}
+	}
+
 	/** Id podłączonych userów (hibernacyjne attachmenty) — F7 suppressuje push dla nich. */
 	async getConnectedUserIds(): Promise<string[]> {
 		const ids = new Set<string>();
 		for (const socket of this.ctx.getWebSockets()) {
-			try {
-				const attachment = socket.deserializeAttachment() as { userId?: string } | undefined;
-				if (attachment?.userId) ids.add(attachment.userId);
-			} catch {
-				// Socket bez attachmentu (np. starszy protokół) — ignorujemy.
-			}
+			const userId = attachmentUserId(socket);
+			if (userId) ids.add(userId);
 		}
 		return [...ids];
 	}
@@ -70,6 +99,16 @@ export class ChatRoom extends DurableObject<Env> {
 		server.serializeAttachment({ userId });
 		this.ctx.acceptWebSocket(server, [userId]);
 		return new Response(null, { status: 101, webSocket: client });
+	}
+}
+
+/** userId z hibernacyjnego attachmentu socketa; undefined dla starszych protokołów. */
+function attachmentUserId(socket: WebSocket): string | undefined {
+	try {
+		const attachment = socket.deserializeAttachment() as { userId?: string } | undefined;
+		return attachment?.userId;
+	} catch {
+		return undefined;
 	}
 }
 

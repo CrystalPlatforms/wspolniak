@@ -21,10 +21,17 @@ vi.mock("@/db/chat", async (importOriginal) => {
 		...actual,
 		createChatMessage: vi.fn(),
 		listChatMessages: vi.fn(),
+		listChatReactions: vi.fn(),
+		toggleChatReaction: vi.fn(),
 	};
 });
 
-import { createChatMessage, listChatMessages } from "@/db/chat";
+import {
+	createChatMessage,
+	listChatMessages,
+	listChatReactions,
+	toggleChatReaction,
+} from "@/db/chat";
 import { findActiveUserById } from "@/db/identity/queries";
 import { verifySessionCookie } from "@/db/identity/session";
 import chatEndpoint from "./chat";
@@ -33,6 +40,8 @@ const mockVerify = vi.mocked(verifySessionCookie);
 const mockFindUser = vi.mocked(findActiveUserById);
 const mockCreateMessage = vi.mocked(createChatMessage);
 const mockListMessages = vi.mocked(listChatMessages);
+const mockListReactions = vi.mocked(listChatReactions);
+const mockToggleReaction = vi.mocked(toggleChatReaction);
 
 function createApi() {
 	const api = new Hono<{
@@ -46,6 +55,7 @@ function createApi() {
 const chatRoomStub = {
 	checkAndIncrementRateLimit: vi.fn<(userId: string) => Promise<boolean>>(),
 	broadcastMessage: vi.fn<(message: unknown) => Promise<void>>(),
+	broadcastEvent: vi.fn<(type: string, data: unknown) => Promise<void>>(),
 	fetch: vi.fn<(request: Request) => Promise<Response>>(),
 };
 const chatRoomNamespace = {
@@ -283,6 +293,172 @@ describe("GET /api/chat/messages", () => {
 		mockVerify.mockResolvedValue(null);
 		const api = createApi();
 		const res = await api.request("/api/chat/messages", {}, env);
+
+		expect(res.status).toBe(401);
+	});
+});
+
+describe("POST /api/chat/messages/:id/reactions (F4 #155)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		authedUser();
+		chatRoomStub.broadcastEvent.mockResolvedValue(undefined);
+	});
+
+	it("adds the reaction for the session user, returns the action and broadcasts the event", async () => {
+		mockToggleReaction.mockResolvedValue({ action: "added", reaction: "heart" });
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages/msg-1/reactions",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ reaction: "heart" }),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(200);
+		// Toggle dla usera z sesji; message id z parametru ścieżki.
+		expect(mockToggleReaction).toHaveBeenCalledWith({
+			messageId: "msg-1",
+			userId: "u1",
+			reaction: "heart",
+		});
+		const json = (await res.json()) as { data: { action: string } };
+		expect(json.data.action).toBe("added");
+		// Broadcast po zapisie — event reakcji z autorem zmiany (dla listy kto-zareagował).
+		expect(chatRoomStub.broadcastEvent).toHaveBeenCalledTimes(1);
+		expect(chatRoomStub.broadcastEvent).toHaveBeenCalledWith("reaction", {
+			messageId: "msg-1",
+			reaction: "heart",
+			action: "added",
+			user: { id: "u1", name: "Tomek" },
+		});
+	});
+
+	it("removes the reaction on the second call (toggle) and broadcasts removed", async () => {
+		mockToggleReaction.mockResolvedValue({ action: "removed", reaction: "heart" });
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages/msg-1/reactions",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ reaction: "heart" }),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(200);
+		const json = (await res.json()) as { data: { action: string } };
+		expect(json.data.action).toBe("removed");
+		expect(chatRoomStub.broadcastEvent).toHaveBeenCalledWith(
+			"reaction",
+			expect.objectContaining({ action: "removed" }),
+		);
+	});
+
+	it("replacing with a different type broadcasts removed(old) then added(new)", async () => {
+		mockToggleReaction.mockResolvedValue({
+			action: "replaced",
+			reaction: "laugh",
+			previous: "heart",
+		});
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages/msg-1/reactions",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ reaction: "laugh" }),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(200);
+		const json = (await res.json()) as { data: { action: string } };
+		expect(json.data.action).toBe("replaced");
+		// Dwa eventy — klient bez zmian zdejmuje starego i dokłada nowego.
+		expect(chatRoomStub.broadcastEvent).toHaveBeenCalledTimes(2);
+		expect(chatRoomStub.broadcastEvent).toHaveBeenNthCalledWith(1, "reaction", {
+			messageId: "msg-1",
+			reaction: "heart",
+			action: "removed",
+			user: { id: "u1", name: "Tomek" },
+		});
+		expect(chatRoomStub.broadcastEvent).toHaveBeenNthCalledWith(2, "reaction", {
+			messageId: "msg-1",
+			reaction: "laugh",
+			action: "added",
+			user: { id: "u1", name: "Tomek" },
+		});
+	});
+
+	it("rejects an unknown reaction type with 400 (no toggle, no broadcast)", async () => {
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages/msg-1/reactions",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ reaction: "party-parrot" }),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(400);
+		expect(mockToggleReaction).not.toHaveBeenCalled();
+		expect(chatRoomStub.broadcastEvent).not.toHaveBeenCalled();
+	});
+
+	it("returns 401 without session", async () => {
+		mockVerify.mockResolvedValue(null);
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages/msg-1/reactions",
+			{
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ reaction: "heart" }),
+			},
+			env,
+		);
+
+		expect(res.status).toBe(401);
+		expect(mockToggleReaction).not.toHaveBeenCalled();
+	});
+});
+
+describe("GET /api/chat/reactions (F4 #155)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		authedUser();
+	});
+
+	it("returns all reactions of visible messages with user names", async () => {
+		mockListReactions.mockResolvedValue([
+			{ messageId: "msg-1", userId: "u2", reaction: "heart", user: { id: "u2", name: "Kasia" } },
+		]);
+
+		const api = createApi();
+		const res = await api.request("/api/chat/reactions", authedRequest(), env);
+
+		expect(res.status).toBe(200);
+		const json = (await res.json()) as {
+			data: { messageId: string; user: { name: string } | null }[];
+		};
+		expect(json.data).toHaveLength(1);
+		expect(json.data[0]?.user?.name).toBe("Kasia");
+	});
+
+	it("returns 401 without session", async () => {
+		mockVerify.mockResolvedValue(null);
+		const api = createApi();
+		const res = await api.request("/api/chat/reactions", {}, env);
 
 		expect(res.status).toBe(401);
 	});

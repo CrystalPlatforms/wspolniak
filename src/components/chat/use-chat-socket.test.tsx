@@ -7,18 +7,23 @@
 // - onclose → reconnect z backoff 1s→2s→4s… max 15s; reset licznika po udanym połączeniu.
 // - WebSocket to granica przeglądarki — FakeWebSocket przez vi.stubGlobal.
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, renderHook, waitFor } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
+import { CHAT_REACTIONS_KEY } from "./chat-reactions";
 import { CHAT_MESSAGES_KEY, type ChatMessageItem } from "./chat-view";
 import { useChatSocket } from "./use-chat-socket";
 
 class FakeWebSocket {
 	static instances: FakeWebSocket[] = [];
+	/** WebSocket.OPEN === 1 (wartość z przeglądarki; używana przez throttle typingu). */
+	static readonly OPEN = 1;
 	url: string;
 	onopen: (() => void) | null = null;
 	onmessage: ((event: { data: string }) => void) | null = null;
 	onclose: (() => void) | null = null;
 	closed = false;
+	send = vi.fn();
+	readyState: number = FakeWebSocket.OPEN;
 
 	constructor(url: string) {
 		this.url = url;
@@ -27,6 +32,7 @@ class FakeWebSocket {
 
 	close() {
 		this.closed = true;
+		this.readyState = 3; // CLOSED
 		this.onclose?.();
 	}
 }
@@ -58,6 +64,125 @@ afterEach(() => {
 	vi.unstubAllGlobals();
 	FakeWebSocket.instances = [];
 	vi.useRealTimers();
+});
+
+describe("useChatSocket — typing indicator (F3 #154)", () => {
+	it("shows someone typing on a typing event and auto-hides ~3s after the last one", () => {
+		vi.useFakeTimers();
+		const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		vi.stubGlobal("WebSocket", FakeWebSocket);
+
+		const { result } = renderHook(() => useChatSocket(), { wrapper: createWrapper(client) });
+		const socket = FakeWebSocket.instances[0];
+		expect(socket).toBeDefined();
+
+		act(() => {
+			socket?.onmessage?.({ data: JSON.stringify({ type: "typing" }) });
+		});
+		expect(result.current.isSomeoneTyping).toBe(true);
+
+		// Drugi event po 2.5s resetuje zegar wygaśnięcia.
+		act(() => {
+			vi.advanceTimersByTime(2_500);
+			socket?.onmessage?.({ data: JSON.stringify({ type: "typing" }) });
+		});
+		act(() => {
+			vi.advanceTimersByTime(2_999);
+		});
+		expect(result.current.isSomeoneTyping).toBe(true);
+		act(() => {
+			vi.advanceTimersByTime(1);
+		});
+		expect(result.current.isSomeoneTyping).toBe(false);
+	});
+
+	it("notifyTyping sends a typing event at most once per 2s while the socket is open", () => {
+		vi.useFakeTimers();
+		const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		vi.stubGlobal("WebSocket", FakeWebSocket);
+
+		const { result } = renderHook(() => useChatSocket(), { wrapper: createWrapper(client) });
+		const socket = FakeWebSocket.instances[0];
+
+		act(() => result.current.notifyTyping());
+		act(() => result.current.notifyTyping());
+		expect(socket?.send).toHaveBeenCalledTimes(1);
+		expect(socket?.send).toHaveBeenCalledWith(JSON.stringify({ type: "typing" }));
+
+		act(() => {
+			vi.advanceTimersByTime(2_000);
+		});
+		act(() => result.current.notifyTyping());
+		expect(socket?.send).toHaveBeenCalledTimes(2);
+	});
+
+	it("notifyTyping does not send before the socket is open", () => {
+		vi.useFakeTimers();
+		const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		vi.stubGlobal("WebSocket", FakeWebSocket);
+
+		const { result } = renderHook(() => useChatSocket(), { wrapper: createWrapper(client) });
+		const socket = FakeWebSocket.instances[0];
+		socket.readyState = 0; // CONNECTING
+
+		act(() => result.current.notifyTyping());
+		expect(socket?.send).not.toHaveBeenCalled();
+	});
+});
+
+describe("useChatSocket — reaction events (F4 #155)", () => {
+	it("applies incoming reaction events to the reactions cache: added (deduped) then removed", async () => {
+		const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		vi.stubGlobal("WebSocket", FakeWebSocket);
+
+		renderHook(() => useChatSocket(), { wrapper: createWrapper(client) });
+		const socket = FakeWebSocket.instances[0];
+
+		const event = {
+			type: "reaction",
+			data: {
+				messageId: "m-1",
+				reaction: "heart",
+				action: "added",
+				user: { id: "u2", name: "Kasia" },
+			},
+		};
+		act(() => {
+			socket?.onmessage?.({ data: JSON.stringify(event) });
+		});
+		// Własne echo (ten sam event drugi raz) nie dubluje — dedupe po trójce.
+		act(() => {
+			socket?.onmessage?.({ data: JSON.stringify(event) });
+		});
+		await waitFor(() => {
+			const list = client.getQueryData<unknown[]>(CHAT_REACTIONS_KEY) ?? [];
+			expect(list).toHaveLength(1);
+		});
+
+		act(() => {
+			socket?.onmessage?.({
+				data: JSON.stringify({ ...event, data: { ...event.data, action: "removed" } }),
+			});
+		});
+		await waitFor(() => {
+			expect(client.getQueryData<unknown[]>(CHAT_REACTIONS_KEY)).toEqual([]);
+		});
+	});
+
+	it("refetches the reactions list when the (re)connection opens", async () => {
+		const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		const invalidateSpy = vi.spyOn(client, "invalidateQueries");
+		vi.stubGlobal("WebSocket", FakeWebSocket);
+
+		renderHook(() => useChatSocket(), { wrapper: createWrapper(client) });
+
+		FakeWebSocket.instances[0]?.onopen?.();
+		await waitFor(() => {
+			expect(invalidateSpy).toHaveBeenCalledWith(
+				expect.objectContaining({ queryKey: CHAT_REACTIONS_KEY }),
+			);
+		});
+	});
 });
 
 describe("useChatSocket", () => {

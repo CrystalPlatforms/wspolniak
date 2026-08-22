@@ -26,7 +26,8 @@ export const chatMessages = pgTable(
 );
 
 // Reakcje na wiadomości czatu (F4) — te same 3 typy co w feedzie.
-// UNIQUE(message_id, user_id, reaction) = jedna reakcja danego typu na wiadomość.
+// UNIQUE(message_id, user_id) = JEDNA reakcja na usera na wiadomość (jak w
+// feedzie; decyzja usera po HITL — klik innego typu zastępuje, nie dokłada).
 export const chatReactions = pgTable(
 	"chat_reactions",
 	{
@@ -36,7 +37,5 @@ export const chatReactions = pgTable(
 		reaction: text("reaction").notNull(),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 	},
-	(t) => [
-		uniqueIndex("chat_reactions_message_user_reaction_idx").on(t.messageId, t.userId, t.reaction),
-	],
+	(t) => [uniqueIndex("chat_reactions_message_user_idx").on(t.messageId, t.userId)],
 );

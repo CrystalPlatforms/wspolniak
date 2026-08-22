@@ -1,22 +1,60 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+	applyReactionEvent,
+	CHAT_REACTIONS_KEY,
+	type ChatReactionEvent,
+	type ChatReactionItem,
+} from "./chat-reactions";
 import { CHAT_MESSAGES_KEY, type ChatMessageItem } from "./chat-view";
 
 /** Backoff reconnectu: 1s → 2s → 4s → … max 15s; reset po udanym połączeniu. */
 const RECONNECT_BASE_DELAY_MS = 1_000;
 const RECONNECT_MAX_DELAY_MS = 15_000;
 
-/** Wydarzenia z DO — w F2 tylko wiadomości (typing przyjdzie w F3). */
-interface ChatSocketEvent {
-	type: "message";
-	data: ChatMessageItem;
+/** Wygaśnięcie wskaźnika „ktoś pisze…" po ostatnim evencie (PRD czatu: ~3s). */
+const TYPING_EXPIRY_MS = 3_000;
+
+/** Throttle wysyłki typing — maksymalnie ~1 event na 2s (PRD czatu). */
+const TYPING_THROTTLE_MS = 2_000;
+
+/** Wydarzenia z DO — wiadomości (F2), anonimowy typing (F3), reakcje (F4). */
+type ChatSocketEvent =
+	| { type: "message"; data: ChatMessageItem }
+	| { type: "reaction"; data: ChatReactionEvent }
+	| { type: "typing" };
+
+/** Publiczny interfejs hooka: stan wskaźnika + throttlowane powiadomienie o pisaniu. */
+export interface ChatSocketApi {
+	isSomeoneTyping: boolean;
+	notifyTyping: () => void;
 }
 
 function chatSocketUrl(): string {
 	const protocol = window.location.protocol === "https:" ? "wss" : "ws";
 	return `${protocol}://${window.location.host}/api/chat/ws`;
+}
+
+/** Dispatch eventu z DO: message → cache wiadomości, reaction → cache reakcji,
+ *  typing → callback (kropki + zegar wygaśnięcia). Wydzielone z onmessage
+ *  (czytelność + limit złożoności). */
+function handleChatSocketEvent(
+	parsed: ChatSocketEvent,
+	queryClient: QueryClient,
+	onTyping: () => void,
+): void {
+	if (parsed.type === "message" && parsed.data) {
+		appendChatMessageIfNew(queryClient, parsed.data);
+	} else if (parsed.type === "reaction" && parsed.data) {
+		// Reakcja (kogokolwiek — własne echo dedupe'uje applyReactionEvent).
+		queryClient.setQueryData<ChatReactionItem[]>(CHAT_REACTIONS_KEY, (old) =>
+			applyReactionEvent(old, parsed.data),
+		);
+	} else if (parsed.type === "typing") {
+		onTyping();
+	}
 }
 
 /**
@@ -37,10 +75,18 @@ export function appendChatMessageIfNew(queryClient: QueryClient, message: ChatMe
  * Live czat (F2): odbiera wiadomości przez WebSocket (/api/chat/ws) i dopisuje je
  * do cache'a listy (dedupe po id — broadcast własnej wiadomości oraz refetch po
  * reconnect nie dublują). Po (re)połączeniu invaliduje listę = refetch bez luk.
- * Wysyłka NIGDY nie idzie przez WS — zawsze HTTP POST (PRD).
+ * Wysyłka wiadomości NIGDY nie idzie przez WS — zawsze HTTP POST (PRD).
+ *
+ * Typing (F3 #154): przychodzący anonimowy event pokazuje „ktoś pisze…" i wystawia
+ * ~3s wygaśnięcie (każdy kolejny event resetuje zegar); `notifyTyping` wysyła
+ * własny event maks. raz na 2s i tylko na otwartym sockecie.
  */
-export function useChatSocket(): void {
+export function useChatSocket(): ChatSocketApi {
 	const queryClient = useQueryClient();
+	const [isSomeoneTyping, setIsSomeoneTyping] = useState(false);
+	const socketRef = useRef<WebSocket | null>(null);
+	const typingExpiryRef = useRef<number | undefined>(undefined);
+	const lastTypingSentRef = useRef(0);
 
 	useEffect(() => {
 		let disposed = false;
@@ -51,17 +97,25 @@ export function useChatSocket(): void {
 		function connect() {
 			if (disposed) return;
 			socket = new WebSocket(chatSocketUrl());
+			socketRef.current = socket;
 			socket.onopen = () => {
 				attempt = 0;
 				// Refetch po (re)connect — łata ewentualne luki z czasu offline.
 				void queryClient.invalidateQueries({ queryKey: CHAT_MESSAGES_KEY });
+				void queryClient.invalidateQueries({ queryKey: CHAT_REACTIONS_KEY });
 			};
 			socket.onmessage = (event) => {
 				try {
 					const parsed = JSON.parse(event.data as string) as ChatSocketEvent;
-					if (parsed?.type === "message" && parsed.data) {
-						appendChatMessageIfNew(queryClient, parsed.data);
-					}
+					handleChatSocketEvent(parsed, queryClient, () => {
+						// Ktoś inny pisze — kropki w górę, zegar wygaśnięcia od nowa.
+						setIsSomeoneTyping(true);
+						window.clearTimeout(typingExpiryRef.current);
+						typingExpiryRef.current = window.setTimeout(
+							() => setIsSomeoneTyping(false),
+							TYPING_EXPIRY_MS,
+						);
+					});
 				} catch {
 					// Złe payloady ignorujemy — socket żyje dalej.
 				}
@@ -81,7 +135,20 @@ export function useChatSocket(): void {
 		return () => {
 			disposed = true;
 			if (reconnectTimer !== undefined) window.clearTimeout(reconnectTimer);
+			window.clearTimeout(typingExpiryRef.current);
+			socketRef.current = null;
 			socket?.close();
 		};
 	}, [queryClient]);
+
+	const notifyTyping = useCallback(() => {
+		const socket = socketRef.current;
+		if (!socket || socket.readyState !== WebSocket.OPEN) return;
+		const now = Date.now();
+		if (now - lastTypingSentRef.current < TYPING_THROTTLE_MS) return;
+		lastTypingSentRef.current = now;
+		socket.send(JSON.stringify({ type: "typing" }));
+	}, []);
+
+	return { isSomeoneTyping, notifyTyping };
 }
