@@ -1,0 +1,40 @@
+/* Animacje czatu — wyłącznie transform/opacity (wymóg PRD, płynność na mobile). */
+
+/* Bąbelek wjeżdża z dołu — Telegram iOS, ~220ms ease-out. */
+@keyframes chat-bubble-in {
+	from {
+		transform: translateY(12px);
+		opacity: 0;
+	}
+	to {
+		transform: translateY(0);
+		opacity: 1;
+	}
+}
+
+.chat-bubble-in {
+	animation: chat-bubble-in 220ms ease-out;
+}
+
+/* Nieokreślony pasek postępu pod bąbelkiem w locie (przesuwający się fragment). */
+@keyframes chat-progress-indeterminate {
+	from {
+		transform: translateX(-250%);
+	}
+	to {
+		transform: translateX(350%);
+	}
+}
+
+.chat-progress-indeterminate {
+	animation: chat-progress-indeterminate 1.1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.chat-bubble-in {
+		animation: none;
+	}
+	.chat-progress-indeterminate {
+		animation: none;
+	}
+}
