@@ -1,3 +1,15 @@
+# [3.21.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.20.0...v3.21.0) (2026-08-22)
+
+
+### Bug Fixes
+
+* **editor:** keep formatting toggle visible on tablets and small desktop windows ([eda206d](https://github.com/CrystalPlatforms/wspolniak/commit/eda206da5b8a12aef52ee4cdb545a8d3f6ed054e))
+
+
+### Features
+
+* **chat:** messaging core — DB domain, API and /app/chat view ([#152](https://github.com/CrystalPlatforms/wspolniak/issues/152)) ([dec2951](https://github.com/CrystalPlatforms/wspolniak/commit/dec2951f65b0de020f48d70ac506ac1de718dae2))
+
 # [3.20.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.19.0...v3.20.0) (2026-08-21)
 
 
