@@ -1,3 +1,10 @@
+# [3.23.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.22.0...v3.23.0) (2026-08-22)
+
+
+### Features
+
+* **chat:** typing indicator and message reactions ([#154](https://github.com/CrystalPlatforms/wspolniak/issues/154), [#155](https://github.com/CrystalPlatforms/wspolniak/issues/155)) ([9dd4622](https://github.com/CrystalPlatforms/wspolniak/commit/9dd46228bf1990bd25e8564fb0b1467f4235877f))
+
 # [3.22.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.21.0...v3.22.0) (2026-08-22)
 
 
