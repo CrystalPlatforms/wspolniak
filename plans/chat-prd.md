@@ -1,41 +1,55 @@
 # PRD: Wspólniak Chat
 
+> Updated after the second `/ask` discovery session (2026-08-21). All open questions are resolved;
+> this document reflects the codebase reality (existing mobile drawer, existing cron, no-FK convention)
+> and every decision signed off by the client. UI copy stays Polish.
+
 ## Overview
 
-Wspólniak Chat to globalny czat rodzinny w czasie rzeczywistym, dostępny dla wszystkich członków rodziny w aplikacji Wspólniak. Rozwiązuje problem rozproszenia komunikacji po wielu zewnętrznych komunikatorach przez dostarczenie szybkiego, efemerycznego kanału kontaktu w miejscu, gdzie jest już cała rodzina.
+Wspólniak Chat is a global, real-time family chat inside the Wspólniak app. It solves the problem of
+communication scattered across external messengers by providing a fast, ephemeral contact channel in
+the place where the whole family already is.
+
+Animations and motion quality are a **first-class requirement**, not polish: the benchmark is
+**Telegram on iOS**. Nothing may appear abruptly.
 
 ---
 
 ## Problem Statement
 
-Rodzina komunikuje się przez różne komunikatory (np. WhatsApp), ale nie wszyscy są tam obecni. Wspólniak jest jedynym miejscem, gdzie są wszyscy członkowie rodziny — jednak brakuje w nim szybkiego kanału do bieżącej komunikacji. Posty na feedzie nie nadają się do tego celu — są trwałe i mają inną intencję.
+The family communicates through different messengers (e.g. WhatsApp), but not everyone is present
+there. Wspólniak is the only place where all family members are — yet it lacks a fast channel for
+day-to-day contact. Feed posts don't fit this purpose — they are permanent and carry a different
+intent.
 
 ---
 
 ## Users
 
-| User type       | Opis                                                                    | Szacunkowa liczba             |
-| --------------- | ----------------------------------------------------------------------- | ----------------------------- |
-| Członek rodziny | Każdy zalogowany użytkownik Wspólniaka, mixed tech skills, mobile-first | Wszyscy użytkownicy aplikacji |
+| User type       | Description                                                       | Estimated count                 |
+| --------------- | ----------------------------------------------------------------- | ------------------------------- |
+| Family member   | Any logged-in Wspólniak user, mixed tech skills, mobile-first     | All app users                   |
 
 ---
 
 ## Goals & Success Criteria
 
-- [ ] Rodzina używa chatu Wspólniaka zamiast WhatsApp / innych komunikatorów do bieżącego kontaktu
-- [ ] Wiadomości są dostarczane i widoczne w czasie rzeczywistym bez ręcznego odświeżania
-- [ ] Doświadczenie użytkownika jest płynne i dopracowane — punkt odniesienia: Telegram na iOS
+- [ ] The family uses Wspólniak chat instead of WhatsApp / other messengers for day-to-day contact
+- [ ] Messages are delivered and visible in real time without manual refresh
+- [ ] The UX is smooth and polished — benchmark: **Telegram on iOS** (all animations mandatory)
 
 ---
 
 ## User Stories
 
-1. Jako członek rodziny chcę wysłać wiadomość tekstową do całej rodziny, żeby szybko się skontaktować.
-2. Jako członek rodziny chcę zareagować na wiadomość emoji, żeby wyrazić reakcję bez pisania odpowiedzi.
-3. Jako członek rodziny chcę odpowiedzieć (reply) na konkretną wiadomość, żeby kontekst rozmowy był czytelny.
-4. Jako członek rodziny chcę widzieć że ktoś pisze w tej chwili, żeby wiedzieć że mam poczekać na odpowiedź.
-5. Jako członek rodziny chcę dostać push notyfikację o nowej wiadomości, żeby nie przegapić kontaktu.
-6. Jako członek rodziny chcę otworzyć chat z dowolnego miejsca w aplikacji, żeby nie przerywać tego co robię.
+1. As a family member I want to send a text message to the whole family, to make quick contact.
+2. As a family member I want to react to a message with the same reactions as the feed, and see who reacted.
+3. As a family member I want to reply to a specific message with a visible quote, so conversation context stays readable.
+4. As a family member I want to see that someone is typing right now, so I know to wait for a reply.
+5. As a family member I want a push notification about a new message, so I don't miss contact.
+6. As a family member I want to open the chat from anywhere in the app, without interrupting what I'm doing.
+7. As an author (or admin) I want to delete a message for everyone, to fix a mistake or remove something sent by accident.
+8. As a family member I want to copy a message text and check its exact send date and time.
 
 ---
 
@@ -43,209 +57,253 @@ Rodzina komunikuje się przez różne komunikatory (np. WhatsApp), ale nie wszys
 
 ### In scope
 
-- Jeden globalny czat dla całej rodziny
-- Wiadomości tekstowe
-- Reakcje emoji (ten sam predefiniowany zestaw co w feedzie)
-- Reply — odpowiedź z cytowaniem konkretnej wiadomości
-- Wygasanie wiadomości po 24h od wysłania (rolling, per wiadomość, twarda zasada)
-- Real-time delivery (bez odświeżania strony)
-- Typing indicator ("ktoś pisze...")
-- Push notyfikacje o nowych wiadomościach (podpięcie pod istniejący system Web Push VAPID)
-- Ładowanie wszystkich wiadomości z ostatnich 24h przy otwarciu chatu; loader + informacja gdy jest ich dużo
-- Podstrona `/chat` (TanStack Router)
-- **Mobile:** slide-out drawer z lewej (jak X/Twitter) jako główna nawigacja z hamburgerem w lewym górnym rogu ekranu + nagłówek "Witamy!"
-- **Desktop:** Chat jako nowa pozycja w istniejącym sidebarze
-- Animacje UI (patrz sekcja UX & Animacje)
+- One global chat for the whole family at **`/app/chat`** (existing auth middleware)
+- Text messages only, **200 characters max**
+- Anti-spam: **max 10 messages/minute/user** (counter in the Durable Object)
+- **Reactions — same 3 as the feed** (heart, laugh, flame — lucide icons from `reaction-config`, not emoji characters)
+  - one mutation toggles add/remove
+  - display: one icon per reaction type, **no counters**, highlighted when I reacted
+  - tap a reaction → list of **who reacted** (reuse `ReactionUsers` pattern)
+- **Reply** with a quote snapshot of the quoted **text only** (no author name)
+  - quote shown above the bubble; click scrolls to the original if it's still alive
+  - replies survive the original's expiry/deletion (snapshot is independent)
+- **Context menu on a bubble** — Reply / Copy / Delete / Info (exact send date & time + author)
+- **Delete for everyone** — author of the message **or admin**; hard delete (nothing remains);
+  reactions removed in the same query; replies to it stay
+- **Expiry: 24h rolling, per message, hard rule** — no exceptions
+- **Real-time delivery** via Cloudflare Durable Objects + WebSocket (receive-only broadcast + typing);
+  **sending over HTTP** (auth, validation, DB write), then broadcast through the DO
+- Optimistic UI: instant bubble + thin progress bar; red bar + retry on error
+- Typing indicator — anonymous **"ktoś pisze…"**, expires ~3s after last typing event
+- Push notifications for **new messages only** (never reactions, never typing):
+  - only to users **not currently connected** to the chat (chat closed), excluding the author
+  - generic title **"Nowa wiadomość ze Wspólniaka"** — no message content on the lock screen
+  - throttle: after a push to a user, further chat pushes to them are suppressed for **2 minutes**
+  - deep link to `/app/chat`
+- History load: all messages from the last 24h; **loader + notice when > 50 messages**
+- Feature flag **`chat`** (4th, next to `video` / `markdown` / `library`); OFF hides nav item + guards the route
+- Offline: "Jesteś offline" banner + disabled sending/reactions (reuse existing online-status component)
+- `/app/settings`: static note "Wiadomości na czacie znikają po 24 godzinach"
+- Navigation: **add "Czat" to the existing mobile drawer and desktop sidebar** — `MessageSquare` icon,
+  filled when active (same pattern as Biblioteka/Wideo/Kalendarz). Bottom mobile nav bar unchanged.
 
 ### Out of scope
 
-- Czaty 1 na 1 (prywatne)
-- Czaty grupowe (podgrupy)
-- Wysyłanie zdjęć / mediów
-- Edycja wysłanej wiadomości
-- Usuwanie wiadomości przez użytkownika
-- Moderacja admina w chacie
-- Read receipts ("przeczytane przez")
-- Badge / counter nieprzeczytanych na ikonie chatu
-- Przypinanie wiadomości
-- Wyszukiwanie w historii chatu
+- 1:1 (private) chats
+- Group chats (subgroups)
+- Sending photos / media
+- Message editing
+- Deleting others' messages (only author + admin can delete)
+- Admin moderation tooling beyond delete
+- Read receipts ("seen by")
+- Unread badge / counter
+- Pinning messages
+- Chat history search
 
 ---
 
-## UX & Animacje
+## UX & Animations
 
-Punkt odniesienia: **Telegram na iOS**. Wszystkie animacje muszą być płynne, natywnie odczuwalne i nie mogą zacinać się na urządzeniach mobilnych.
+Benchmark: **Telegram on iOS**. Every state change must be animated. Animations must be fluid,
+feel native, and never stutter on mobile devices.
 
-### Wysyłanie wiadomości (Optimistic UI)
+### Sending a message (Optimistic UI)
 
-1. Użytkownik klika "wyślij"
-2. Bąbelek wiadomości **pojawia się natychmiast** w liście (optimistic insert) — bez czekania na odpowiedź serwera
-3. Pod bąbelkiem pojawia się **cienki pasek postępu** (progress bar) animowany do momentu potwierdzenia z API
-4. Po potwierdzeniu: pasek znika, wiadomość zostaje — bez żadnego "skoku" layoutu
-5. W przypadku błędu: pasek zmienia kolor na czerwony + opcja ponowienia
+1. User taps send
+2. The message bubble **slides in immediately** (optimistic insert) — no waiting for the server
+3. A **thin progress bar** appears under the bubble, animated until the API confirms
+4. On confirm: the bar fades out, the message stays — **no layout jump**
+5. On error: the bar turns red + retry option
 
-### Nowe wiadomości przychodzące
+### Incoming messages
 
-- Każda nowa wiadomość **wślizguje się z dołu** — animacja translate + fade, jak w Telegram
-- Czas animacji: ~220ms, easing: `ease-out`
-- Lista automatycznie scrolluje się do dołu jeśli użytkownik jest blisko końca (ostatnie ~100px); jeśli scrollował wyżej — nie przewija automatycznie, pojawia się przycisk "↓ nowe wiadomości"
+- Every new message **slides in from the bottom** — translate + fade, Telegram-style
+- Duration ~220ms, easing `ease-out`
+- The list auto-scrolls to the bottom if the user is near the end (~last 100px);
+  otherwise a "↓ nowe wiadomości" button appears
 
-### Reakcje
+### Reactions
 
-- Po kliknięciu emoji — animacja **pop/bounce** (scale: 0 → 1.3 → 1.0, ~200ms)
-- Reakcje wyświetlane jako same emoji pod bąbelkiem — **bez liczników**
-- Każdy użytkownik widzi swoje emoji podświetlone (np. lekko jaśniejsze tło lub border)
-- Usunięcie reakcji: kliknięcie ponownie tego samego emoji — animacja fade out
+- On tap: **pop/bounce** (scale 0 → 1.3 → 1.0, ~200ms)
+- Removing own reaction: fade out
+- One icon per reaction type, no counters; own reaction highlighted
+- Tap a reaction → who-reacted list (names)
 
-### Drawer nawigacyjny (mobile)
+### Context menu & delete (new)
 
-- Otwieranie: **slide-in z lewej**, ~250ms, easing: `ease-out`
-- Zamykanie: slide-out w lewo lub swipe w lewo
-- Tło (overlay): fade in/out, `backdrop-blur` lub ciemne przyciemnienie
+- Menu opens with a **scale + fade** animation (Telegram-style)
+- Deleting: the bubble **fades/slides out** and the list closes the gap smoothly — no abrupt disappearance
 
 ### Typing indicator
 
-- Animacja trzech kropek ("...") pulsujących naprzemiennie — jak w Telegram / iMessage
-- Pojawia się i znika z animacją fade
+- Three pulsing dots + "ktoś pisze…" (anonymous — no names)
+- Fades in and out; expires ~3s after the last typing event
 
-### Ogólne zasady
+### General rules
 
-- Animacje oparte na **CSS transitions / Tailwind** (`tw-animate-css` jest w zależnościach) lub `framer-motion` jeśli jest potrzeba bardziej złożonych sekwencji
-- Żadna animacja nie może blokować interakcji (wszystko `pointer-events: auto` podczas animacji)
-- Preferowane `transform` i `opacity` — nie animować `height`, `width`, `top`, `left` (wydajność GPU)
+- CSS transitions / Tailwind (`tw-animate-css` is already a dependency) or `framer-motion` for complex sequences
+- No animation may block interaction (`pointer-events: auto` while animating)
+- Animate `transform` and `opacity` only — never `height`, `width`, `top`, `left` (GPU performance)
 
 ---
 
 ## System Components
 
-### Stack kontekst
+### Stack context
 
-| Warstwa     | Technologia                                              |
-| ----------- | -------------------------------------------------------- |
-| Framework   | TanStack Start (SSR + Router + Query)                    |
-| API         | Hono na Cloudflare Workers                               |
-| Baza danych | Neon PostgreSQL (serverless, `@neondatabase/serverless`) |
-| ORM         | Drizzle ORM                                              |
-| Push        | Web Push VAPID (istniejący system)                       |
-| Styling     | Tailwind CSS v4 + shadcn/ui + tw-animate-css             |
-| Build       | Vite + pnpm                                              |
-| Linting     | Biome                                                    |
+| Layer     | Technology                                                |
+| --------- | --------------------------------------------------------- |
+| Framework | TanStack Start (SSR + Router + Query)                     |
+| API       | Hono on Cloudflare Workers                                |
+| Database  | Neon PostgreSQL (serverless, `@neondatabase/serverless`) |
+| ORM       | Drizzle ORM                                               |
+| Real-time | Cloudflare Durable Objects + WebSocket (Hibernation API)  |
+| Push      | Web Push VAPID (existing system)                          |
+| Styling   | Tailwind CSS v4 + shadcn/ui + tw-animate-css              |
+| Build     | Vite + pnpm                                               |
+| Linting   | Biome                                                     |
 
-### Schemat bazy danych (Neon PostgreSQL + Drizzle)
+### Database schema (Neon PostgreSQL + Drizzle)
 
-**Tabela `chat_messages`:**
+**No foreign keys** — project convention (as in `bookmarks`, calendar): cascades are done in queries.
+
+**Table `chat_messages`:**
 
 ```
 id           uuid         PK, default gen_random_uuid()
-author_id    uuid         FK → users.id
-text         text         NOT NULL
-reply_to_id  uuid         FK → chat_messages.id (nullable)
-reply_text   text         snapshot cytowanej wiadomości (nullable)
+author_id    uuid         (users.id — no FK)
+text         text         NOT NULL, max 200 chars
+reply_to_id  uuid         nullable (chat_messages.id — no FK)
+reply_text   text         nullable — snapshot of quoted text (author name NOT stored)
 created_at   timestamptz  default now()
 expires_at   timestamptz  default now() + interval '24 hours'
 ```
 
-**Tabela `chat_reactions`:**
+Indexes: `expires_at` (cron cleanup), `created_at` (24h window query).
+
+**Table `chat_reactions`:**
 
 ```
-id           uuid         PK
-message_id   uuid         FK → chat_messages.id ON DELETE CASCADE
-user_id      uuid         FK → users.id
-emoji        text         NOT NULL
-created_at   timestamptz  default now()
-UNIQUE (message_id, user_id, emoji)
+id          uuid         PK
+message_id  uuid         (chat_messages.id — no FK)
+user_id     uuid         (users.id — no FK)
+reaction    text         NOT NULL — 'heart' | 'laugh' | 'flame' (same set as feed)
+created_at  timestamptz  default now()
+UNIQUE (message_id, user_id, reaction)
 ```
 
-### API (Hono)
+Expired/deleted messages have their reactions removed in the same query.
+
+Migrations: dev `0025`; production applied manually (standard HITL for the second developer).
+
+### API (Hono, behind the existing auth middleware)
 
 ```
-GET  /api/chat/messages                — pobierz wiadomości z ostatnich 24h
-POST /api/chat/messages                — wyślij nową wiadomość
-POST /api/chat/messages/:id/reactions  — dodaj / usuń reakcję
-GET  /api/chat/ws                      — WebSocket endpoint (Durable Object)
+GET    /api/chat/messages                 — last 24h (filters expires_at > now())
+POST   /api/chat/messages                 — send {text ≤ 200, reply_to_id?}
+                                            (server snapshots reply_text; validates the original exists & isn't expired)
+POST   /api/chat/messages/:id/reactions   — toggle {reaction: heart|laugh|flame}
+DELETE /api/chat/messages/:id             — author or admin; hard delete + its reactions
+GET    /api/chat/ws                       — WebSocket upgrade (session-cookie auth) → forwarded to DO
 ```
+
+Rate limiting (10 msg/min/user) is enforced **before** the DB write: the Worker asks the ChatRoom DO
+(check-and-increment counter stored in the DO).
 
 ### Real-time (Cloudflare Durable Objects + WebSocket)
 
-Wiadomości dostarczane bez odświeżania strony przez **Cloudflare Durable Objects**.
+- Single `ChatRoom` DO instance (`idFromName("global")`) — one family = one room
+- **WebSocket Hibernation API** — free Workers plan suffices (SQLite-backed DOs; 100k requests/day;
+  hibernating sockets incur no duration charges)
+- WebSocket is **receive-only for messages** + sends typing events; sending happens over HTTP POST
+- Flow: `POST /api/chat/messages` → validate → write to Neon → Worker broadcasts via DO → DO fans out
+- DO tags each socket with the user id — answers "who is currently connected?" for push suppression
+- Typing: client sends `{ type: "typing" }` (throttled), DO broadcasts to others, expires ~3s
+- Reconnect: client auto-reconnects with backoff; on reconnect it refetches messages (no gaps)
 
-Architektura:
+`wrangler.jsonc` additions (both environments):
 
-- Jeden DO (`ChatRoom`) trzyma aktywne WebSocket connections wszystkich podłączonych klientów
-- Klient łączy się przez `GET /api/chat/ws` → Worker przekierowuje do DO
-- DO rozsyła wiadomości do wszystkich połączonych klientów (broadcast)
-- DO wymaga dodania do `wrangler.jsonc`:
-  ```jsonc
-  [[durable_objects.bindings]]
-  name = "CHAT_ROOM"
-  class_name = "ChatRoom"
-  ```
+```jsonc
+"durable_objects": { "bindings": [{ "name": "CHAT_ROOM", "class_name": "ChatRoom" }] },
+"triggers": { "crons": ["0 6 * * *", "7 * * * *"] }   // hourly expiry cleanup added alongside existing 6:00
+```
 
-Typing indicator: klient wysyła zdarzenie `{ type: "typing" }` przez WebSocket → DO broadcastuje do pozostałych. Wygasa automatycznie po ~3s braku aktywności klienta.
+`ChatRoom` class exported from the Worker entry (`src/server.ts`).
 
-### Nawigacja
+### Navigation
 
-**Mobile:**
+- **Mobile:** existing `MobileSidebar` drawer — add "Czat" nav item (`MessageSquare`, filled when active).
+  Bottom `MobileNav` bar unchanged. No new "Witamy!" header (rejected — drawer already exists).
+- **Desktop:** existing sidebar — same nav item, same icon behavior.
 
-- Hamburger (lewy górny róg) → slide-out drawer z lewej
-- Drawer zawiera wszystkie sekcje: Home, Chat, Kalendarz, Albumy, Profil itd.
-- Nagłówek główny ekranu: "Witamy!"
-- Animacja drawera: slide-in z lewej, ~250ms ease-out (patrz UX & Animacje)
+### Expiry
 
-**Desktop:**
+Hourly cron `7 * * * *` (off the full hour) in **both** dev and production environments, alongside the
+existing daily 6:00 calendar cron. Handler deletes `expires_at < now()` messages together with their
+reactions in one query. The read path (`GET /api/chat/messages`) always filters by `expires_at > now()`.
 
-- Istniejący sidebar (TanStack Router layout) — dodać pozycję "Chat"
+### Push notifications
 
-### Wygasanie wiadomości
+Reuse the existing Web Push VAPID system (`buildPushDeps` / fan-out to subscribers):
 
-Brak natywnych Cron Triggers w obecnym `wrangler.jsonc`. Opcje:
-
-1. **Dodać Cron Trigger do wrangler.jsonc** — Worker odpala się co godzinę i usuwa z Neon rekordy gdzie `expires_at < now()`
-2. **Lazy delete** — przy każdym `GET /api/chat/messages` usuwaj wygasłe wiadomości przed zwróceniem wyniku
-
-Rekomendacja: Cron Trigger (opcja 1) — nie obciąża ścieżki odczytu.
-
-### Push notyfikacje
-
-Podpiąć pod istniejący system Web Push VAPID — wysyłać przy nowej wiadomości na chacie (nie przy reakcjach, nie przy typing indicator).
+- Trigger: new chat message (only)
+- Recipients: active push subscribers **not currently connected** to the chat WebSocket, excluding the author
+- Title: **"Nowa wiadomość ze Wspólniaka"** — no message content (lock-screen privacy)
+- Throttle: one push per user per 2 minutes (subsequent messages suppressed)
+- Deep link: `/app/chat`
 
 ---
 
 ## Implementation Decisions
 
-| Decyzja                   | Wybór                                  | Uzasadnienie                                                                                                          |
-| ------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| Zakres chatu              | Jeden globalny                         | Prostota; rodzina jest jedną jednostką                                                                                |
-| Trwałość wiadomości       | 24h rolling, per wiadomość             | Efemeryczność odróżnia chat od feedu; brak wyjątków upraszcza logikę                                                  |
-| Reakcje                   | Ten sam zestaw co feed, bez liczników  | Spójność UX; czytelniejszy wygląd                                                                                     |
-| Wysyłanie                 | Optimistic UI + pasek postępu          | Natychmiastowe odczucie; pasek informuje o stanie wysyłki                                                             |
-| Animacja nowej wiadomości | Slide-in z dołu jak Telegram           | Naturalny ruch zgodny z oczekiwaniami użytkownika                                                                     |
-| Animacja reakcji          | Pop/bounce przy kliknięciu             | Satysfakcjonujące, natywne odczucie                                                                                   |
-| Edycja / usuwanie         | Nie                                    | Prostota; wiadomości i tak znikają po 24h                                                                             |
-| Read receipts             | Nie                                    | Redukuje presję społeczną; prostota implementacji                                                                     |
-| Badge nieprzeczytanych    | Nie                                    | Redukuje anxiety; chat jest efemeryczny z natury                                                                      |
-| Wygasanie                 | Cron Trigger (rekomendacja)            | Nie blokuje ścieżki odczytu                                                                                           |
-| Real-time transport       | Cloudflare Durable Objects + WebSocket | Natywne narzędzie CF do persistent connections; DO rozsyła do wszystkich klientów; jedyna opcja bez timeoutów Workers |
-| Jakość animacji           | Telegram na iOS                        | Punkt odniesienia dla płynności i dopracowania                                                                        |
+| Decision                   | Choice                                                    | Rationale                                                                       |
+| -------------------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Chat scope                 | One global chat                                           | Simplicity; the family is one unit                                               |
+| Route                      | `/app/chat`                                               | Free auth via existing middleware (all app routes live under `/app`)             |
+| Message persistence        | 24h rolling, per message, hard rule                       | Ephemerality distinguishes chat from feed; no exceptions keeps logic simple       |
+| Message length             | 200 chars                                                 | Chat = short messages                                                            |
+| Anti-spam                  | 10 msg/min/user in the DO                                 | Protects against a stuck key / accidental flood                                  |
+| Reactions                  | Same 3 as feed (icons), no counters, who-reacted view      | UX consistency with the feed; toggle in one mutation                             |
+| Reply                      | Text-only snapshot quote; click scrolls to original        | Quote survives expiry/deletion of the original                                   |
+| Context menu               | Reply / Copy / Delete / Info; long-press (mobile), right-click (desktop) | Telegram pattern; plain tap stays free                          |
+| Delete                     | Author + admin, for everyone, hard delete                 | Fix mistakes; no placeholder clutter (ephemeral spirit)                          |
+| Foreign keys               | None — cascades in queries                                | Project convention (bookmarks, calendar)                                         |
+| Send transport             | HTTP POST; WebSocket receive-only + typing                | Reuses Hono auth/validation; matches optimistic UI progress bar                  |
+| Real-time infra            | Durable Objects + WS Hibernation API                      | Native CF tool; free tier sufficient for a family                                |
+| Expiry cleanup             | Hourly cron `7 * * * *` (dev + prod)                      | Doesn't burden the read path; cron infra already exists                          |
+| Push policy                | Only non-connected users, skip author, generic title      | Avoids spamming an open chat; lock-screen privacy                                |
+| Push throttle              | 2 minutes per user                                        | Active conversations don't machine-gun notifications                             |
+| Typing indicator           | Anonymous "ktoś pisze…"                                   | Client's choice; simpler than names                                              |
+| History load               | All 24h messages; loader + notice when > 50               | Resolved PRD open question                                                       |
+| Layout                     | Two-sided Telegram-style; grouped consecutive messages    | Familiar messenger feel; time in every bubble; no day separators                 |
+| Animations                 | Telegram on iOS benchmark — mandatory, full inventory     | Motion quality is a first-class requirement                                      |
+| Feature flag               | `chat` (4th) in admin "Funkcje" panel                     | Consistent pattern; emergency off-switch                                         |
+| Offline                    | Banner + blocked sending/reactions                        | Cheap; queueing rejected (too much work for a 24h chat)                          |
+| Expiry info                | Static note in `/app/settings`                            | Sets expectations without cluttering the chat header                             |
+| Read receipts              | No                                                        | Reduces social pressure; simpler                                                 |
+| Unread badge               | No                                                        | Reduces anxiety; chat is ephemeral by nature                                     |
 
 ---
 
 ## Validation Strategy
 
-Wdrożenie do produkcji → obserwacja czy rodzina faktycznie przechodzi z WhatsApp na chat Wspólniaka.
+Deploy to production → observe whether the family actually switches from WhatsApp to Wspólniak chat.
+Standard rollout: dev environment first, production deploy + migration manually (HITL).
 
 ---
 
 ## Open Questions
 
-- [ ] **Definicja "dużo wiadomości":** Jaki próg uruchamia loader + komunikat przy ładowaniu historii? (np. > 50, > 100 wiadomości?)
+None. All resolved during discovery:
+
+- "A lot of messages" threshold → **50** (resolved 2026-08-21)
 
 ---
 
 ## References
 
-- Discovery summary: sesja /ask (ta rozmowa)
-- PRD główny Wspólniak: `./docs/002-prd.md` (repozytorium)
-- Repo: `github.com/CrystalGamesStudio/wspolniak`
-- Styl nawigacji mobile: X/Twitter (slide-out drawer)
-- Punkt odniesienia UX: Telegram na iOS
+- Discovery summary: two `/ask` sessions (Polish)
+- Main Wspólniak PRD: `./docs/002-prd.md`
+- Repo: `github.com/CrystalPlatforms/wspolniak`
+- Mobile nav style: existing in-app drawer (`src/components/app/mobile-sidebar.tsx`)
+- UX benchmark: Telegram on iOS
