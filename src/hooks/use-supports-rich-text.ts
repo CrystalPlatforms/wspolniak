@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 /**
  * Czy bieżące środowisko wspiera edytor WYSIWYG?
  *
- * Zwraca `true` TYLKO na szerokim ekranie (desktop, `min-width: 1024px`)
- * w zwykłej przeglądarce — wyklucza PWA (tryb standalone) oraz wąskie ekrany
- * mobile. Edytor WYSIWYG jest ciężki i nieporęczny na telefonie, a w
+ * Zwraca `true` na ekranach od szerokości tabletu w górę (`min-width: 768px`)
+ * w zwykłej przeglądarce — wyklucza PWA (tryb standalone) oraz telefony
+ * (wąskie ekrany poniżej 768px). Tablety i mniejsze okna na laptopie dostają
+ * formatowanie normalnie. Edytor WYSIWYG jest ciężki i nieporęczny na telefonie, a w
  * zainstalowanej aplikacji (PWA) celowo ukrywamy formatowanie, by trzymać
  * ją prostą.
  *
@@ -18,12 +19,12 @@ export function useSupportsRichText(): boolean {
 	const [supports, setSupports] = useState(false);
 	useEffect(() => {
 		if (typeof window === "undefined" || !window.matchMedia) return;
-		const desktop = window.matchMedia("(min-width: 1024px)");
+		const wide = window.matchMedia("(min-width: 768px)");
 		const standalone = window.matchMedia("(display-mode: standalone)");
-		const update = () => setSupports(desktop.matches && !standalone.matches);
+		const update = () => setSupports(wide.matches && !standalone.matches);
 		update();
-		desktop.addEventListener("change", update);
-		return () => desktop.removeEventListener("change", update);
+		wide.addEventListener("change", update);
+		return () => wide.removeEventListener("change", update);
 	}, []);
 	return supports;
 }
