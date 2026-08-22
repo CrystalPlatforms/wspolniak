@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -167,15 +167,6 @@ function CalendarPage() {
 	return (
 		<div className="max-w-2xl bg-background px-4 py-6 pb-28 sm:pb-6">
 			<div className="mb-6 flex items-center gap-2">
-				<a href="/app">
-					<button
-						type="button"
-						className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-						title="Wróć"
-					>
-						<ArrowLeft className="h-5 w-5" />
-					</button>
-				</a>
 				<h1 className="text-2xl font-bold text-foreground">Kalendarz</h1>
 				<div className="flex-1" />
 				<Button variant="ghost" size="lg" onClick={() => setAddOpen(true)} title="Dodaj wydarzenie">
