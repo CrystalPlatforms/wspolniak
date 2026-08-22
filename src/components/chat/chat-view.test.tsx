@@ -10,10 +10,33 @@
 //   pod nim; błąd → czerwony pasek + przycisk „Ponów"; Ponów wysyła ponownie.
 // - Limit 200 znaków w UI (maxLength); pusty tekst nie da się wysłać.
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { ChatView } from "./chat-view";
+
+/** Fake WebSocket (granica przeglądarki) — lapany przez useChatSocket w każdym teście. */
+class FakeWebSocket {
+	static instances: FakeWebSocket[] = [];
+	url: string;
+	onopen: (() => void) | null = null;
+	onmessage: ((event: { data: string }) => void) | null = null;
+	onclose: (() => void) | null = null;
+
+	constructor(url: string) {
+		this.url = url;
+		FakeWebSocket.instances.push(this);
+	}
+
+	close() {
+		this.onclose?.();
+	}
+}
+
+beforeEach(() => {
+	vi.stubGlobal("WebSocket", FakeWebSocket);
+	FakeWebSocket.instances = [];
+});
 
 function createWrapper() {
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -206,6 +229,52 @@ describe("ChatView — wysyłka wiadomości", () => {
 		expect(fetchMock.mock.calls.filter(([_url, init]) => init?.method === "POST")).toHaveLength(2);
 	});
 
+	it("nie dubluje potwierdzonej wiadomości, gdy broadcast WS wygra wyścig z odpowiedzią POST", async () => {
+		const confirmed = apiMessage({
+			id: "server-1",
+			authorId: "u1",
+			author: { id: "u1", name: "Tomek" },
+			text: "Wyścig broadcastu",
+		});
+		// POST wisi, aż go puścimy — w międzyczasie nadchodzi broadcast (ten sam id).
+		let resolvePost: ((value: unknown) => void) | undefined;
+		const fetchMock = vi.fn().mockImplementation((_url: string, init?: RequestInit) => {
+			if (init?.method === "POST") {
+				return new Promise((res) => {
+					resolvePost = () => res({ ok: true, json: () => Promise.resolve({ data: confirmed }) });
+				});
+			}
+			return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: [] }) });
+		});
+		vi.stubGlobal("fetch", fetchMock);
+
+		render(<ChatView currentUserId="u1" />, { wrapper: createWrapper() });
+		const input = await screen.findByRole("textbox", { name: /wiadomość/i });
+		await userEvent.type(input, "Wyścig broadcastu");
+		await userEvent.click(screen.getByRole("button", { name: /wyślij/i }));
+
+		// Bąbelek w locie: dokładnie jeden.
+		expect(screen.getAllByText("Wyścig broadcastu")).toHaveLength(1);
+
+		// Broadcast WS (własna wiadomość wraca do nadawcy) PRZED odpowiedzią POST.
+		act(() => {
+			FakeWebSocket.instances[0]?.onmessage?.({
+				data: JSON.stringify({ type: "message", data: confirmed }),
+			});
+		});
+
+		// Teraz dopiero odpowiedź POST — nie może dokleić duplikatu.
+		await act(async () => {
+			resolvePost?.(undefined);
+		});
+
+		await waitFor(() => {
+			expect(screen.getAllByText("Wyścig broadcastu")).toHaveLength(1);
+		});
+		// Bąbelek potwierdzony (po stronie own), pasek postępu zniknął.
+		expect(screen.queryByRole("progressbar")).toBeNull();
+	});
+
 	it("egzekwuje limit 200 znaków (maxLength) i blokuje wysyłkę pustej wiadomości", async () => {
 		const { fetchMock } = mockChatApi([]);
 
@@ -222,5 +291,90 @@ describe("ChatView — wysyłka wiadomości", () => {
 		expect(sendButton.hasAttribute("disabled")).toBe(true);
 
 		expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(0);
+	});
+});
+
+describe("ChatView — real-time (WS)", () => {
+	function wsIncoming(id: string, text: string) {
+		return JSON.stringify({
+			type: "message",
+			data: apiMessage({ id, text, authorId: "u2", author: { id: "u2", name: "Kasia" } }),
+		});
+	}
+
+	function rowByText(text: string): HTMLElement {
+		const bubble = screen.getByText(text);
+		return bubble.closest("li") as HTMLElement;
+	}
+
+	/** Scrollowalny kontener listy z podmienioną geometrią (jsdom ma same zera). */
+	function prepareScroller(distance: number) {
+		const el = document.querySelector<HTMLElement>("[data-chat-scroll]");
+		if (!el) throw new Error("brak kontenera scrolla");
+		const scrollHeight = 1000;
+		const clientHeight = 400;
+		Object.defineProperty(el, "scrollHeight", { value: scrollHeight, configurable: true });
+		Object.defineProperty(el, "clientHeight", { value: clientHeight, configurable: true });
+		Object.defineProperty(el, "scrollTop", {
+			value: scrollHeight - clientHeight - distance,
+			configurable: true,
+		});
+		el.scrollTo = vi.fn();
+		return el;
+	}
+
+	it("incoming WS message renders live with the slide-in class; initial list does not animate", async () => {
+		mockChatApi([apiMessage({ id: "m1", text: "Starsza wiadomość" })]);
+
+		render(<ChatView currentUserId="u1" />, { wrapper: createWrapper() });
+		expect(await screen.findByText("Starsza wiadomość")).toBeDefined();
+
+		// Początkowa lista się NIE animuje (brak chat-bubble-in).
+		expect(rowByText("Starsza wiadomość").classList.contains("chat-bubble-in")).toBe(false);
+
+		// Wiadomość z WS pojawia się na żywo, z animacją slide-in.
+		act(() => {
+			FakeWebSocket.instances[0]?.onmessage?.({ data: wsIncoming("m2", "Świeża wiadomość") });
+		});
+		const newRow = await screen.findByText("Świeża wiadomość");
+		expect(newRow).toBeDefined();
+		expect(rowByText("Świeża wiadomość").classList.contains("chat-bubble-in")).toBe(true);
+		// Stara nadal bez animacji.
+		expect(rowByText("Starsza wiadomość").classList.contains("chat-bubble-in")).toBe(false);
+	});
+
+	it("auto-scrolls to the new message when the user is near the bottom (no button)", async () => {
+		mockChatApi([apiMessage({ id: "m1", text: "Starsza" })]);
+		render(<ChatView currentUserId="u1" />, { wrapper: createWrapper() });
+		expect(await screen.findByText("Starsza")).toBeDefined();
+		const scroller = prepareScroller(50); // 50px od dna → blisko
+
+		act(() => {
+			FakeWebSocket.instances[0]?.onmessage?.({ data: wsIncoming("m2", "Nowa") });
+		});
+		await screen.findByText("Nowa");
+
+		expect(scroller.scrollTo).toHaveBeenCalled();
+		expect(screen.queryByRole("button", { name: /nowe wiadomości/i })).toBeNull();
+	});
+
+	it("shows the „↓ nowe wiadomości” button when scrolled up; click scrolls down", async () => {
+		mockChatApi([apiMessage({ id: "m1", text: "Starsza" })]);
+		render(<ChatView currentUserId="u1" />, { wrapper: createWrapper() });
+		expect(await screen.findByText("Starsza")).toBeDefined();
+		const scroller = prepareScroller(500); // 500px od dna → przewinięte w górę
+
+		act(() => {
+			FakeWebSocket.instances[0]?.onmessage?.({ data: wsIncoming("m2", "Nowa") });
+		});
+		const jumpButton = await screen.findByRole("button", { name: /nowe wiadomości/i });
+		expect(scroller.scrollTo).not.toHaveBeenCalled();
+
+		await userEvent.click(jumpButton);
+
+		expect(scroller.scrollTo).toHaveBeenCalled();
+		await waitFor(() => {
+			expect(screen.queryByRole("button", { name: /nowe wiadomości/i })).toBeNull();
+		});
 	});
 });

@@ -26,6 +26,8 @@ declare namespace Cloudflare {
 		CLOUDFLARE_ACCOUNT_ID: string;
 		CLOUDFLARE_IMAGES_API_TOKEN: string;
 		CLOUDFLARE_IMAGES_ACCOUNT_HASH: string;
+		VAPID_PUBLIC_KEY: string;
+		CHAT_ROOM: DurableObjectNamespace<import("./src/server").ChatRoom>;
 	}
 }
 type StringifyValues<EnvType extends Record<string, unknown>> = {

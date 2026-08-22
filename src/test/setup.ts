@@ -13,6 +13,15 @@ if (typeof Element !== "undefined" && typeof Element.prototype.scrollIntoView !=
 }
 
 /**
+ * jsdom nie implementuje też `Element.prototype.scrollTo` (brak layoutu) — czat
+ * przewija listę wiadomości na dół (F2). No-op jak wyżej; test może nadpisać
+ * własnym spy na konkretnej instancji elementu.
+ */
+if (typeof Element !== "undefined" && typeof Element.prototype.scrollTo !== "function") {
+	Element.prototype.scrollTo = function scrollTo() {};
+}
+
+/**
  * jsdom nie implementuje ResizeObserver (brak layoutu). Komponenty Radix mierzą
  * elementy w layoucie — np. `Switch` mierzy swój thumb przez `@radix-ui/react-use-size`,
  * a Dialog/Popover/Select mierzą trigger. Bez tego stuba rzucają `ReferenceError:

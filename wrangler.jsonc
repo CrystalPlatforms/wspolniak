@@ -11,6 +11,20 @@
 		"enabled": true,
 		"head_sampling_rate": 1
 	},
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "CHAT_ROOM",
+				"class_name": "ChatRoom"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "v1-chat-room",
+			"new_sqlite_classes": ["ChatRoom"]
+		}
+	],
 	"triggers": {
 		"crons": ["0 6 * * *"]
 	},
@@ -24,6 +38,14 @@
 			"observability": {
 				"enabled": true,
 				"head_sampling_rate": 1
+			},
+			"durable_objects": {
+				"bindings": [
+					{
+						"name": "CHAT_ROOM",
+						"class_name": "ChatRoom"
+					}
+				]
 			},
 			"triggers": {
 				"crons": ["0 6 * * *"]

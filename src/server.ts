@@ -4,10 +4,14 @@
 // `scheduled` handler odpala cron kalendarza (D-0 posty od admina).
 /// <reference types="vite/client" />
 import { runCalendarJob } from "@/calendar/job";
+import { ChatRoom } from "@/chat/chat-room";
 import { initDatabase } from "@/db";
 import { apiHono } from "@/hono/api";
 import authRoute from "@/hono/api/auth";
 import { createHono } from "@/hono/factory";
+
+// Klasa Durable Object pokoju czatu — wymagany eksport z entry Workera (F2 #153).
+export { ChatRoom };
 
 const authHono = createHono();
 authHono.route("/app/u", authRoute);
