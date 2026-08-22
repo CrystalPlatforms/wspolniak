@@ -1,3 +1,15 @@
+# [3.22.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.21.0...v3.22.0) (2026-08-22)
+
+
+### Bug Fixes
+
+* **app:** remove redundant back button from /calendar ([0119bf9](https://github.com/CrystalPlatforms/wspolniak/commit/0119bf9801cbd346fc4981f9bd8356a5763f8fbc))
+
+
+### Features
+
+* **chat:** real-time delivery — ChatRoom Durable Object, WebSocket, rate limit ([#153](https://github.com/CrystalPlatforms/wspolniak/issues/153)) ([26dbf34](https://github.com/CrystalPlatforms/wspolniak/commit/26dbf34c3c5a914a00ae7dbfe92e62fa3fa56177))
+
 # [3.21.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.20.0...v3.21.0) (2026-08-22)
 
 
