@@ -1,3 +1,10 @@
+# [3.24.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.23.0...v3.24.0) (2026-08-23)
+
+
+### Features
+
+* **chat:** context menu (reply/copy/info/reactions) and delete for everyone ([#156](https://github.com/CrystalPlatforms/wspolniak/issues/156), [#157](https://github.com/CrystalPlatforms/wspolniak/issues/157)) ([ec02b73](https://github.com/CrystalPlatforms/wspolniak/commit/ec02b73a3004c50a5e7799ae917992cda10fe305))
+
 # [3.23.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.22.0...v3.23.0) (2026-08-22)
 
 
