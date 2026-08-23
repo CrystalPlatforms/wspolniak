@@ -20,14 +20,17 @@ vi.mock("@/db/chat", async (importOriginal) => {
 	return {
 		...actual,
 		createChatMessage: vi.fn(),
+		deleteChatMessage: vi.fn(),
 		listChatMessages: vi.fn(),
 		listChatReactions: vi.fn(),
 		toggleChatReaction: vi.fn(),
 	};
 });
 
+import { AppError } from "@/core/errors";
 import {
 	createChatMessage,
+	deleteChatMessage,
 	listChatMessages,
 	listChatReactions,
 	toggleChatReaction,
@@ -39,6 +42,7 @@ import chatEndpoint from "./chat";
 const mockVerify = vi.mocked(verifySessionCookie);
 const mockFindUser = vi.mocked(findActiveUserById);
 const mockCreateMessage = vi.mocked(createChatMessage);
+const mockDeleteMessage = vi.mocked(deleteChatMessage);
 const mockListMessages = vi.mocked(listChatMessages);
 const mockListReactions = vi.mocked(listChatReactions);
 const mockToggleReaction = vi.mocked(toggleChatReaction);
@@ -461,5 +465,186 @@ describe("GET /api/chat/reactions (F4 #155)", () => {
 		const res = await api.request("/api/chat/reactions", {}, env);
 
 		expect(res.status).toBe(401);
+	});
+});
+
+describe("POST /api/chat/messages — reply (F5 #156)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		authedUser();
+		chatRoomStub.checkAndIncrementRateLimit.mockResolvedValue(true);
+		chatRoomStub.broadcastMessage.mockResolvedValue(undefined);
+	});
+
+	it("passes replyToId through to the domain and returns the message with the snapshot quote", async () => {
+		mockCreateMessage.mockResolvedValue({
+			id: "msg-2",
+			authorId: "u1",
+			text: "Odpowiedź",
+			replyToId: "msg-1",
+			replyText: "Oryginał",
+			createdAt: now,
+			expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000),
+		});
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ text: "Odpowiedź", replyToId: "msg-1" }),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(201);
+		expect(mockCreateMessage).toHaveBeenCalledWith({
+			authorId: "u1",
+			text: "Odpowiedź",
+			replyToId: "msg-1",
+		});
+		const json = (await res.json()) as { data: { replyToId: string; replyText: string } };
+		expect(json.data.replyToId).toBe("msg-1");
+		expect(json.data.replyText).toBe("Oryginał");
+	});
+
+	it("maps the domain AppError to 400 when the original is nonexistent/expired", async () => {
+		mockCreateMessage.mockRejectedValue(
+			new AppError(
+				"Nie można odpowiedzieć na tę wiadomość — nie istnieje lub wygasła",
+				"VALIDATION",
+				400,
+			),
+		);
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ text: "Odpowiedź", replyToId: "gone" }),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(400);
+		expect(chatRoomStub.broadcastMessage).not.toHaveBeenCalled();
+	});
+
+	it("rejects a non-string replyToId with 400 (Zod)", async () => {
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ text: "Odpowiedź", replyToId: 123 }),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(400);
+		expect(mockCreateMessage).not.toHaveBeenCalled();
+	});
+});
+
+describe("DELETE /api/chat/messages/:id (F6 #157)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		authedUser();
+		chatRoomStub.broadcastEvent.mockResolvedValue(undefined);
+	});
+
+	it("deletes the author's own message and broadcasts the delete event", async () => {
+		mockDeleteMessage.mockResolvedValue({ ok: true, data: undefined });
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages/msg-1",
+			authedRequest({ method: "DELETE" }),
+			env,
+		);
+
+		expect(res.status).toBe(200);
+		expect(mockDeleteMessage).toHaveBeenCalledWith({
+			id: "msg-1",
+			requesterId: "u1",
+			requesterRole: "member",
+		});
+		expect(chatRoomStub.broadcastEvent).toHaveBeenCalledWith("delete", { messageId: "msg-1" });
+	});
+
+	it("allows an admin to delete any message", async () => {
+		mockVerify.mockResolvedValue({ userId: "u1", name: "Tomek", role: "admin" });
+		mockFindUser.mockResolvedValue({
+			id: "u1",
+			name: "Tomek",
+			role: "admin",
+			tokenHash: "hash",
+			deletedAt: null,
+			createdAt: new Date(),
+		});
+		mockDeleteMessage.mockResolvedValue({ ok: true, data: undefined });
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages/msg-1",
+			authedRequest({ method: "DELETE" }),
+			env,
+		);
+
+		expect(res.status).toBe(200);
+		expect(mockDeleteMessage).toHaveBeenCalledWith(
+			expect.objectContaining({ requesterRole: "admin" }),
+		);
+		expect(chatRoomStub.broadcastEvent).toHaveBeenCalledTimes(1);
+	});
+
+	it("rejects another member's delete with 403 and no broadcast (no content leak)", async () => {
+		mockDeleteMessage.mockResolvedValue({
+			ok: false,
+			error: new AppError("Nie możesz usunąć tej wiadomości", "UNAUTHORIZED", 403),
+		});
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages/msg-1",
+			authedRequest({ method: "DELETE" }),
+			env,
+		);
+
+		expect(res.status).toBe(403);
+		const json = (await res.json()) as { data?: unknown; error: string };
+		expect(json.data).toBeUndefined();
+		expect(json.error).toBeDefined();
+		expect(chatRoomStub.broadcastEvent).not.toHaveBeenCalled();
+	});
+
+	it("returns 404 for a nonexistent message", async () => {
+		mockDeleteMessage.mockResolvedValue({
+			ok: false,
+			error: new AppError("Wiadomość nie istnieje", "NOT_FOUND", 404),
+		});
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages/gone",
+			authedRequest({ method: "DELETE" }),
+			env,
+		);
+
+		expect(res.status).toBe(404);
+		expect(chatRoomStub.broadcastEvent).not.toHaveBeenCalled();
+	});
+
+	it("returns 401 without session", async () => {
+		mockVerify.mockResolvedValue(null);
+		const api = createApi();
+		const res = await api.request("/api/chat/messages/msg-1", { method: "DELETE" }, env);
+
+		expect(res.status).toBe(401);
+		expect(mockDeleteMessage).not.toHaveBeenCalled();
 	});
 });

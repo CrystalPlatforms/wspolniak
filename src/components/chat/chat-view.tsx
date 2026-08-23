@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MessageSquare, SendHorizontal } from "lucide-react";
+import { MessageSquare, SendHorizontal, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+import { ChatBubbleMenu } from "@/components/chat/chat-bubble-menu";
+import { useBubbleMenu } from "@/components/chat/use-bubble-menu";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
-import { ChatReactionBar } from "./chat-reactions";
 import { isNearBottom, scrollToBottom } from "./chat-scroll";
 import { TypingIndicator } from "./typing-indicator";
-import { appendChatMessageIfNew, useChatSocket } from "./use-chat-socket";
-// Animacje czatu (bąbelki, pasek wysyłki, reakcje) — klasy używane w tym pliku
-// i w ChatReactionBar; plik był wcześniej nieimportowany (bug F1, naprawiony w F4).
+import { appendChatMessageIfNew, removeChatMessage, useChatSocket } from "./use-chat-socket";
+// Animacje czatu (bąbelki, pasek wysyłki, reakcje, menu) — klasy używane w tym
+// pliku, w ChatReactionBar (menu) i w ChatBubbleMenu.
 import "./chat-bubble.css";
 
 /** Współdzielony klucz zapytania o listę wiadomości czatu. */
@@ -27,6 +29,12 @@ export interface ChatMessageItem {
 	author: { id: string; name: string };
 }
 
+/** Zaznaczenie „w odpowiedzi do" nad inputem (F5 #156). */
+interface ReplyDraft {
+	id: string;
+	text: string;
+}
+
 async function fetchChatMessages(): Promise<ChatMessageItem[]> {
 	const res = await fetch("/api/chat/messages");
 	if (!res.ok) throw new Error("Nie udało się pobrać wiadomości");
@@ -34,15 +42,20 @@ async function fetchChatMessages(): Promise<ChatMessageItem[]> {
 	return json.data;
 }
 
-async function sendChatMessage(text: string): Promise<ChatMessageItem> {
+async function sendChatMessage(text: string, replyToId?: string): Promise<ChatMessageItem> {
 	const res = await fetch("/api/chat/messages", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ text }),
+		body: JSON.stringify({ text, replyToId }),
 	});
 	if (!res.ok) throw new Error("Nie udało się wysłać wiadomości");
 	const json = (await res.json()) as { data: ChatMessageItem };
 	return json.data;
+}
+
+async function deleteChatMessageRequest(messageId: string): Promise<void> {
+	const res = await fetch(`/api/chat/messages/${messageId}`, { method: "DELETE" });
+	if (!res.ok) throw new Error("Nie udało się usunąć wiadomości");
 }
 
 /** Godzina w formacie Telegrama: HH:MM (pl-PL). */
@@ -59,10 +72,15 @@ const MANY_MESSAGES_THRESHOLD = 50;
 /** Maksymalna długość wiadomości — limit PRD, egzekwowany też przez API (Zod). */
 const MAX_MESSAGE_LENGTH = 200;
 
+/** Czas animacji zniknięcia bąbelka (F6 #157) — po nim sprzątamy cache. */
+const BUBBLE_OUT_MS = 230;
+
 /** Wiadomość w locie (optymistyczna) — Bubble visible natychmiast, status steruje paskiem. */
 interface PendingMessage {
 	clientId: string;
 	text: string;
+	replyToId?: string;
+	replyText: string | null;
 	status: "sending" | "error";
 }
 
@@ -70,10 +88,13 @@ interface ChatViewProps {
 	currentUserId: string;
 	/** Imię usera z sesji — trafia do optymistycznych reakcji (lista kto-zareagował). */
 	currentUserName: string;
+	/** Admin może usuwać także cudze wiadomości (F6 #157) — steruje itemem „Usuń". */
+	isAdmin: boolean;
 }
 
-/** Widok czatu rodzinnego (F1+F2+F3+F4): lista z 24h, optymistyczna wysyłka, live WS. */
-export function ChatView({ currentUserId, currentUserName }: ChatViewProps) {
+/** Widok czatu rodzinnego (F1–F6): lista 24h, optymistyczna wysyłka, live WS,
+ *  reakcje, typing, context menu (Odpowiedz/Kopiuj/Info/reakcje) i usuwanie. */
+export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewProps) {
 	const queryClient = useQueryClient();
 	const { data: messages } = useQuery({
 		queryKey: CHAT_MESSAGES_KEY,
@@ -81,10 +102,26 @@ export function ChatView({ currentUserId, currentUserName }: ChatViewProps) {
 	});
 	const [draft, setDraft] = useState("");
 	const [pending, setPending] = useState<PendingMessage[]>([]);
+	// Reply (F5): quote nad inputem; wysyłka dokłada replyToId do POST-a.
+	const [replyTo, setReplyTo] = useState<ReplyDraft | null>(null);
+	// Usuwanie (F6): id w trakcie animacji zniknięcia — renderuje chat-bubble-out.
+	const [removingIds, setRemovingIds] = useState<ReadonlySet<string>>(new Set());
 
 	// Live delivery (F2): WS dokleja wiadomości do cache'a + refetch po reconnect.
 	// Typing (F3): kropki „ktoś pisze…" + throttlowane powiadomienia o własnym pisaniu.
-	const { isSomeoneTyping, notifyTyping } = useChatSocket();
+	// Delete (F6): event usunięcia → animacja, po niej sprzątanie cache.
+	const { isSomeoneTyping, notifyTyping } = useChatSocket({ onDelete: handleDeletedMessage });
+
+	// Context menu (F5): long-press / prawy klik / Enter — handlery wpięte w bąbelki.
+	const {
+		menu,
+		closeMenu,
+		handlePointerDown,
+		handlePointerMove,
+		cancelPress,
+		handleContextMenu,
+		handleKeyDown,
+	} = useBubbleMenu();
 
 	const containerRef = useRef<HTMLDivElement>(null);
 	const prevIdsRef = useRef<Set<string> | null>(null);
@@ -97,6 +134,7 @@ export function ChatView({ currentUserId, currentUserName }: ChatViewProps) {
 	const [newBelow, setNewBelow] = useState(false);
 
 	const list = messages ?? [];
+	const menuMessage = menu ? list.find((message) => message.id === menu.messageId) : undefined;
 
 	useEffect(() => {
 		const ids = new Set(list.map((message) => message.id));
@@ -130,20 +168,31 @@ export function ChatView({ currentUserId, currentUserName }: ChatViewProps) {
 	}, [list, pending]);
 
 	const sendMutation = useMutation({
-		mutationFn: sendChatMessage,
-		onMutate: (text) => {
-			// Optymistyczny bąbelek: natychmiast, jeszcze przed POST-em.
+		mutationFn: (vars: { text: string; replyToId?: string; replyText: string | null }) =>
+			sendChatMessage(vars.text, vars.replyToId),
+		onMutate: (vars): { clientId: string } => {
+			// Optymistyczny bąbelek: natychmiast, jeszcze przed POST-em. Quote
+			// (replyText) w locie z lokalnego snapshotu — po potwierdzeniu z API.
 			const clientId = `temp-${crypto.randomUUID()}`;
-			setPending((prev) => [...prev, { clientId, text, status: "sending" }]);
+			setPending((prev) => [
+				...prev,
+				{
+					clientId,
+					text: vars.text,
+					replyToId: vars.replyToId,
+					replyText: vars.replyToId ? vars.replyText : null,
+					status: "sending",
+				},
+			]);
 			return { clientId };
 		},
-		onSuccess: (message, _text, context) => {
+		onSuccess: (message, _vars, context) => {
 			// Potwierdzenie: bąbelek w locie znika, do listy trafia zapisana wiadomość.
 			// Dedupe: broadcast WS często wygra wyścig z tą odpowiedzią (ten sam id).
 			setPending((prev) => prev.filter((p) => p.clientId !== context?.clientId));
 			appendChatMessageIfNew(queryClient, message);
 		},
-		onError: (_error, _text, context) => {
+		onError: (_error, _vars, context) => {
 			// Błąd: bąbelek zostaje, pasek czerwienieje, pojawia się „Ponów”.
 			setPending((prev) =>
 				prev.map((p) => (p.clientId === context?.clientId ? { ...p, status: "error" } : p)),
@@ -151,22 +200,66 @@ export function ChatView({ currentUserId, currentUserName }: ChatViewProps) {
 		},
 	});
 
+	const deleteMutation = useMutation({
+		mutationFn: deleteChatMessageRequest,
+		// Własne echo WS przyjdzie też — podwójne wywołanie jest idempotentne.
+		onSuccess: (_data, messageId) => handleDeletedMessage(messageId),
+		onError: () => toast.error("Nie udało się usunąć wiadomości"),
+	});
+
+	/** F6: animuj zniknięcie (chat-bubble-out), po czasie animacji sprzątnij cache. */
+	function handleDeletedMessage(messageId: string) {
+		setRemovingIds((prev) => {
+			if (prev.has(messageId)) return prev;
+			const next = new Set(prev);
+			next.add(messageId);
+			return next;
+		});
+		window.setTimeout(() => {
+			removeChatMessage(queryClient, messageId);
+			setRemovingIds((prev) => {
+				const next = new Set(prev);
+				next.delete(messageId);
+				return next;
+			});
+		}, BUBBLE_OUT_MS);
+	}
+
+	function handleReply(message: ChatMessageItem) {
+		setReplyTo({ id: message.id, text: message.text });
+	}
+
 	function handleSend() {
 		const text = draft.trim();
 		if (!text || sendMutation.isPending) return;
+		const reply = replyTo;
 		setDraft("");
-		sendMutation.mutate(text);
+		setReplyTo(null);
+		sendMutation.mutate({ text, replyToId: reply?.id, replyText: reply?.text ?? null });
 	}
 
-	function handleRetry(clientId: string, text: string) {
-		setPending((prev) => prev.filter((p) => p.clientId !== clientId));
-		sendMutation.mutate(text);
+	function handleRetry(message: PendingMessage) {
+		setPending((prev) => prev.filter((p) => p.clientId !== message.clientId));
+		sendMutation.mutate({
+			text: message.text,
+			replyToId: message.replyToId,
+			replyText: message.replyText,
+		});
 	}
 
 	function handleJumpToNew() {
 		const el = containerRef.current;
 		if (el) scrollToBottom(el);
 		setNewBelow(false);
+	}
+
+	/** Klik w quote (F5): scroll do żywego oryginału; wygasły/usunięty = no-op,
+	 *  snapshot quote zostaje na miejscu. */
+	function scrollToMessage(messageId: string | null) {
+		if (!messageId) return;
+		containerRef.current
+			?.querySelector(`[data-message-id="${messageId}"]`)
+			?.scrollIntoView({ behavior: "smooth", block: "center" });
 	}
 
 	// Przy dużej liczbie wiadomości renderujemy tylko najnowsze — szybciej na telefonach.
@@ -201,31 +294,52 @@ export function ChatView({ currentUserId, currentUserName }: ChatViewProps) {
 							const isFirstOfGroup = visible[index - 1]?.authorId !== message.authorId;
 							// Slide-in dostają tylko wiadomości przybrane na żywo (nie start listy).
 							const slideIn = side === "other" && animatedIds.has(message.id);
+							const removing = removingIds.has(message.id);
 							return (
 								<li
 									key={message.id}
+									data-message-id={message.id}
 									data-side={side}
-									className={`flex w-full flex-col ${side === "own" ? "items-end" : "items-start"} ${isFirstOfGroup ? "mt-3" : "mt-0.5"} ${slideIn ? "chat-bubble-in" : ""} first:mt-0`}
+									className={`flex w-full flex-col ${side === "own" ? "items-end" : "items-start"} ${isFirstOfGroup ? "mt-3" : "mt-0.5"} ${slideIn ? "chat-bubble-in" : ""} ${removing ? "chat-bubble-out" : ""} first:mt-0`}
 								>
 									{side === "other" && isFirstOfGroup ? (
 										<span className="mb-0.5 px-1 text-xs font-medium text-muted-foreground">
 											{message.author.name}
 										</span>
 									) : null}
+									{message.replyToId ? (
+										// Quote odpowiedzi (F5): sam tekst (bez autora), snapshot z serwera.
+										<button
+											type="button"
+											data-reply-quote
+											aria-label="Przewiń do cytowanej wiadomości"
+											onClick={() => scrollToMessage(message.replyToId)}
+											className="mb-0.5 max-w-[85%] truncate rounded-lg border-l-2 border-primary/60 bg-muted/60 px-2 py-1 text-left text-xs text-muted-foreground transition-colors hover:bg-muted"
+										>
+											{message.replyText}
+										</button>
+									) : null}
 									<div
-										className={`flex max-w-[85%] items-end gap-2 rounded-2xl px-3 py-2 ${side === "own" ? "rounded-br-md bg-primary text-primary-foreground" : "rounded-bl-md bg-muted text-foreground"}`}
+										role="button"
+										tabIndex={0}
+										aria-haspopup="menu"
+										aria-label="Menu wiadomości"
+										onPointerDown={(event) => handlePointerDown(message, event)}
+										onPointerMove={handlePointerMove}
+										onPointerUp={cancelPress}
+										onPointerCancel={cancelPress}
+										onPointerLeave={cancelPress}
+										onContextMenu={(event) => handleContextMenu(message, event)}
+										onKeyDown={(event) => handleKeyDown(message, event)}
+										className={`flex max-w-[85%] cursor-default items-end gap-2 rounded-2xl px-3 py-2 [-webkit-touch-callout:none] select-none ${side === "own" ? "rounded-br-md bg-primary text-primary-foreground" : "rounded-bl-md bg-muted text-foreground"}`}
 									>
 										<p className="whitespace-pre-wrap break-words text-sm">{message.text}</p>
 										<span className="shrink-0 text-[10px] opacity-60">
 											{formatChatTime(message.createdAt)}
 										</span>
 									</div>
-									{/* F4: rząd reakcji pod bąbelkiem — wyrównany do strony bąbla. */}
-									<ChatReactionBar
-										messageId={message.id}
-										currentUserId={currentUserId}
-										currentUserName={currentUserName}
-									/>
+									{/* Reakcje NIE renderują się pod bąbelkiem (decyzja usera po
+									    HITL F5) — dostępne wyłącznie w context menu bąbelka. */}
 								</li>
 							);
 						})}
@@ -237,6 +351,12 @@ export function ChatView({ currentUserId, currentUserName }: ChatViewProps) {
 							data-side="own"
 							className="chat-bubble-in mt-0.5 flex w-full flex-col items-end"
 						>
+							{message.replyToId ? (
+								// Quote odpowiedzi w locie — tekst z lokalnego snapshotu (F5).
+								<div className="mb-0.5 max-w-[85%] truncate rounded-lg border-l-2 border-primary/60 bg-muted/60 px-2 py-1 text-right text-xs text-muted-foreground">
+									{message.replyText}
+								</div>
+							) : null}
 							<div
 								className={`flex max-w-[85%] items-end gap-2 rounded-2xl rounded-br-md px-3 py-2 bg-primary text-primary-foreground ${message.status === "error" ? "opacity-80 ring-1 ring-destructive" : ""}`}
 							>
@@ -254,7 +374,7 @@ export function ChatView({ currentUserId, currentUserName }: ChatViewProps) {
 							{message.status === "error" ? (
 								<button
 									type="button"
-									onClick={() => handleRetry(message.clientId, message.text)}
+									onClick={() => handleRetry(message)}
 									className="mt-1 text-xs font-medium text-destructive hover:underline"
 								>
 									Ponów
@@ -273,6 +393,18 @@ export function ChatView({ currentUserId, currentUserName }: ChatViewProps) {
 					</button>
 				) : null}
 			</div>
+			{menu && menuMessage ? (
+				<ChatBubbleMenu
+					message={menuMessage}
+					position={{ x: menu.x, y: menu.y }}
+					currentUserId={currentUserId}
+					currentUserName={currentUserName}
+					isAdmin={isAdmin}
+					onReply={handleReply}
+					onDelete={(messageId) => deleteMutation.mutate(messageId)}
+					onClose={closeMenu}
+				/>
+			) : null}
 			<form
 				onSubmit={(event) => {
 					event.preventDefault();
@@ -283,6 +415,26 @@ export function ChatView({ currentUserId, currentUserName }: ChatViewProps) {
 				<div className="mx-auto flex max-w-2xl flex-col">
 					{/* F3: anonimowy wskaźnik nad inputem — zawsze zamontowany (fade, bez skoku layoutu). */}
 					<TypingIndicator visible={isSomeoneTyping} />
+					{replyTo ? (
+						// Podgląd odpowiedzi nad inputem (F5) — quote + anulowanie.
+						<div
+							data-reply-preview
+							className="mb-2 flex items-center gap-2 rounded-xl border border-border bg-muted/60 px-3 py-2"
+						>
+							<div className="min-w-0 flex-1">
+								<p className="text-xs font-medium text-muted-foreground">Odpowiedź</p>
+								<p className="truncate text-sm text-foreground">{replyTo.text}</p>
+							</div>
+							<button
+								type="button"
+								onClick={() => setReplyTo(null)}
+								aria-label="Anuluj odpowiedź"
+								className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+							>
+								<X className="size-4" />
+							</button>
+						</div>
+					) : null}
 					<div className="flex items-center gap-2">
 						<input
 							value={draft}

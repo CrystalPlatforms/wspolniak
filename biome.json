@@ -98,7 +98,9 @@
 			"!.claude/settings.json",
 			"!.claude/settings.local.json",
 			"!.claude/skills",
-			"!.wrangler"
+			"!.wrangler",
+			"!ai-demo",
+			"!.claude/settings 2.json"
 		]
 	},
 	"plugins": [

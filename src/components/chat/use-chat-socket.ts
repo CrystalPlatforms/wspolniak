@@ -20,10 +20,12 @@ const TYPING_EXPIRY_MS = 3_000;
 /** Throttle wysyłki typing — maksymalnie ~1 event na 2s (PRD czatu). */
 const TYPING_THROTTLE_MS = 2_000;
 
-/** Wydarzenia z DO — wiadomości (F2), anonimowy typing (F3), reakcje (F4). */
+/** Wydarzenia z DO — wiadomości (F2), anonimowy typing (F3), reakcje (F4),
+ *  usunięcie wiadomości (F6 #157). */
 type ChatSocketEvent =
 	| { type: "message"; data: ChatMessageItem }
 	| { type: "reaction"; data: ChatReactionEvent }
+	| { type: "delete"; data: { messageId: string } }
 	| { type: "typing" };
 
 /** Publiczny interfejs hooka: stan wskaźnika + throttlowane powiadomienie o pisaniu. */
@@ -32,18 +34,25 @@ export interface ChatSocketApi {
 	notifyTyping: () => void;
 }
 
+/** Opcje hooka — callback usunięcia (F6): ChatView animuje bąbelek i dopiero
+ *  po animacji czyści cache (dlatego delete nie rusza cache'a wprost w hooku). */
+export interface UseChatSocketOptions {
+	onDelete?: (messageId: string) => void;
+}
+
 function chatSocketUrl(): string {
 	const protocol = window.location.protocol === "https:" ? "wss" : "ws";
 	return `${protocol}://${window.location.host}/api/chat/ws`;
 }
 
 /** Dispatch eventu z DO: message → cache wiadomości, reaction → cache reakcji,
- *  typing → callback (kropki + zegar wygaśnięcia). Wydzielone z onmessage
- *  (czytelność + limit złożoności). */
+ *  delete → callback (animacja przed kasowaniem cache), typing → callback
+ *  (kropki + zegar wygaśnięcia). Wydzielone z onmessage (czytelność + limit złożoności). */
 function handleChatSocketEvent(
 	parsed: ChatSocketEvent,
 	queryClient: QueryClient,
 	onTyping: () => void,
+	onDelete?: (messageId: string) => void,
 ): void {
 	if (parsed.type === "message" && parsed.data) {
 		appendChatMessageIfNew(queryClient, parsed.data);
@@ -52,6 +61,8 @@ function handleChatSocketEvent(
 		queryClient.setQueryData<ChatReactionItem[]>(CHAT_REACTIONS_KEY, (old) =>
 			applyReactionEvent(old, parsed.data),
 		);
+	} else if (parsed.type === "delete" && parsed.data) {
+		onDelete?.(parsed.data.messageId);
 	} else if (parsed.type === "typing") {
 		onTyping();
 	}
@@ -72,6 +83,19 @@ export function appendChatMessageIfNew(queryClient: QueryClient, message: ChatMe
 }
 
 /**
+ * Usuwa wiadomość i jej reakcje z cache'a (F6 #157) — wywoływane przez ChatView
+ * PO animacji zniknięcia bąbelka. Idempotentne (echo WS po własnym DELETE = no-op).
+ */
+export function removeChatMessage(queryClient: QueryClient, messageId: string): void {
+	queryClient.setQueryData<ChatMessageItem[]>(CHAT_MESSAGES_KEY, (old) =>
+		(old ?? []).filter((message) => message.id !== messageId),
+	);
+	queryClient.setQueryData<ChatReactionItem[]>(CHAT_REACTIONS_KEY, (old) =>
+		(old ?? []).filter((item) => item.messageId !== messageId),
+	);
+}
+
+/**
  * Live czat (F2): odbiera wiadomości przez WebSocket (/api/chat/ws) i dopisuje je
  * do cache'a listy (dedupe po id — broadcast własnej wiadomości oraz refetch po
  * reconnect nie dublują). Po (re)połączeniu invaliduje listę = refetch bez luk.
@@ -81,12 +105,19 @@ export function appendChatMessageIfNew(queryClient: QueryClient, message: ChatMe
  * ~3s wygaśnięcie (każdy kolejny event resetuje zegar); `notifyTyping` wysyła
  * własny event maks. raz na 2s i tylko na otwartym sockecie.
  */
-export function useChatSocket(): ChatSocketApi {
+export function useChatSocket(options: UseChatSocketOptions = {}): ChatSocketApi {
 	const queryClient = useQueryClient();
 	const [isSomeoneTyping, setIsSomeoneTyping] = useState(false);
 	const socketRef = useRef<WebSocket | null>(null);
 	const typingExpiryRef = useRef<number | undefined>(undefined);
 	const lastTypingSentRef = useRef(0);
+	// Latest-ref: socket żyje między renderami, callback delete zawsze świeży
+	// bez rozbierania połączenia przy każdej zmianie tożsamości funkcji.
+	const onDeleteRef = useRef(options.onDelete);
+
+	useEffect(() => {
+		onDeleteRef.current = options.onDelete;
+	});
 
 	useEffect(() => {
 		let disposed = false;
@@ -107,15 +138,20 @@ export function useChatSocket(): ChatSocketApi {
 			socket.onmessage = (event) => {
 				try {
 					const parsed = JSON.parse(event.data as string) as ChatSocketEvent;
-					handleChatSocketEvent(parsed, queryClient, () => {
-						// Ktoś inny pisze — kropki w górę, zegar wygaśnięcia od nowa.
-						setIsSomeoneTyping(true);
-						window.clearTimeout(typingExpiryRef.current);
-						typingExpiryRef.current = window.setTimeout(
-							() => setIsSomeoneTyping(false),
-							TYPING_EXPIRY_MS,
-						);
-					});
+					handleChatSocketEvent(
+						parsed,
+						queryClient,
+						() => {
+							// Ktoś inny pisze — kropki w górę, zegar wygaśnięcia od nowa.
+							setIsSomeoneTyping(true);
+							window.clearTimeout(typingExpiryRef.current);
+							typingExpiryRef.current = window.setTimeout(
+								() => setIsSomeoneTyping(false),
+								TYPING_EXPIRY_MS,
+							);
+						},
+						onDeleteRef.current,
+					);
 				} catch {
 					// Złe payloady ignorujemy — socket żyje dalej.
 				}

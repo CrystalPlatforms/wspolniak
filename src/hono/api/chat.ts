@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import type { ContentfulStatusCode } from "hono/utils/http-status";
+import { AppError } from "@/core/errors";
 import {
 	createChatMessage,
 	createChatMessageSchema,
+	deleteChatMessage,
 	listChatMessages,
 	listChatReactions,
 	toggleChatReaction,
@@ -29,11 +33,23 @@ chatEndpoint.post("/messages", async (c) => {
 		return c.json({ error: "Too many messages" }, 429);
 	}
 
-	const message = await createChatMessage({ authorId: user.userId, text: parsed.data.text });
-	// Autor znany z sesji — bez dodatkowego odczytu z DB; pełny kształt jak w GET.
-	const messageWithAuthor = { ...message, author: { id: user.userId, name: user.name } };
-	await room.broadcastMessage(messageWithAuthor);
-	return c.json({ data: messageWithAuthor }, 201);
+	try {
+		const message = await createChatMessage({
+			authorId: user.userId,
+			text: parsed.data.text,
+			replyToId: parsed.data.replyToId,
+		});
+		// Autor znany z sesji — bez dodatkowego odczytu z DB; pełny kształt jak w GET.
+		const messageWithAuthor = { ...message, author: { id: user.userId, name: user.name } };
+		await room.broadcastMessage(messageWithAuthor);
+		return c.json({ data: messageWithAuthor }, 201);
+	} catch (error) {
+		// Reply na nieistniejący/wygasły oryginał (F5 #156) — znany błąd domeny → 400.
+		if (error instanceof AppError) {
+			return c.json({ error: error.message }, error.status as ContentfulStatusCode);
+		}
+		throw error;
+	}
 });
 
 // GET /ws — upgrade WebSocketu (odbiór + typing; wysyłka zawsze przez POST).
@@ -94,6 +110,27 @@ chatEndpoint.post("/messages/:id/reactions", async (c) => {
 chatEndpoint.get("/reactions", async (c) => {
 	const reactions = await listChatReactions();
 	return c.json({ data: reactions });
+});
+
+// DELETE /messages/:id (F6 #157) — usuń dla wszystkich: tylko autor lub admin
+// (Result z domeny: 404 nie istnieje / 403 cudza wiadomość — bez treści w odpowiedzi).
+// Po kasie broadcast "delete" — klienci animują zniknięcie bąbelka bez odświeżania.
+chatEndpoint.delete("/messages/:id", async (c) => {
+	const user = c.get("user");
+	const messageId = c.req.param("id");
+
+	const result = await deleteChatMessage({
+		id: messageId,
+		requesterId: user.userId,
+		requesterRole: user.role,
+	});
+	if (!result.ok) {
+		return c.json({ error: result.error.message }, result.error.status as ContentfulStatusCode);
+	}
+
+	const room = c.env.CHAT_ROOM.get(c.env.CHAT_ROOM.idFromName("global"));
+	await room.broadcastEvent("delete", { messageId });
+	return c.json({ data: { ok: true } });
 });
 
 export default chatEndpoint;

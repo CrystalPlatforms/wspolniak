@@ -10,7 +10,7 @@
 //   pod nim; błąd → czerwony pasek + przycisk „Ponów"; Ponów wysyła ponownie.
 // - Limit 200 znaków w UI (maxLength); pusty tekst nie da się wysłać.
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { ChatView } from "./chat-view";
@@ -54,6 +54,8 @@ interface ApiMessage {
 	id: string;
 	authorId: string;
 	text: string;
+	replyToId?: string | null;
+	replyText?: string | null;
 	createdAt: string;
 	author: { id: string; name: string };
 }
@@ -118,7 +120,9 @@ describe("ChatView — lista wiadomości", () => {
 			}),
 		]);
 
-		render(<ChatView currentUserId="u1" currentUserName="Tomek" />, { wrapper: createWrapper() });
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
 
 		// Czekaj na załadowanie listy.
 		expect(await screen.findByText("Cześć wam")).toBeDefined();
@@ -143,7 +147,9 @@ describe("ChatView — lista wiadomości", () => {
 	it("pokazuje przyjazny pusty stan, gdy nie ma żadnych wiadomości", async () => {
 		mockChatApi([]);
 
-		render(<ChatView currentUserId="u1" currentUserName="Tomek" />, { wrapper: createWrapper() });
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
 
 		expect(await screen.findByText(/Nie ma jeszcze żadnych wiadomości/i)).toBeDefined();
 	});
@@ -154,7 +160,9 @@ describe("ChatView — lista wiadomości", () => {
 		);
 		mockChatApi(many);
 
-		render(<ChatView currentUserId="u1" currentUserName="Tomek" />, { wrapper: createWrapper() });
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
 
 		// Najnowsza (50) widoczna, najstarsza (0) ukryta — renderujemy tylko 50.
 		expect(await screen.findByText("Wiadomość numer 50")).toBeDefined();
@@ -176,7 +184,9 @@ describe("ChatView — wysyłka wiadomości", () => {
 			}),
 		);
 
-		render(<ChatView currentUserId="u1" currentUserName="Tomek" />, { wrapper: createWrapper() });
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
 		const input = await screen.findByRole("textbox", { name: /wiadomość/i });
 		await userEvent.type(input, "Idziemy na obiad?");
 		await userEvent.click(screen.getByRole("button", { name: /wyślij/i }));
@@ -212,7 +222,9 @@ describe("ChatView — wysyłka wiadomości", () => {
 		});
 		vi.stubGlobal("fetch", fetchMock);
 
-		render(<ChatView currentUserId="u1" currentUserName="Tomek" />, { wrapper: createWrapper() });
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
 		const input = await screen.findByRole("textbox", { name: /wiadomość/i });
 		await userEvent.type(input, "Idziemy na obiad?");
 		await userEvent.click(screen.getByRole("button", { name: /wyślij/i }));
@@ -253,7 +265,9 @@ describe("ChatView — wysyłka wiadomości", () => {
 		});
 		vi.stubGlobal("fetch", fetchMock);
 
-		render(<ChatView currentUserId="u1" currentUserName="Tomek" />, { wrapper: createWrapper() });
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
 		const input = await screen.findByRole("textbox", { name: /wiadomość/i });
 		await userEvent.type(input, "Wyścig broadcastu");
 		await userEvent.click(screen.getByRole("button", { name: /wyślij/i }));
@@ -283,7 +297,9 @@ describe("ChatView — wysyłka wiadomości", () => {
 	it("egzekwuje limit 200 znaków (maxLength) i blokuje wysyłkę pustej wiadomości", async () => {
 		const { fetchMock } = mockChatApi([]);
 
-		render(<ChatView currentUserId="u1" currentUserName="Tomek" />, { wrapper: createWrapper() });
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
 		const input = await screen.findByRole("textbox", { name: /wiadomość/i });
 
 		// Limit UI = limit API (Zod): input nie przyjmie 201. znaku.
@@ -331,7 +347,9 @@ describe("ChatView — real-time (WS)", () => {
 	it("incoming WS message renders live with the slide-in class; initial list does not animate", async () => {
 		mockChatApi([apiMessage({ id: "m1", text: "Starsza wiadomość" })]);
 
-		render(<ChatView currentUserId="u1" currentUserName="Tomek" />, { wrapper: createWrapper() });
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
 		expect(await screen.findByText("Starsza wiadomość")).toBeDefined();
 
 		// Początkowa lista się NIE animuje (brak chat-bubble-in).
@@ -350,7 +368,9 @@ describe("ChatView — real-time (WS)", () => {
 
 	it("auto-scrolls to the new message when the user is near the bottom (no button)", async () => {
 		mockChatApi([apiMessage({ id: "m1", text: "Starsza" })]);
-		render(<ChatView currentUserId="u1" currentUserName="Tomek" />, { wrapper: createWrapper() });
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
 		expect(await screen.findByText("Starsza")).toBeDefined();
 		const scroller = prepareScroller(50); // 50px od dna → blisko
 
@@ -365,7 +385,9 @@ describe("ChatView — real-time (WS)", () => {
 
 	it("shows the „↓ nowe wiadomości” button when scrolled up; click scrolls down", async () => {
 		mockChatApi([apiMessage({ id: "m1", text: "Starsza" })]);
-		render(<ChatView currentUserId="u1" currentUserName="Tomek" />, { wrapper: createWrapper() });
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
 		expect(await screen.findByText("Starsza")).toBeDefined();
 		const scroller = prepareScroller(500); // 500px od dna → przewinięte w górę
 
@@ -392,7 +414,9 @@ describe("ChatView — typing indicator wiring (F3 #154)", () => {
 
 	it("sends a typing event while the local user types and shows the indicator for incoming typing", async () => {
 		mockChatApi([]);
-		render(<ChatView currentUserId="u1" currentUserName="Tomek" />, { wrapper: createWrapper() });
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
 		const socket = FakeWebSocket.instances[0];
 		expect(socket).toBeDefined();
 
@@ -412,28 +436,263 @@ describe("ChatView — typing indicator wiring (F3 #154)", () => {
 	});
 });
 
-describe("ChatView — reaction row wiring (F4 #155)", () => {
+describe("ChatView — reactions live only in the context menu (HITL F5)", () => {
 	beforeEach(() => {
 		vi.stubGlobal("WebSocket", FakeWebSocket);
 		FakeWebSocket.instances = [];
 	});
 
-	it("renders the reaction row under each bubble; tapping toggles mine optimistically", async () => {
-		const user = userEvent.setup();
-		const { fetchMock } = mockChatApi([apiMessage({ id: "m1", text: "Cześć" })]);
-		render(<ChatView currentUserId="u1" currentUserName="Tomek" />, {
+	it("does NOT render the reaction bar under bubbles anymore", async () => {
+		mockChatApi([apiMessage({ id: "m1", text: "Cześć" })]);
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
 			wrapper: createWrapper(),
 		});
 		expect(await screen.findByText("Cześć")).toBeDefined();
 
-		const heart = screen.getByRole("button", { name: "serce" });
-		expect(heart.getAttribute("aria-pressed")).toBe("false");
-		await user.click(heart);
+		// Pasek reakcji zniknął spod bąbelków — reakcje tylko w context menu.
+		expect(document.querySelectorAll("[data-chat-reaction-bar]")).toHaveLength(0);
+		expect(screen.queryByRole("button", { name: "serce" })).toBeNull();
+	});
+});
 
-		expect(fetchMock).toHaveBeenCalledWith(
-			"/api/chat/messages/m1/reactions",
-			expect.objectContaining({ method: "POST" }),
+// ─── F5 #156 + F6 #157 ────────────────────────────────────────────────────────
+// Założenia kontraktu UI (context menu / reply / delete):
+// - Menu otwiera long-press (~500ms), prawy klik lub Enter/Space na bąbelku;
+//   zwykły tap nic nie robi. Itemy: Odpowiedz, Kopiuj, Kto zareagował, Info,
+//   reakcje (ten sam pasek) i Usuń (tylko autor/admin).
+// - Odpowiedz: quote preview nad inputem; POST z replyToId; potwierdzona
+//   odpowiedź renderuje quote nad bąbelkiem; klik quote scrolluje do ŻYWEGO
+//   oryginału (wygasły/usunięty = bez scrolla).
+// - Usuń: DELETE /api/chat/messages/:id; event WS "delete" animuje bąbelek
+//   (chat-bubble-out) i po ~230ms czyści go z cache.
+
+/** Czekanie na prawdziwych timerach (long-press 500ms / bubble-out 230ms). */
+function sleep(ms: number): Promise<void> {
+	return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Bąbelek (div[role=button]) zawierający tekst wiadomości. */
+function bubbleOf(text: string): HTMLElement {
+	return screen.getByText(text).closest('[role="button"]') as HTMLElement;
+}
+
+describe("ChatView — context menu (F5 #156)", () => {
+	beforeEach(() => {
+		vi.stubGlobal("WebSocket", FakeWebSocket);
+		FakeWebSocket.instances = [];
+	});
+
+	it("opens on right-click with all items + reactions; plain tap is inert; no „Usuń” on others' messages", async () => {
+		const user = userEvent.setup();
+		mockChatApi([apiMessage({ id: "m1", text: "Cześć" })]); // autor u2 (cudza)
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
+		await screen.findByText("Cześć");
+
+		// Zwykły tap (pointerdown+up bez przytrzymania) nie otwiera menu.
+		fireEvent.pointerDown(bubbleOf("Cześć"), { clientX: 10, clientY: 10 });
+		fireEvent.pointerUp(bubbleOf("Cześć"));
+		await sleep(600);
+		expect(screen.queryByRole("menu")).toBeNull();
+
+		// Prawy klik otwiera menu ze wszystkimi itemami.
+		fireEvent.contextMenu(bubbleOf("Cześć"), { clientX: 100, clientY: 100 });
+		expect(screen.getByRole("menu", { name: "Menu wiadomości" })).toBeDefined();
+		for (const label of ["Odpowiedz", "Kopiuj", "Kto zareagował", "Info"]) {
+			expect(screen.getByRole("menuitem", { name: label })).toBeDefined();
+		}
+		// Życzenie usera: reakcje też w menu (ten sam pasek serce/śmiech/ogień).
+		const menuEl = screen.getByRole("menu", { name: "Menu wiadomości" });
+		expect(within(menuEl).getByRole("button", { name: "serce" })).toBeDefined();
+		// Cudza wiadomość + member → bez „Usuń".
+		expect(screen.queryByRole("menuitem", { name: "Usuń" })).toBeNull();
+
+		// Escape zamyka menu.
+		fireEvent.keyDown(window, { key: "Escape" });
+		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+		expect(user).toBeDefined();
+	});
+
+	it("opens after a long-press (~500ms) and shows „Usuń” on own message", async () => {
+		mockChatApi([
+			apiMessage({ id: "m1", authorId: "u1", author: { id: "u1", name: "Tomek" }, text: "Moja" }),
+		]);
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
+		await screen.findByText("Moja");
+
+		fireEvent.pointerDown(bubbleOf("Moja"), { clientX: 10, clientY: 10, pointerType: "touch" });
+		await sleep(600);
+		expect(screen.getByRole("menu")).toBeDefined();
+		expect(screen.getByRole("menuitem", { name: "Usuń" })).toBeDefined();
+	});
+
+	it("shows „Usuń” on someone else's message for an admin", async () => {
+		mockChatApi([apiMessage({ id: "m1", text: "Cudza" })]);
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin />, {
+			wrapper: createWrapper(),
+		});
+		await screen.findByText("Cudza");
+
+		fireEvent.contextMenu(bubbleOf("Cudza"), { clientX: 50, clientY: 50 });
+		expect(screen.getByRole("menuitem", { name: "Usuń" })).toBeDefined();
+	});
+});
+
+describe("ChatView — reply (F5 #156)", () => {
+	beforeEach(() => {
+		vi.stubGlobal("WebSocket", FakeWebSocket);
+		FakeWebSocket.instances = [];
+	});
+
+	it("Odpowiedz sets the quote preview above the input and sends replyToId with the message", async () => {
+		const user = userEvent.setup();
+		const reply = apiMessage({
+			id: "m2",
+			authorId: "u1",
+			author: { id: "u1", name: "Tomek" },
+			text: "Moja odpowiedź",
+			replyToId: "m1",
+			replyText: "Oryginał",
+		});
+		const { fetchMock } = mockChatApi([apiMessage({ id: "m1", text: "Oryginał" })], {
+			ok: true,
+			message: reply,
+		});
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
+		await screen.findByText("Oryginał");
+
+		fireEvent.contextMenu(bubbleOf("Oryginał"), { clientX: 50, clientY: 50 });
+		await user.click(screen.getByRole("menuitem", { name: "Odpowiedz" }));
+
+		// Preview nad inputem: etykieta „Odpowiedź" + cytowany tekst.
+		const preview = document.querySelector("[data-reply-preview]");
+		expect(preview).not.toBeNull();
+		expect(preview?.textContent).toContain("Oryginał");
+
+		await user.type(screen.getByLabelText("Wiadomość"), "Moja odpowiedź");
+		await user.click(screen.getByRole("button", { name: /wyślij/i }));
+
+		// POST z replyToId (dokładnie ten endpoint, nie reakcje).
+		const postCall = fetchMock.mock.calls.find(
+			([url, init]) => url === "/api/chat/messages" && init?.method === "POST",
 		);
-		expect(heart.getAttribute("aria-pressed")).toBe("true");
+		expect(postCall).toBeDefined();
+		expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
+			text: "Moja odpowiedź",
+			replyToId: "m1",
+		});
+
+		// Potwierdzona odpowiedź renderuje quote nad bąbelkiem.
+		await screen.findByText("Moja odpowiedź");
+		const quote = document.querySelector("[data-reply-quote]");
+		expect(quote?.textContent).toContain("Oryginał");
+	});
+
+	it("anulowanie odpowiedzi usuwa preview i wysyła bez replyToId", async () => {
+		const user = userEvent.setup();
+		const confirmed = apiMessage({
+			id: "m2",
+			authorId: "u1",
+			author: { id: "u1", name: "Tomek" },
+			text: "Zwykła",
+		});
+		const { fetchMock } = mockChatApi([apiMessage({ id: "m1", text: "Oryginał" })], {
+			ok: true,
+			message: confirmed,
+		});
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
+		await screen.findByText("Oryginał");
+
+		fireEvent.contextMenu(bubbleOf("Oryginał"), { clientX: 50, clientY: 50 });
+		await user.click(screen.getByRole("menuitem", { name: "Odpowiedz" }));
+		await user.click(screen.getByRole("button", { name: "Anuluj odpowiedź" }));
+		expect(document.querySelector("[data-reply-preview]")).toBeNull();
+
+		await user.type(screen.getByLabelText("Wiadomość"), "Zwykła");
+		await user.click(screen.getByRole("button", { name: /wyślij/i }));
+
+		const postCall = fetchMock.mock.calls.find(
+			([url, init]) => url === "/api/chat/messages" && init?.method === "POST",
+		);
+		expect(JSON.parse(String(postCall?.[1]?.body))).not.toHaveProperty("replyToId");
+	});
+
+	it("clicking a quote scrolls to a live original; a gone original does not scroll", async () => {
+		mockChatApi([
+			apiMessage({ id: "m1", text: "Oryginał" }),
+			apiMessage({ id: "m2", text: "Odp", replyToId: "m1", replyText: "Oryginał" }),
+			apiMessage({ id: "m3", text: "Odp2", replyToId: "gone", replyText: "Stara wiadomość" }),
+		]);
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
+		await screen.findByText("Odp");
+
+		const scrollIntoView = vi.fn();
+		Element.prototype.scrollIntoView = scrollIntoView;
+
+		// Oryginał nie istnieje (wygasł/usunięty) — quote zostaje, bez scrolla.
+		fireEvent.click(screen.getByText("Stara wiadomość"));
+		expect(scrollIntoView).not.toHaveBeenCalled();
+
+		// Żywy oryginał — scroll do jego wiersza.
+		const liveQuote = screen.getByText("Odp").closest("li")?.querySelector("[data-reply-quote]");
+		expect(liveQuote).not.toBeNull();
+		fireEvent.click(liveQuote as Element);
+		expect(scrollIntoView).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe("ChatView — delete for everyone (F6 #157)", () => {
+	beforeEach(() => {
+		vi.stubGlobal("WebSocket", FakeWebSocket);
+		FakeWebSocket.instances = [];
+	});
+
+	it("a WS delete event animates the bubble out and removes it after the animation", async () => {
+		mockChatApi([apiMessage({ id: "m1", text: "Do usunięcia" })]);
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
+		await screen.findByText("Do usunięcia");
+		const row = screen.getByText("Do usunięcia").closest("li") as HTMLElement;
+
+		act(() => {
+			FakeWebSocket.instances[0]?.onmessage?.({
+				data: JSON.stringify({ type: "delete", data: { messageId: "m1" } }),
+			});
+		});
+
+		// Najpierw animacja (transform+opacity), potem zniknięcie z DOM.
+		expect(row.classList.contains("chat-bubble-out")).toBe(true);
+		await sleep(400);
+		expect(screen.queryByText("Do usunięcia")).toBeNull();
+	});
+
+	it("„Usuń” in the menu calls DELETE /api/chat/messages/:id", async () => {
+		const user = userEvent.setup();
+		const mine = apiMessage({
+			id: "m1",
+			authorId: "u1",
+			author: { id: "u1", name: "Tomek" },
+			text: "Moja",
+		});
+		const { fetchMock } = mockChatApi([mine]);
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
+		await screen.findByText("Moja");
+
+		fireEvent.contextMenu(bubbleOf("Moja"), { clientX: 50, clientY: 50 });
+		await user.click(screen.getByRole("menuitem", { name: "Usuń" }));
+
+		expect(fetchMock).toHaveBeenCalledWith("/api/chat/messages/m1", { method: "DELETE" });
 	});
 });

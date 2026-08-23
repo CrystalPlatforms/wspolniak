@@ -11,7 +11,7 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { CHAT_REACTIONS_KEY } from "./chat-reactions";
 import { CHAT_MESSAGES_KEY, type ChatMessageItem } from "./chat-view";
-import { useChatSocket } from "./use-chat-socket";
+import { removeChatMessage, useChatSocket } from "./use-chat-socket";
 
 class FakeWebSocket {
 	static instances: FakeWebSocket[] = [];
@@ -51,6 +51,20 @@ function incoming(id: string) {
 			author: { id: "u2", name: "Kasia" },
 		} satisfies ChatMessageItem,
 	});
+}
+
+/** Wiadomość do seedowania cache'a (ten sam kształt co incoming). */
+function listMessage(id: string): ChatMessageItem {
+	return {
+		id,
+		authorId: "u2",
+		text: `Wiadomość ${id}`,
+		replyToId: null,
+		replyText: null,
+		createdAt: "2026-08-22T10:00:00.000Z",
+		expiresAt: "2026-08-23T10:00:00.000Z",
+		author: { id: "u2", name: "Kasia" },
+	};
 }
 
 function createWrapper(client: QueryClient) {
@@ -263,5 +277,59 @@ describe("useChatSocket", () => {
 		FakeWebSocket.instances[0]?.close();
 		vi.advanceTimersByTime(60_000);
 		expect(FakeWebSocket.instances).toHaveLength(1);
+	});
+});
+
+// Założenia kontraktu F6 #157 (delete):
+// - Event {type:"delete", data:{messageId}} NIE rusza cache'a w hooku —
+//   ChatView najpierw animuje bąbelek; kasowanie cache robi removeChatMessage.
+// - removeChatMessage czyści wiadomość z CHAT_MESSAGES_KEY i jej reakcje
+//   z CHAT_REACTIONS_KEY; idempotentne (echo po własnym DELETE = no-op).
+describe("useChatSocket — delete (F6 #157)", () => {
+	it("invokes onDelete with the messageId without touching the message cache", () => {
+		const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		client.setQueryData(CHAT_MESSAGES_KEY, [listMessage("m1")]);
+		vi.stubGlobal("WebSocket", FakeWebSocket);
+		const onDelete = vi.fn();
+
+		renderHook(() => useChatSocket({ onDelete }), { wrapper: createWrapper(client) });
+		const socket = FakeWebSocket.instances[0];
+		expect(socket).toBeDefined();
+
+		act(() => {
+			socket?.onmessage?.({ data: JSON.stringify({ type: "delete", data: { messageId: "m1" } }) });
+		});
+
+		expect(onDelete).toHaveBeenCalledWith("m1");
+		// Cache nietknięty — animację i sprzątanie prowadzi ChatView.
+		expect(client.getQueryData(CHAT_MESSAGES_KEY)).toHaveLength(1);
+	});
+});
+
+describe("removeChatMessage (F6 #157)", () => {
+	it("drops the message and its reactions from both caches", () => {
+		const client = new QueryClient();
+		client.setQueryData(CHAT_MESSAGES_KEY, [listMessage("m1"), listMessage("m2")]);
+		client.setQueryData(CHAT_REACTIONS_KEY, [
+			{ messageId: "m1", userId: "u2", reaction: "heart", user: { id: "u2", name: "Kasia" } },
+			{ messageId: "m2", userId: "u3", reaction: "laugh", user: { id: "u3", name: "Ala" } },
+		]);
+
+		removeChatMessage(client, "m1");
+
+		const messages = client.getQueryData<ChatMessageItem[]>(CHAT_MESSAGES_KEY);
+		expect(messages?.map((m) => m.id)).toEqual(["m2"]);
+		const reactions = client.getQueryData<{ messageId: string }[]>(CHAT_REACTIONS_KEY);
+		expect(reactions?.map((r) => r.messageId)).toEqual(["m2"]);
+	});
+
+	it("is idempotent — a second removal (own WS echo) is a no-op", () => {
+		const client = new QueryClient();
+		client.setQueryData(CHAT_MESSAGES_KEY, [listMessage("m2")]);
+
+		removeChatMessage(client, "m1");
+		removeChatMessage(client, "m1");
+
+		expect(client.getQueryData<ChatMessageItem[]>(CHAT_MESSAGES_KEY)).toHaveLength(1);
 	});
 });

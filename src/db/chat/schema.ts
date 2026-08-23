@@ -8,6 +8,8 @@ export const createChatMessageSchema = z.object({
 		.trim()
 		.min(1, "Wiadomość nie może być pusta")
 		.max(200, "Wiadomość może mieć maksymalnie 200 znaków"),
+	/** Reply (F5 #156) — id oryginału; snapshot tekstu robi serwer przy wysyłce. */
+	replyToId: z.string().min(1).optional(),
 });
 
 export type CreateChatMessageRequest = z.infer<typeof createChatMessageSchema>;

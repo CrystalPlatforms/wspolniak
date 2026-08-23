@@ -7,6 +7,7 @@ export type {
 } from "./queries";
 export {
 	createChatMessage,
+	deleteChatMessage,
 	listChatMessages,
 	listChatReactions,
 	toggleChatReaction,

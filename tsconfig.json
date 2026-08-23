@@ -1,5 +1,9 @@
 {
 	"include": ["**/*.ts", "**/*.tsx"],
+	// ai-demo to OSOBNY projekt (własny routeTree + konfiguracja) — jego pliki
+	// nie mogą się mieszać do typów głównej aplikacji (konflikt Register w
+	// @tanstack/react-router rozbijał kontekst tras na `never`).
+	"exclude": ["node_modules", "ai-demo"],
 	"compilerOptions": {
 		"target": "ES2022",
 		"jsx": "react-jsx",

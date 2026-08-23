@@ -17,6 +17,7 @@ import {
 	type ChatMessageWithAuthor,
 	type ChatReactionWithUser,
 	createChatMessage,
+	deleteChatMessage,
 	listChatMessages,
 	listChatReactions,
 	toggleChatReaction,
@@ -68,6 +69,138 @@ describe("createChatMessage", () => {
 		});
 		// id generowane po stronie domeny (konwencja jak comments/bookmarks).
 		expect(insertedValues?.id).toEqual(expect.any(String));
+	});
+});
+
+// Założenia kontraktu reply (F5 #156):
+// - replyToId wskazuje ŻYWY oryginał (id + expires_at > now w SQL); tekst
+//   oryginału jest snapshottowany do reply_text przy wysyłce — quote przeżywa
+//   wygaśnięcie/usunięcie oryginału.
+// - Brak/brak życia oryginału → AppError 400 (VALIDATION) zanim cokolwiek wstawi.
+// - Zwykła wiadomość nie robi lookupu oryginału; reply_text = null.
+describe("createChatMessage — reply (F5 #156)", () => {
+	function mockReplyDb(originalRows: unknown[], inserted: unknown) {
+		const mockLimit = vi.fn().mockResolvedValue(originalRows);
+		const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
+		const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+		const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
+		const mockReturning = vi.fn().mockResolvedValue([inserted]);
+		const mockValues = vi.fn().mockReturnValue({ returning: mockReturning });
+		const mockInsert = vi.fn().mockReturnValue({ values: mockValues });
+		mockGetDb.mockReturnValue({ select: mockSelect, insert: mockInsert } as never);
+		return { mockValues, mockInsert };
+	}
+
+	it("snapshots the live original's text into replyText at send time", async () => {
+		const inserted = mockMessage({ id: "m-2", replyToId: "m-1", replyText: "Oryginał" });
+		const { mockValues } = mockReplyDb([{ text: "Oryginał" }], inserted);
+
+		const result = await createChatMessage({
+			authorId: "user-1",
+			text: "Odpowiedź",
+			replyToId: "m-1",
+		});
+
+		expect(result.replyToId).toBe("m-1");
+		expect(result.replyText).toBe("Oryginał");
+		expect(mockValues.mock.calls[0]?.[0]).toMatchObject({
+			replyToId: "m-1",
+			replyText: "Oryginał",
+		});
+	});
+
+	it("rejects a reply to a nonexistent/expired original with AppError 400 (no insert)", async () => {
+		const { mockInsert } = mockReplyDb([], mockMessage());
+
+		await expect(
+			createChatMessage({ authorId: "user-1", text: "Odpowiedź", replyToId: "gone" }),
+		).rejects.toMatchObject({ code: "VALIDATION", status: 400 });
+		expect(mockInsert).not.toHaveBeenCalled();
+	});
+
+	it("skips the original lookup entirely for a plain message", async () => {
+		const mockReturning = vi.fn().mockResolvedValue([mockMessage()]);
+		const mockValues = vi.fn().mockReturnValue({ returning: mockReturning });
+		const mockInsert = vi.fn().mockReturnValue({ values: mockValues });
+		const mockSelect = vi.fn();
+		mockGetDb.mockReturnValue({ select: mockSelect, insert: mockInsert } as never);
+
+		await createChatMessage({ authorId: "user-1", text: "Zwykła" });
+
+		expect(mockSelect).not.toHaveBeenCalled();
+		const insertedValues = mockValues.mock.calls[0]?.[0] as { replyText: string | null };
+		expect(insertedValues.replyText).toBeNull();
+	});
+});
+
+// Założenia kontraktu delete (F6 #157):
+// - Autoryzacja po stronie domeny: autor LUB admin; Result zamiast throw
+//   (404 nie istnieje / 403 cudza wiadomość — bez treści w odpowiedzi).
+// - Hard delete wiadomości + reakcji w JEDNYM zapytaniu (CTE) — jeden execute.
+describe("deleteChatMessage (F6 #157)", () => {
+	function mockDeleteDb(authorRows: unknown[]) {
+		const mockLimit = vi.fn().mockResolvedValue(authorRows);
+		const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
+		const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+		const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
+		const mockExecute = vi.fn().mockResolvedValue(undefined);
+		mockGetDb.mockReturnValue({ select: mockSelect, execute: mockExecute } as never);
+		return { mockExecute };
+	}
+
+	it("returns 404 for a nonexistent message without executing the delete", async () => {
+		const { mockExecute } = mockDeleteDb([]);
+
+		const result = await deleteChatMessage({
+			id: "gone",
+			requesterId: "u1",
+			requesterRole: "member",
+		});
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) expect(result.error.status).toBe(404);
+		expect(mockExecute).not.toHaveBeenCalled();
+	});
+
+	it("rejects another member's delete with 403 (existence not leaked beyond the error)", async () => {
+		const { mockExecute } = mockDeleteDb([{ authorId: "u2" }]);
+
+		const result = await deleteChatMessage({
+			id: "m-1",
+			requesterId: "u1",
+			requesterRole: "member",
+		});
+
+		expect(result.ok).toBe(false);
+		if (!result.ok) expect(result.error.status).toBe(403);
+		expect(mockExecute).not.toHaveBeenCalled();
+	});
+
+	it("hard-deletes the author's own message with its reactions in a single query", async () => {
+		const { mockExecute } = mockDeleteDb([{ authorId: "u1" }]);
+
+		const result = await deleteChatMessage({
+			id: "m-1",
+			requesterId: "u1",
+			requesterRole: "member",
+		});
+
+		expect(result.ok).toBe(true);
+		// Jedno zapytanie CTE kasze wiadomość i reakcje — dokładnie jeden execute.
+		expect(mockExecute).toHaveBeenCalledTimes(1);
+	});
+
+	it("allows an admin to delete any member's message", async () => {
+		const { mockExecute } = mockDeleteDb([{ authorId: "u2" }]);
+
+		const result = await deleteChatMessage({
+			id: "m-1",
+			requesterId: "u1",
+			requesterRole: "admin",
+		});
+
+		expect(result.ok).toBe(true);
+		expect(mockExecute).toHaveBeenCalledTimes(1);
 	});
 });
 

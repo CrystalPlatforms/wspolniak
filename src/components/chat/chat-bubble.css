@@ -63,6 +63,40 @@
 	animation: chat-reaction-fade-out 200ms ease-in;
 }
 
+/* Context menu bąbelka (F5 #156) — scale+fade od punktu otwarcia, ~120ms. */
+@keyframes chat-menu-in {
+	from {
+		transform: scale(0.9);
+		opacity: 0;
+	}
+	to {
+		transform: scale(1);
+		opacity: 1;
+	}
+}
+
+.chat-menu-in {
+	animation: chat-menu-in 120ms ease-out;
+	transform-origin: top left;
+}
+
+/* Zniknięcie bąbelka po usunięciu (F6 #157) — fade/slide-out na transform+
+   opacity; po animacji wiersz znika z cache'a i lista domyka lukę. */
+@keyframes chat-bubble-out {
+	from {
+		transform: scale(1);
+		opacity: 1;
+	}
+	to {
+		transform: scale(0.85) translateY(4px);
+		opacity: 0;
+	}
+}
+
+.chat-bubble-out {
+	animation: chat-bubble-out 200ms ease-in forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.chat-bubble-in {
 		animation: none;
@@ -74,6 +108,12 @@
 		animation: none;
 	}
 	.chat-reaction-fade-out {
+		animation: none;
+	}
+	.chat-menu-in {
+		animation: none;
+	}
+	.chat-bubble-out {
 		animation: none;
 	}
 }

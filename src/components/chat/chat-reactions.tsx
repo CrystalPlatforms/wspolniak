@@ -1,5 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+	type UseMutationResult,
+	useMutation,
+	useQuery,
+	useQueryClient,
+} from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { REACTION_CONFIG, REACTION_ORDER } from "@/components/app/reaction-config";
 import {
@@ -82,53 +87,48 @@ async function toggleReactionRequest(messageId: string, reaction: ReactionType) 
 	return (await res.json()) as { data: { action: "added" | "removed" } };
 }
 
-export interface ChatReactionBarProps {
-	messageId: string;
-	currentUserId: string;
-	currentUserName: string;
-}
-
-/** Czas życia klasy animacji (pop/fade-out) — nieco dłuższy niż animacja 200ms. */
-const ANIM_CLEAR_MS = 350;
-
 /**
- * Rząd reakcji pod bąbelkiem (F4 #155) — trzy ikony jak w feedzie, BEZ liczników.
- * Sam subskrybuje cache reakcji (filtr po messageId) — WS i optimistic updates
- * wspólnym kluczem. Tap = toggle (pop przy dodaniu, fade-out przy usunięciu);
- * przytrzymanie / prawy klik = lista kto zareagował.
+ * Reakcje jednej wiadomości zcache'a CHAT_REACTIONS_KEY (F5 #156: współdzielone
+ * przez pasek pod bąbelkiem i context menu). Świeżość sterują WS + invalidate.
  */
-export function ChatReactionBar({
-	messageId,
-	currentUserId,
-	currentUserName,
-}: ChatReactionBarProps) {
-	const queryClient = useQueryClient();
-	const [animating, setAnimating] = useState<{
-		type: ReactionType;
-		kind: "pop" | "fade-out";
-	} | null>(null);
-	const [whoType, setWhoType] = useState<ReactionType | null>(null);
-
-	// Świeżość cache sterują WS + invalidate po (re)connect — nie odświeżamy zegarem.
+export function useChatReactions(messageId: string): ChatReactionItem[] {
 	const { data: all = [] } = useQuery({
 		queryKey: CHAT_REACTIONS_KEY,
 		queryFn: fetchChatReactions,
 		staleTime: Number.POSITIVE_INFINITY,
 	});
-	const reactions = all.filter((item) => item.messageId === messageId);
+	return all.filter((item) => item.messageId === messageId);
+}
 
-	useEffect(() => {
-		if (!animating) return;
-		const timer = window.setTimeout(() => setAnimating(null), ANIM_CLEAR_MS);
-		return () => window.clearTimeout(timer);
-	}, [animating]);
+/** Rodzaj optymistycznej zmiany — steruje animacją ikony (pop / fade-out). */
+export type ReactionAnimKind = "pop" | "fade-out";
 
-	const mutation = useMutation({
+/**
+ * Toggle reakcji z optymistycznym update'em cache'a (F5 #156: wydzielone z
+ * ChatReactionBar, żeby context menu reagowało identycznie jak pasek). Limit
+ * jednej reakcji na usera — klik innego typu zastępuje obecną; rollback przy
+ * błędzie. `onOptimistic` odpala po wpisie do cache'a (animacja w wywołującym).
+ */
+export function useToggleChatReaction(
+	messageId: string,
+	currentUserId: string,
+	currentUserName: string,
+	onOptimistic?: (reaction: ReactionType, kind: ReactionAnimKind) => void,
+): UseMutationResult<
+	{ data: { action: string } },
+	Error,
+	ReactionType,
+	{ previous: ChatReactionItem[] | undefined }
+> {
+	const queryClient = useQueryClient();
+	return useMutation({
 		mutationFn: (reaction: ReactionType) => toggleReactionRequest(messageId, reaction),
 		onMutate: (reaction): { previous: ChatReactionItem[] | undefined } => {
 			const previous = queryClient.getQueryData<ChatReactionItem[]>(CHAT_REACTIONS_KEY);
-			// Limit: jedna reakcja na usera — klik innego typu zastępuje obecną.
-			const mine = reactions.find((item) => item.userId === currentUserId);
+			// „Moja" reakcja czytana z cache'a (nie z closure'a renderu) — zawsze świeża.
+			const mine = (previous ?? []).find(
+				(item) => item.messageId === messageId && item.userId === currentUserId,
+			);
 			const iReacted = mine?.reaction === reaction;
 			const me = { id: currentUserId, name: currentUserName };
 			queryClient.setQueryData<ChatReactionItem[]>(CHAT_REACTIONS_KEY, (old) => {
@@ -148,7 +148,7 @@ export function ChatReactionBar({
 					user: me,
 				});
 			});
-			setAnimating({ type: reaction, kind: iReacted ? "fade-out" : "pop" });
+			onOptimistic?.(reaction, iReacted ? "fade-out" : "pop");
 			return { previous };
 		},
 		onError: (_error, _reaction, context) => {
@@ -157,13 +157,143 @@ export function ChatReactionBar({
 			}
 		},
 	});
+}
 
-	const whoReacted = whoType === null ? [] : reactions.filter((item) => item.reaction === whoType);
-	const whoConfig = whoType === null ? null : REACTION_CONFIG[whoType];
+export interface ChatWhoReactedDialogProps {
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
+	/** Reakcje JEDNEJ wiadomości (filtr po messageId robi wywołujący). */
+	reactions: ChatReactionItem[];
+	/** Konkretny typ = jedna lista (pasek F4); null = wszystkie typy pogrupowane (menu F5). */
+	type: ReactionType | null;
+}
+
+/**
+ * Dialog „Kto zareagował" (F4 #155, rozszerzony w F5 #156 o tryb wszystkich
+ * typów): chipsy z imionami; przy type=null sekcje per typ z ikoną konfigu.
+ */
+export function ChatWhoReactedDialog({
+	open,
+	onOpenChange,
+	reactions,
+	type,
+}: ChatWhoReactedDialogProps) {
+	const whoConfig = type === null ? null : REACTION_CONFIG[type];
+	// Sekcje w stałej kolejności konfigu; type=null → wszystkie niepuste typy.
+	const sections = (type === null ? REACTION_ORDER : [type])
+		.map((sectionType) => ({
+			type: sectionType,
+			people: reactions.filter((item) => item.reaction === sectionType),
+		}))
+		.filter((section) => section.people.length > 0);
+
+	return (
+		<Dialog open={open} onOpenChange={onOpenChange}>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle className="text-center">
+						{whoConfig ? (
+							<whoConfig.Icon
+								className="mx-auto size-6"
+								style={{ color: whoConfig.color }}
+								fill={whoConfig.filled ? "currentColor" : "none"}
+							/>
+						) : null}
+						Kto zareagował
+					</DialogTitle>
+					<DialogDescription className="sr-only">
+						Lista użytkowników którzy zareagowali
+					</DialogDescription>
+				</DialogHeader>
+				<div>
+					{sections.length === 0 ? (
+						<p className="text-center text-muted-foreground">Brak reakcji</p>
+					) : (
+						sections.map((section) => {
+							const config = REACTION_CONFIG[section.type];
+							return (
+								<div key={section.type} className="flex flex-col items-center gap-2">
+									{type === null ? (
+										<config.Icon
+											className="size-5 text-muted-foreground"
+											fill={config.filled ? "currentColor" : "none"}
+											aria-hidden="true"
+										/>
+									) : null}
+									<div className="flex flex-wrap items-center justify-center gap-2">
+										{section.people.map((item) => (
+											<span
+												key={`${item.userId}`}
+												className="rounded-md bg-muted px-2 py-1 text-sm text-foreground"
+											>
+												{item.user?.name ?? "Nieznany"}
+											</span>
+										))}
+									</div>
+								</div>
+							);
+						})
+					)}
+				</div>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+export interface ChatReactionBarProps {
+	messageId: string;
+	currentUserId: string;
+	currentUserName: string;
+	/** inline = kompaktowy pasek; menu = duże ikony rozciągnięte na całą szerokość
+	 *  (wariant dla context menu — decyzja usera po HITL F5). */
+	variant?: "inline" | "menu";
+}
+
+/** Czas życia klasy animacji (pop/fade-out) — nieco dłuższy niż animacja 200ms. */
+const ANIM_CLEAR_MS = 350;
+
+/**
+ * Rząd reakcji (F4 #155) — trzy ikony jak w feedzie, BEZ liczników; od HITL F5
+ * używany w context menu (pod bąbelkami usunięty). Sam subskrybuje cache reakcji
+ * (filtr po messageId) — WS i optimistic updates wspólnym kluczem. Tap = toggle
+ * (pop przy dodaniu, fade-out przy usunięciu); przytrzymanie / prawy klik =
+ * lista kto zareagował. variant="menu": 24px ikony, przyciski flex-1 (równe
+ * podziały na całą szerokość menu).
+ */
+export function ChatReactionBar({
+	messageId,
+	currentUserId,
+	currentUserName,
+	variant = "inline",
+}: ChatReactionBarProps) {
+	const [animating, setAnimating] = useState<{
+		type: ReactionType;
+		kind: "pop" | "fade-out";
+	} | null>(null);
+	const [whoType, setWhoType] = useState<ReactionType | null>(null);
+
+	const reactions = useChatReactions(messageId);
+
+	useEffect(() => {
+		if (!animating) return;
+		const timer = window.setTimeout(() => setAnimating(null), ANIM_CLEAR_MS);
+		return () => window.clearTimeout(timer);
+	}, [animating]);
+
+	const mutation = useToggleChatReaction(messageId, currentUserId, currentUserName, (type, kind) =>
+		setAnimating({ type, kind }),
+	);
+
+	const isMenu = variant === "menu";
 
 	return (
 		<>
-			<div className="flex items-center gap-0.5 px-1" data-chat-reaction-bar>
+			<div
+				className={
+					isMenu ? "flex w-full items-stretch gap-1 p-1" : "flex items-center gap-0.5 px-1"
+				}
+				data-chat-reaction-bar
+			>
 				{REACTION_ORDER.map((type) => {
 					const { Icon, label, color, filled } = REACTION_CONFIG[type];
 					const iReacted = reactions.some(
@@ -191,50 +321,24 @@ export function ChatReactionBar({
 								setWhoType(type);
 							}}
 							style={iReacted ? { color } : undefined}
-							className={`rounded-md p-1 transition-colors hover:bg-accent ${
-								iReacted || anyoneReacted ? "" : "text-muted-foreground"
-							} ${animClass}`}
+							className={`transition-colors hover:bg-accent ${
+								isMenu ? "flex flex-1 items-center justify-center rounded-lg p-2" : "rounded-md p-1"
+							} ${iReacted || anyoneReacted ? "" : "text-muted-foreground"} ${animClass}`}
 						>
-							<Icon className="h-4 w-4" fill={iReacted && filled ? "currentColor" : "none"} />
+							<Icon
+								className={isMenu ? "h-6 w-6" : "h-4 w-4"}
+								fill={iReacted && filled ? "currentColor" : "none"}
+							/>
 						</button>
 					);
 				})}
 			</div>
-			<Dialog open={whoType !== null} onOpenChange={(open) => !open && setWhoType(null)}>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle className="text-center">
-							{whoConfig ? (
-								<whoConfig.Icon
-									className="mx-auto size-6"
-									style={{ color: whoConfig.color }}
-									fill={whoConfig.filled ? "currentColor" : "none"}
-								/>
-							) : null}
-							Kto zareagował
-						</DialogTitle>
-						<DialogDescription className="sr-only">
-							Lista użytkowników którzy zareagowali
-						</DialogDescription>
-					</DialogHeader>
-					<div>
-						{whoReacted.length === 0 ? (
-							<p className="text-center text-muted-foreground">Brak reakcji</p>
-						) : (
-							<div className="flex flex-wrap items-center justify-center gap-2">
-								{whoReacted.map((item) => (
-									<span
-										key={`${item.userId}`}
-										className="rounded-md bg-muted px-2 py-1 text-sm text-foreground"
-									>
-										{item.user?.name ?? "Nieznany"}
-									</span>
-								))}
-							</div>
-						)}
-					</div>
-				</DialogContent>
-			</Dialog>
+			<ChatWhoReactedDialog
+				open={whoType !== null}
+				onOpenChange={(open) => !open && setWhoType(null)}
+				reactions={reactions}
+				type={whoType}
+			/>
 		</>
 	);
 }

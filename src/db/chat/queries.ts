@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import type { InferSelectModel } from "drizzle-orm";
-import { and, asc, eq, gt } from "drizzle-orm";
+import { and, asc, eq, gt, sql } from "drizzle-orm";
+import { AppError, type Result } from "@/core/errors";
 import { users } from "@/db/identity/table";
 import type { ReactionType } from "@/db/post-reactions/table";
 import { getDb } from "@/db/setup";
@@ -20,13 +21,38 @@ export interface ChatMessageWithAuthor {
 	author: { id: string; name: string };
 }
 
+/**
+ * Wysyła wiadomość (F1 #152); z reply (F5 #156) — `replyToId` wskazuje oryginał.
+ * Serwer **snapshottuje** tekst oryginału do `replyText` w momencie wysłania:
+ * quote przeżywa wygaśnięcie/usunięcie oryginału. Odpowiedź na nieistniejący
+ * lub wygasły oryginał → AppError 400 (walidacja na granicy domeny).
+ */
 export async function createChatMessage(input: {
 	authorId: string;
 	text: string;
+	replyToId?: string;
 }): Promise<ChatMessage> {
+	let replyText: string | null = null;
+	if (input.replyToId) {
+		const originals = await getDb()
+			.select({ text: chatMessages.text })
+			.from(chatMessages)
+			.where(and(eq(chatMessages.id, input.replyToId), gt(chatMessages.expiresAt, new Date())))
+			.limit(1);
+		const original = originals[0];
+		if (!original) {
+			throw new AppError(
+				"Nie można odpowiedzieć na tę wiadomość — nie istnieje lub wygasła",
+				"VALIDATION",
+				400,
+			);
+		}
+		replyText = original.text;
+	}
+
 	const rows = await getDb()
 		.insert(chatMessages)
-		.values({ id: crypto.randomUUID(), ...input })
+		.values({ id: crypto.randomUUID(), ...input, replyText })
 		.returning();
 
 	const row = rows[0];
@@ -132,4 +158,45 @@ export async function listChatReactions(): Promise<ChatReactionWithUser[]> {
 		reaction: row.reaction.reaction as ReactionType,
 		user: row.userName ? { id: row.reaction.userId, name: row.userName } : null,
 	}));
+}
+
+/**
+ * Usuwa wiadomość dla wszystkich (F6 #157). Autoryzacja: **autor** lub **admin**;
+ * kto inny → Result error 403 (odpowiedź nie zdradza treści), brak wiadomości →
+ * 404. Hard delete wiadomości **i jej reakcji w jednym zapytaniu SQL** (CTE) —
+ * atomowe i jedno round-trip na serverless driverze. Odpowiedzi na usuniętą
+ * wiadomość zachowują snapshot quote (kaskada ich nie dotyka).
+ */
+export async function deleteChatMessage(input: {
+	id: string;
+	requesterId: string;
+	requesterRole: string;
+}): Promise<Result<void>> {
+	const rows = await getDb()
+		.select({ authorId: chatMessages.authorId })
+		.from(chatMessages)
+		.where(eq(chatMessages.id, input.id))
+		.limit(1);
+
+	const row = rows[0];
+	if (!row) {
+		return {
+			ok: false,
+			error: new AppError("Wiadomość nie istnieje", "NOT_FOUND", 404),
+		};
+	}
+	if (row.authorId !== input.requesterId && input.requesterRole !== "admin") {
+		return {
+			ok: false,
+			error: new AppError("Nie możesz usunąć tej wiadomości", "UNAUTHORIZED", 403),
+		};
+	}
+
+	await getDb().execute(sql`
+		with deleted as (
+			delete from chat_messages where id = ${input.id} returning id
+		)
+		delete from chat_reactions where message_id in (select id from deleted)
+	`);
+	return { ok: true, data: undefined };
 }
