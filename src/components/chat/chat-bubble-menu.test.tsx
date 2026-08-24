@@ -258,8 +258,11 @@ describe("ChatBubbleMenu — dialogi w cyklu życia ChatView (regresja HITL)", (
 
 		expect(await screen.findByText("Kasia")).toBeDefined();
 		// Menu schowane, dialog otwarty; klik w tło (overlay) zamyka wszystko.
+		// Radix odraca dismiss na click (pointerdown z button=0, jak w przeglądarce)
+		// — symulujemy pełną interakcję: pointerdown + click (#167).
 		expect(screen.queryByRole("menu")).toBeNull();
 		fireEvent.pointerDown(document.body);
+		fireEvent.click(document.body);
 		await waitFor(() => {
 			expect(screen.queryByText("Kasia")).toBeNull();
 		});

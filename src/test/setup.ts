@@ -38,19 +38,31 @@ if (typeof globalThis.ResizeObserver === "undefined") {
 }
 
 /**
- * jsdom nie implementuje globalnej klasy `PointerEvent` ( MouseEvent bez
- * pointer API). `motion-dom` (gesty whileTap/whileHover) syntetyzuje
- * PointerEvent przy zdarzeniach klawiatury na przyciskach z gestami — bez
- * stuba rzuca `ReferenceError: PointerEvent is not defined` (Reactions 3.0).
- * Stub rozszerza MouseEvent i domyślnie pointerId=1; testy nie polegają
- * na wartościach pól pointerowych.
+ * jsdom nie implementuje globalnej klasy `PointerEvent`. `motion-dom` (gesty
+ * whileTap) syntetyzuje PointerEvent przy zdarzeniach klawiatury na przyciskach
+ * z gestami — bez stuba rzuca `ReferenceError: PointerEvent is not defined`
+ * (Reactions 3.0). Stub rozszerza MouseEvent — jak w przeglądarce, PointerEvent
+ * JEST MouseEvent (dnd-kit polega na tych polach). Uwaga (#167): dzięki
+ * wiernemu `button=0` Radix odraca dismiss dialogu na click — testy zamykające
+ * dialogi przez pointerdown muszą dosymulować także click (jak prawdziwy klik).
  */
 if (typeof globalThis.PointerEvent === "undefined") {
 	class PointerEventStub extends MouseEvent {
 		pointerId: number;
-		constructor(type: string, params: MouseEventInit & { pointerId?: number } = {}) {
+		pointerType: string;
+		isPrimary: boolean;
+		constructor(
+			type: string,
+			params: MouseEventInit & {
+				pointerId?: number;
+				pointerType?: string;
+				isPrimary?: boolean;
+			} = {},
+		) {
 			super(type, params);
 			this.pointerId = params.pointerId ?? 1;
+			this.pointerType = params.pointerType ?? "mouse";
+			this.isPrimary = params.isPrimary ?? true;
 		}
 	}
 	globalThis.PointerEvent = PointerEventStub as unknown as typeof PointerEvent;
