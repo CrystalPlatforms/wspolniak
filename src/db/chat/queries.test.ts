@@ -18,6 +18,7 @@ import {
 	type ChatReactionWithUser,
 	createChatMessage,
 	deleteChatMessage,
+	deleteExpiredChatMessages,
 	listChatMessages,
 	listChatReactions,
 	toggleChatReaction,
@@ -137,6 +138,36 @@ describe("createChatMessage — reply (F5 #156)", () => {
 // - Autoryzacja po stronie domeny: autor LUB admin; Result zamiast throw
 //   (404 nie istnieje / 403 cudza wiadomość — bez treści w odpowiedzi).
 // - Hard delete wiadomości + reakcji w JEDNYM zapytaniu (CTE) — jeden execute.
+//
+// Założenia kontraktu expiry (F7 #158):
+// - deleteExpiredChatMessages: cron czyszczenia kasuje WIADOMOŚCI z
+//   expires_at < now() razem z ich reakcjami w JEDNYM zapytaniu CTE (wzorzec
+//   deleteChatMessage); zwraca liczbę skasowanych wiadomości — pod log crona.
+//   Read path (GET) zawsze filtruje wygasłe niezależnie od crona (test F1).
+describe("deleteExpiredChatMessages (F7 #158)", () => {
+	it("hard-deletes expired messages with their reactions in a single query and returns the count", async () => {
+		const mockExecute = vi.fn().mockResolvedValue({ rows: [{ deleted: 3 }] });
+		mockGetDb.mockReturnValue({ execute: mockExecute } as never);
+
+		const count = await deleteExpiredChatMessages();
+
+		expect(count).toBe(3);
+		// Jedno zapytanie CTE — wiadomości i reakcje razem (jeden round-trip).
+		expect(mockExecute).toHaveBeenCalledTimes(1);
+		// sql`` bez parametrów pakuje tekst w StringChunki — czytamy przez JSON.
+		const queryJson = JSON.stringify(mockExecute.mock.calls[0]?.[0]);
+		expect(queryJson).toContain("expires_at < now()");
+		expect(queryJson).toContain("delete from chat_reactions");
+	});
+
+	it("returns 0 when nothing expired", async () => {
+		const mockExecute = vi.fn().mockResolvedValue({ rows: [{ deleted: 0 }] });
+		mockGetDb.mockReturnValue({ execute: mockExecute } as never);
+
+		await expect(deleteExpiredChatMessages()).resolves.toBe(0);
+	});
+});
+
 describe("deleteChatMessage (F6 #157)", () => {
 	function mockDeleteDb(authorRows: unknown[]) {
 		const mockLimit = vi.fn().mockResolvedValue(authorRows);

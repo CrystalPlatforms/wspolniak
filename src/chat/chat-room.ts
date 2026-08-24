@@ -52,6 +52,21 @@ export class ChatRoom extends DurableObject<Env> {
 	}
 
 	/**
+	 * Throttle pusha czatu (F7 #158): jeden push na usera na 2 minuty —
+	 * check-and-set w storage DO (klucz `pt:{userId}`). Pierwszy push w oknie
+	 * zwraca true i zapisuje znacznik; kolejny w oknie → false BEZ nadpisywania
+	 * (okno nie startuje od nowa); po upływie okna → znowu true.
+	 */
+	async checkAndIncrementPushThrottle(userId: string): Promise<boolean> {
+		const key = `pt:${userId}`;
+		const now = Date.now();
+		const lastPushAt = (await this.ctx.storage.get<number>(key)) ?? 0;
+		if (now - lastPushAt < CHAT_PUSH_THROTTLE_MS) return false;
+		await this.ctx.storage.put(key, now);
+		return true;
+	}
+
+	/**
 	 * Typing indicator (F3 #154): klient przesyła `{type:"typing"}` przez WS, DO
 	 * rozsyla anonimowy event pozostałym userom. Wykluczenie per userId (attachment),
 	 * nie per socket — druga karta piszącego też nie widzi własnego typingu.
@@ -114,3 +129,6 @@ function attachmentUserId(socket: WebSocket): string | undefined {
 
 /** Limit wiadomości na minutę na użytkownika (PRD czatu: anty-spam 10/min). */
 export const CHAT_RATE_LIMIT_PER_MINUTE = 10;
+
+/** Okno throttla pusha czatu per user (PRD czatu: jeden push na 2 minuty). */
+export const CHAT_PUSH_THROTTLE_MS = 120_000;

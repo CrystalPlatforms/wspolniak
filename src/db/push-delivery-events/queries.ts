@@ -8,7 +8,7 @@ export type PushDeliveryEvent = InferSelectModel<typeof pushDeliveryEvents>;
 export type NewPushDeliveryEvent = InferInsertModel<typeof pushDeliveryEvents>;
 
 export type DeliveryOutcome = "success" | "gone" | "failure";
-export type DeliveryTriggerKind = "post" | "comment" | "mention";
+export type DeliveryTriggerKind = "post" | "comment" | "mention" | "chat";
 
 export interface DeliveryRecord {
 	endpoint: string;

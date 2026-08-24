@@ -27,7 +27,23 @@ vi.mock("@/db/chat", async (importOriginal) => {
 	};
 });
 
+// Granice pusha (F7 #158): budowa depsów (VAPID) i fan-out — mockowane;
+// test weryfuje ŚCIEŻKĘ wywołania (tylko POST /messages, nigdy reakcje).
+vi.mock("@/core/push-deps", () => ({
+	buildPushDeps: vi.fn(),
+}));
+
+vi.mock("@/core/notify", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("@/core/notify")>();
+	return {
+		...actual,
+		notifyChatMessage: vi.fn(),
+	};
+});
+
 import { AppError } from "@/core/errors";
+import { notifyChatMessage } from "@/core/notify";
+import { buildPushDeps } from "@/core/push-deps";
 import {
 	createChatMessage,
 	deleteChatMessage,
@@ -46,6 +62,8 @@ const mockDeleteMessage = vi.mocked(deleteChatMessage);
 const mockListMessages = vi.mocked(listChatMessages);
 const mockListReactions = vi.mocked(listChatReactions);
 const mockToggleReaction = vi.mocked(toggleChatReaction);
+const mockBuildPushDeps = vi.mocked(buildPushDeps);
+const mockNotifyChat = vi.mocked(notifyChatMessage);
 
 function createApi() {
 	const api = new Hono<{
@@ -646,5 +664,100 @@ describe("DELETE /api/chat/messages/:id (F6 #157)", () => {
 
 		expect(res.status).toBe(401);
 		expect(mockDeleteMessage).not.toHaveBeenCalled();
+	});
+});
+
+// Założenia kontraktu pusha (F7 #158):
+// - TYLKO ścieżka POST /messages planuje notifyChatMessage (waitUntil, w tle —
+//   błąd pusha nie psuje wysyłki); reakcje i typing nigdy.
+// - buildPushDeps(env, messageId, "chat") — null bez VAPID → całkowity skip.
+// - Autor z sesji; ten sam stub pokoju DO co broadcast.
+describe("POST /api/chat/messages — push do niepodłączonych (F7 #158)", () => {
+	const pushDepsSentinel = { sendPush: vi.fn() } as unknown as ReturnType<typeof buildPushDeps>;
+
+	function execCtx() {
+		return { waitUntil: vi.fn() } as unknown as ExecutionContext;
+	}
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		authedUser();
+		chatRoomStub.checkAndIncrementRateLimit.mockResolvedValue(true);
+		chatRoomStub.broadcastMessage.mockResolvedValue(undefined);
+		mockCreateMessage.mockResolvedValue({
+			id: "msg-1",
+			authorId: "u1",
+			text: "Cześć!",
+			replyToId: null,
+			replyText: null,
+			createdAt: now,
+			expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000),
+		});
+		mockBuildPushDeps.mockReturnValue(pushDepsSentinel);
+		mockNotifyChat.mockResolvedValue(undefined);
+	});
+
+	it("schedules the chat push in the background after the broadcast", async () => {
+		const ctx = execCtx();
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ text: "Cześć!" }),
+			}),
+			env,
+			ctx,
+		);
+
+		expect(res.status).toBe(201);
+		expect(mockBuildPushDeps).toHaveBeenCalledWith(env, "msg-1", "chat");
+		expect(mockNotifyChat).toHaveBeenCalledTimes(1);
+		const [deps, room, authorId] = mockNotifyChat.mock.calls[0] ?? [];
+		expect(deps).toBe(pushDepsSentinel);
+		expect(room).toBe(chatRoomStub);
+		expect(authorId).toBe("u1");
+		expect(ctx.waitUntil).toHaveBeenCalledTimes(1);
+	});
+
+	it("skips the push entirely when VAPID is not configured (buildPushDeps → null)", async () => {
+		mockBuildPushDeps.mockReturnValue(null);
+		const ctx = execCtx();
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ text: "Cześć!" }),
+			}),
+			env,
+			ctx,
+		);
+
+		expect(res.status).toBe(201);
+		expect(mockNotifyChat).not.toHaveBeenCalled();
+		expect(ctx.waitUntil).not.toHaveBeenCalled();
+	});
+
+	it("never schedules a push for reactions", async () => {
+		mockToggleReaction.mockResolvedValue({ action: "added", reaction: "heart" });
+		const ctx = execCtx();
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages/msg-1/reactions",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ reaction: "heart" }),
+			}),
+			env,
+			ctx,
+		);
+
+		expect(res.status).toBe(200);
+		expect(mockBuildPushDeps).not.toHaveBeenCalled();
+		expect(mockNotifyChat).not.toHaveBeenCalled();
 	});
 });

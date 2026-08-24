@@ -8,6 +8,7 @@ export type {
 export {
 	createChatMessage,
 	deleteChatMessage,
+	deleteExpiredChatMessages,
 	listChatMessages,
 	listChatReactions,
 	toggleChatReaction,

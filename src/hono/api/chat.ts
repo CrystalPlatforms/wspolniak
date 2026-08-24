@@ -2,6 +2,8 @@
 
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { AppError } from "@/core/errors";
+import { notifyChatMessage } from "@/core/notify";
+import { buildPushDeps } from "@/core/push-deps";
 import {
 	createChatMessage,
 	createChatMessageSchema,
@@ -42,6 +44,13 @@ chatEndpoint.post("/messages", async (c) => {
 		// Autor znany z sesji — bez dodatkowego odczytu z DB; pełny kształt jak w GET.
 		const messageWithAuthor = { ...message, author: { id: user.userId, name: user.name } };
 		await room.broadcastMessage(messageWithAuthor);
+		// Push do niepodłączonych (F7 #158) — w tle (waitUntil), błąd pusha nie
+		// psuje wysyłki; VAPID-off → buildPushDeps null → bez pusha. Reakcje
+		// i typing NIGDY nie pushują (ta ścieżka istnieje tylko tutaj).
+		const pushDeps = buildPushDeps(c.env, message.id, "chat");
+		if (pushDeps) {
+			c.executionCtx.waitUntil(notifyChatMessage(pushDeps, room, user.userId));
+		}
 		return c.json({ data: messageWithAuthor }, 201);
 	} catch (error) {
 		// Reply na nieistniejący/wygasły oryginał (F5 #156) — znany błąd domeny → 400.

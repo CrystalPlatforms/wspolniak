@@ -47,6 +47,19 @@ describe("buildPushPayload", () => {
 			url: "/app/post/post-789",
 		});
 	});
+
+	// Założenia kontraktu (F7 #158): tytuł DOKŁADNIE "Nowa wiadomość ze
+	// Wspólniaka", bez treści wiadomości (body puste), deep link /app/chat.
+	it("builds the generic chat payload — exact title, no content, /app/chat link", () => {
+		const payload = buildPushPayload({ type: "chat_message" });
+
+		expect(payload).toEqual({
+			title: "Nowa wiadomość ze Wspólniaka",
+			body: "",
+			icon: "/logo192.png",
+			url: "/app/chat",
+		});
+	});
 });
 
 describe("fanOutPush", () => {

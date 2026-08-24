@@ -105,6 +105,70 @@ describe("ChatRoom — rate limit (10/min)", () => {
 	});
 });
 
+// Założenia kontraktu throttla pusha (F7 #158):
+// - checkAndIncrementPushThrottle(userId): check-and-set w storage DO, okno
+//   2 min (CHAT_PUSH_THROTTLE_MS) — pierwszy push w oknie → true i zapis
+//   znacznika; drugi w oknie → false (znacznik NIE jest nadpisywany); po
+//   upływie okna → znowu true. Throttle per user (klucz pt:{userId}).
+describe("ChatRoom — push throttle (F7 #158, 1 push / 2 min)", () => {
+	function createRoomWithStorage() {
+		const state = createMockState();
+		const map = new Map<string, unknown>();
+		state.storage.get = vi.fn(async (key: string) => map.get(key));
+		state.storage.put = vi.fn(async (key: string, value: unknown) => {
+			map.set(key, value);
+		});
+		const room = new ChatRoom(state as never, {} as never);
+		return { room, map };
+	}
+
+	it("allows the first push and records the timestamp", async () => {
+		const { room, map } = createRoomWithStorage();
+
+		expect(await room.checkAndIncrementPushThrottle("u1")).toBe(true);
+		expect(map.get("pt:u1")).toEqual(expect.any(Number));
+	});
+
+	it("rejects a second push within 2 minutes without resetting the window", async () => {
+		vi.useFakeTimers();
+		try {
+			const { room, map } = createRoomWithStorage();
+			expect(await room.checkAndIncrementPushThrottle("u1")).toBe(true);
+			const firstAt = map.get("pt:u1");
+
+			// 90 s później — wciąż w oknie 2 min: throttlowany.
+			vi.setSystemTime(Date.now() + 90_000);
+			expect(await room.checkAndIncrementPushThrottle("u1")).toBe(false);
+			// Znacznik nie nadpisany — okno nie startuje od nowa.
+			expect(map.get("pt:u1")).toBe(firstAt);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("allows again once the 2-minute window has passed", async () => {
+		vi.useFakeTimers();
+		try {
+			const { room } = createRoomWithStorage();
+			expect(await room.checkAndIncrementPushThrottle("u1")).toBe(true);
+			expect(await room.checkAndIncrementPushThrottle("u1")).toBe(false);
+
+			vi.setSystemTime(Date.now() + 121_000);
+			expect(await room.checkAndIncrementPushThrottle("u1")).toBe(true);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("tracks the throttle per user — another user is unaffected", async () => {
+		const { room } = createRoomWithStorage();
+
+		expect(await room.checkAndIncrementPushThrottle("u1")).toBe(true);
+		expect(await room.checkAndIncrementPushThrottle("u2")).toBe(true);
+		expect(await room.checkAndIncrementPushThrottle("u1")).toBe(false);
+	});
+});
+
 describe("ChatRoom — connected users", () => {
 	it("returns the unique user ids of currently connected sockets (pod F7: suppress push)", async () => {
 		const state = createMockState();

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { notifyMentions, notifyNewComment, notifyNewPost } from "./notify";
+import { notifyChatMessage, notifyMentions, notifyNewComment, notifyNewPost } from "./notify";
 
 function createDeps() {
 	return {
@@ -129,5 +129,91 @@ describe("notifyMentions", () => {
 		await notifyMentions(deps, "u-kasia", "Kasia", ["u-ania"], "post-9");
 
 		expect(deps.sendPush).not.toHaveBeenCalled();
+	});
+});
+
+// Założenia kontraktu (F7 #158):
+// - notifyChatMessage(deps, room, authorId): subskrybenci z getActiveSubscriptions
+//   (store już wyklucza autora zapytaniem; fan-out dodatkowo defensive) minus
+//   connected set z DO minus throttlowani (1 push / 2 min). Payload generyczny:
+//   tytuł "Nowa wiadomość ze Wspólniaka", bez treści, link /app/chat.
+// - Throttle konsumowany TYLKO dla niepodłączonych odbiorców.
+function chatSub(userId: string) {
+	return {
+		endpoint: `https://push.example.com/${userId}`,
+		p256dh: "k",
+		auth: "a",
+		userId,
+	};
+}
+
+function createChatRoom(connected: string[] = [], throttleAllows = true) {
+	return {
+		getConnectedUserIds: vi.fn().mockResolvedValue(connected),
+		checkAndIncrementPushThrottle: vi.fn().mockImplementation(async () => throttleAllows),
+	};
+}
+
+describe("notifyChatMessage (F7 #158)", () => {
+	it("sends the generic chat push to non-connected subscribers, excluding the author", async () => {
+		const deps = createDeps();
+		deps.getActiveSubscriptions.mockResolvedValue([chatSub("u2"), chatSub("u3")]);
+
+		await notifyChatMessage(deps, createChatRoom(["u3"]), "u1");
+
+		// Store wyklucza autora już zapytaniem (argument authorId).
+		expect(deps.getActiveSubscriptions).toHaveBeenCalledWith("u1");
+		// u3 podłączony (widzi live) — push tylko do u2.
+		expect(deps.sendPush).toHaveBeenCalledTimes(1);
+		expect(deps.sendPush.mock.calls[0]?.[0]).toMatchObject({ userId: "u2" });
+		expect(deps.sendPush.mock.calls[0]?.[1]).toEqual({
+			title: "Nowa wiadomość ze Wspólniaka",
+			body: "",
+			icon: "/logo192.png",
+			url: "/app/chat",
+		});
+	});
+
+	it("never sends to the author even if their subscription leaks into the list", async () => {
+		const deps = createDeps();
+		deps.getActiveSubscriptions.mockResolvedValue([chatSub("u1"), chatSub("u2")]);
+
+		await notifyChatMessage(deps, createChatRoom(), "u1");
+
+		expect(deps.sendPush).toHaveBeenCalledTimes(1);
+		expect(deps.sendPush.mock.calls[0]?.[0]).toMatchObject({ userId: "u2" });
+	});
+
+	it("skips a user throttled within the 2-minute window", async () => {
+		const deps = createDeps();
+		deps.getActiveSubscriptions.mockResolvedValue([chatSub("u2"), chatSub("u3")]);
+
+		const room = createChatRoom([], false);
+		await notifyChatMessage(deps, room, "u1");
+
+		expect(deps.sendPush).not.toHaveBeenCalled();
+		expect(room.checkAndIncrementPushThrottle).toHaveBeenCalledWith("u2");
+		expect(room.checkAndIncrementPushThrottle).toHaveBeenCalledWith("u3");
+	});
+
+	it("does not consume the throttle of connected users", async () => {
+		const deps = createDeps();
+		deps.getActiveSubscriptions.mockResolvedValue([chatSub("u2"), chatSub("u3")]);
+
+		const room = createChatRoom(["u2"]);
+		await notifyChatMessage(deps, room, "u1");
+
+		expect(room.checkAndIncrementPushThrottle).toHaveBeenCalledTimes(1);
+		expect(room.checkAndIncrementPushThrottle).toHaveBeenCalledWith("u3");
+	});
+
+	it("does nothing when there are no subscriptions", async () => {
+		const deps = createDeps();
+		const room = createChatRoom();
+
+		await notifyChatMessage(deps, room, "u1");
+
+		expect(deps.sendPush).not.toHaveBeenCalled();
+		expect(room.getConnectedUserIds).not.toHaveBeenCalled();
 	});
 });

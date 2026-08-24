@@ -71,6 +71,51 @@ export async function notifyNewComment(
  * - Self-mention (actor wspomniał sam siebie) → brak pusha.
  * - Duplikaty tego samego userId → jedno powiadomienie.
  */
+/**
+ * Minimalny widok ChatRoom DO potrzebny do pusha czatu (F7 #158) — strukturalny
+ * typ, któremu odpowiada DurableObjectStub<ChatRoom>.
+ */
+export interface ChatPushRoom {
+	getConnectedUserIds(): Promise<string[]>;
+	checkAndIncrementPushThrottle(userId: string): Promise<boolean>;
+}
+
+/**
+ * Push o nowej wiadomości czatu (F7 #158) — TYLKO ścieżka nowych wiadomości
+ * (nigdy reakcje, nigdy typing). Odbiorcy = aktywne subskrypcje (store już
+ * wyklucza autora zapytaniem; fan-out dodatkowo defensive) minus connected set
+ * z DO (widzą live) minus throttlowani (jeden push na 2 min, check-and-set w DO).
+ * Payload generyczny: "Nowa wiadomość ze Wspólniaka", bez treści, link /app/chat.
+ */
+export async function notifyChatMessage(
+	deps: NotifyDeps,
+	room: ChatPushRoom,
+	authorId: string,
+): Promise<void> {
+	const subscriptions = await deps.getActiveSubscriptions(authorId);
+	if (subscriptions.length === 0) return;
+
+	const connected = new Set(await room.getConnectedUserIds());
+	const recipients = [];
+	for (const subscription of subscriptions) {
+		if (subscription.userId === authorId) continue;
+		if (connected.has(subscription.userId)) continue;
+		if (!(await room.checkAndIncrementPushThrottle(subscription.userId))) continue;
+		recipients.push(subscription);
+	}
+	if (recipients.length === 0) return;
+
+	const payload = buildPushPayload({ type: "chat_message" });
+	await fanOutPush({
+		subscriptions: recipients,
+		payload,
+		sendPush: deps.sendPush,
+		deleteSubscription: deps.deleteSubscription,
+		onSendError: deps.onSendError,
+		onSendOutcome: deps.onSendOutcome,
+	});
+}
+
 export async function notifyMentions(
 	deps: NotifyDeps,
 	actorId: string,

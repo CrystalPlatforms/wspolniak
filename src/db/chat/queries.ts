@@ -161,6 +161,26 @@ export async function listChatReactions(): Promise<ChatReactionWithUser[]> {
 }
 
 /**
+ * Cron czyszczenia (F7 #158): kasuje wygasłe wiadomości (`expires_at < now()`)
+ * razem z ich reakcjami w JEDNYM zapytaniu (CTE — wzorzec deleteChatMessage,
+ * jeden round-trip na serverless driverze). Zwraca liczbę skasowanych wiadomości
+ * — pod log crona. Read path (GET) i tak zawsze filtruje wygasłe w SQL, więc
+ * cron odchudza tylko tabelę, nie chroni poprawności odpowiedzi.
+ */
+export async function deleteExpiredChatMessages(): Promise<number> {
+	const result = await getDb().execute(sql`
+    with deleted as (
+      delete from chat_messages where expires_at < now() returning id
+    ), reactions_gone as (
+      delete from chat_reactions where message_id in (select id from deleted)
+    )
+    select count(*)::int as deleted from deleted
+  `);
+	const rows = (result as { rows?: { deleted?: number }[] }).rows ?? [];
+	return rows[0]?.deleted ?? 0;
+}
+
+/**
  * Usuwa wiadomość dla wszystkich (F6 #157). Autoryzacja: **autor** lub **admin**;
  * kto inny → Result error 403 (odpowiedź nie zdradza treści), brak wiadomości →
  * 404. Hard delete wiadomości **i jej reakcji w jednym zapytaniu SQL** (CTE) —
