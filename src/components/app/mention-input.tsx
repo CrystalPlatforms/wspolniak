@@ -13,6 +13,54 @@ interface MemberOption {
 	name: string;
 }
 
+/** Maks. wysokość dropdownu (max-h-[200px] w klasach) — próg decyzji o flipie. */
+const DROPDOWN_MAX_HEIGHT = 200;
+/** Maks. szerokość dropdownu (max-w-[320px] w klasach) — clamp left po najgorszym przypadku. */
+const DROPDOWN_MAX_WIDTH = 320;
+/** Bezpieczny odstęp dropdownu od krawędzi viewportu. */
+const VIEWPORT_MARGIN = 8;
+/** Odstęp dropdownu od linii karety (dawniej mt-1). */
+const CARET_GAP = 4;
+
+export interface DropdownPosition {
+	/** Górna krawędź (px, względem pola) — dropdown POD linią karety. */
+	top?: number;
+	/** Dolna krawędź (px, względem pola) — flip NAD linię karety (#162). */
+	bottom?: number;
+	left: number;
+}
+
+/**
+ * #162: pozycja dropdownu @mention utrzymana w kadrze aplikacji. Surowe
+ * współrzędne karety wypychają listę poza viewport — komentarz na dole długiego
+ * posta wypada pod ekranem, kareta przy prawej krawędzi wysuwa listę za ekran
+ * (PWA/desktop) i nie da się jej kliknąć. Reguły:
+ * - pod karetą jest miejsce na całą listę (≥ DROPDOWN_MAX_HEIGHT) → dropdown
+ *   pod karetą, jak dotychczas;
+ * - brak miejsca → flip nad linię karety (kotwica `bottom`);
+ * - `left` jest klamrowane, by lista o najgorszej szerokości zmieściła się
+ *   między marginesami viewportu.
+ * `textarea` = prostokąt pola we viewportu; brak wymiarów → stare zachowanie.
+ */
+export function clampDropdownPosition(
+	caret: CaretCoordinates,
+	textarea: { top: number; left: number; height: number } | null,
+	viewport: { width: number; height: number } | null,
+): DropdownPosition {
+	if (!textarea || !viewport) {
+		return { top: caret.top + caret.height + CARET_GAP, left: caret.left };
+	}
+	const belowTop = caret.top + caret.height + CARET_GAP;
+	const spaceBelow = viewport.height - textarea.top - belowTop - VIEWPORT_MARGIN;
+	const left =
+		Math.max(
+			Math.min(textarea.left + caret.left, viewport.width - DROPDOWN_MAX_WIDTH - VIEWPORT_MARGIN),
+			VIEWPORT_MARGIN,
+		) - textarea.left;
+	if (spaceBelow >= DROPDOWN_MAX_HEIGHT) return { top: belowTop, left };
+	return { bottom: textarea.height - caret.top + CARET_GAP, left };
+}
+
 export interface MentionInputProps {
 	value: string;
 	onChange: (value: string) => void;
@@ -161,6 +209,18 @@ export function MentionInput({
 
 	const showDropdown = detection !== null && filteredUsers.length > 0 && caretCoords !== null;
 
+	// #162: pozycja dropdownu liczona na każdym renderze (świeży prostokąt pola),
+	// żeby lista nigdy nie wychodziła poza kadr aplikacji.
+	const dropdownPos = caretCoords
+		? clampDropdownPosition(
+				caretCoords,
+				textareaRef.current?.getBoundingClientRect() ?? null,
+				typeof window === "undefined"
+					? null
+					: { width: window.innerWidth, height: window.innerHeight },
+			)
+		: null;
+
 	// Utrzymuj aktywny (zaznaczony klawiaturą) wiersz dropdownu w widoku. Przewijamy SAM
 	// kontener listy (scrollTop), NIE scrollIntoView — to przewiera też stronę/textarea,
 	// co powoduje "nienaturalne" skoki przy wpisaniu @ i strzałkach (bug #96).
@@ -191,15 +251,16 @@ export function MentionInput({
 				maxLength={maxLength}
 				rows={rows}
 			/>
-			{showDropdown && caretCoords && (
+			{showDropdown && dropdownPos && (
 				<ul
 					ref={listRef}
 					aria-label="Wspomnij osobę"
 					style={{
-						top: `${caretCoords.top + caretCoords.height}px`,
-						left: `${caretCoords.left}px`,
+						top: dropdownPos.top !== undefined ? `${dropdownPos.top}px` : undefined,
+						bottom: dropdownPos.bottom !== undefined ? `${dropdownPos.bottom}px` : undefined,
+						left: `${dropdownPos.left}px`,
 					}}
-					className="absolute z-50 mt-1 max-h-[200px] min-w-[220px] max-w-[320px] overflow-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
+					className="absolute z-50 max-h-[200px] min-w-[220px] max-w-[320px] overflow-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
 				>
 					{filteredUsers.map((user, index) => (
 						<li

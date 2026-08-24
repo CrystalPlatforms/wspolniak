@@ -4,7 +4,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { useState } from "react";
-import { type Mention, MentionInput } from "./mention-input";
+import { clampDropdownPosition, type Mention, MentionInput } from "./mention-input";
 
 function createWrapper() {
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -166,5 +166,80 @@ describe("MentionInput", () => {
 		for (const spy of scrollIntoViewSpies.values()) {
 			expect(spy).not.toHaveBeenCalled();
 		}
+	});
+});
+
+// #162: dropdown @mention ma być zawsze w kadrze aplikacji. Testujemy czystą
+// regułę pozycji na granicy modułu (clampDropdownPosition) — jsdom nie liczy
+// geometrii, a pozycja <ul> jest prostym zastosowaniem tej reguły.
+//
+// Założenia zakodowane w testach:
+// - wejście: współrzędne karety względem pola, prostokąt pola we viewportcie,
+//   rozmiar viewportu; wyjście: {top?|bottom?, left} względem pola;
+// - „miejsce pod karetą" = ≥ 200px (max-h listy) + marginesy — wtedy lista
+//   pod karetą jak dotychczas, inaczej flip nad linię karety (kotwica bottom);
+// - left klamrujemy po najgorszej szerokości listy (320px), by prawa krawędź
+//   nie wychodziła za ekran; lewa krawędź nigdy przed marginesem viewportu;
+// - brak wymiarów (SSR-guard) → dotychczasowa pozycja pod karetą.
+describe("clampDropdownPosition (#162)", () => {
+	const caret = { top: 40, left: 10, height: 20 };
+
+	it("trzyma dropdown pod kareta, gdy pod spodem jest miejsce", () => {
+		const pos = clampDropdownPosition(
+			caret,
+			{ top: 100, left: 50, height: 80 },
+			{ width: 1024, height: 768 },
+		);
+
+		expect(pos).toEqual({ top: 64, left: 10 });
+		expect(pos.bottom).toBeUndefined();
+	});
+
+	it("granicznie: dokladnie 200px miejsca pod kareta zostaje pod nia", () => {
+		// 372 = 100 (top pola) + 64 (top listy) + 8 (margines) + 200 (max-h)
+		const pos = clampDropdownPosition(
+			caret,
+			{ top: 100, left: 50, height: 80 },
+			{ width: 1024, height: 372 },
+		);
+
+		expect(pos.top).toBe(64);
+	});
+
+	it("flipuje nad karete, gdy pod nia nie zmiesci sie cala lista", () => {
+		const pos = clampDropdownPosition(
+			caret,
+			{ top: 700, left: 50, height: 80 },
+			{ width: 1024, height: 768 },
+		);
+
+		expect(pos).toEqual({ bottom: 44, left: 10 });
+		expect(pos.top).toBeUndefined();
+	});
+
+	it("cofa left przy prawej krawedzi, by lista nie wychodzila za ekran (waska PWA)", () => {
+		const pos = clampDropdownPosition(
+			{ top: 40, left: 400, height: 20 },
+			{ top: 100, left: 20, height: 80 },
+			{ width: 500, height: 768 },
+		);
+
+		// prawa krawedz listy (left+pole+320) == 500-8
+		expect(pos).toEqual({ top: 64, left: 152 });
+	});
+
+	it("nie pozwala wyjechac lewa krawedzia listy przed margines viewportu", () => {
+		const pos = clampDropdownPosition(
+			{ top: 40, left: 0, height: 20 },
+			{ top: 100, left: -30, height: 80 },
+			{ width: 500, height: 768 },
+		);
+
+		// lista zaczyna sie 8px od lewej krawedzi viewportu (-30 + 38)
+		expect(pos).toEqual({ top: 64, left: 38 });
+	});
+
+	it("bez wymiarow (SSR-guard) zwraca dotychczasowa pozycje pod kareta", () => {
+		expect(clampDropdownPosition(caret, null, null)).toEqual({ top: 64, left: 10 });
 	});
 });
