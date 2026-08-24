@@ -1,3 +1,10 @@
+# [3.25.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.24.0...v3.25.0) (2026-08-24)
+
+
+### Features
+
+* **chat:** hourly expiry cron and push notifications for new messages ([#158](https://github.com/CrystalPlatforms/wspolniak/issues/158)) ([ef847be](https://github.com/CrystalPlatforms/wspolniak/commit/ef847beecbb0948f9f40b639ac9cc3293eab35ea))
+
 # [3.24.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.23.0...v3.24.0) (2026-08-23)
 
 
