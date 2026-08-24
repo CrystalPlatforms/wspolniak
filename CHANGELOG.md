@@ -1,3 +1,16 @@
+# [3.29.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.28.0...v3.29.0) (2026-08-24)
+
+
+### Bug Fixes
+
+* **test:** simulate full click for outside-dismiss and make PointerEvent stub browser-faithful ([#167](https://github.com/CrystalPlatforms/wspolniak/issues/167)) ([86ef426](https://github.com/CrystalPlatforms/wspolniak/commit/86ef426aa5ad480ce5c361f3655d8b16697888d6))
+
+
+### Features
+
+* **calendar:** open to all members with tile grid and date proposals ([#163](https://github.com/CrystalPlatforms/wspolniak/issues/163)) ([ddfdc12](https://github.com/CrystalPlatforms/wspolniak/commit/ddfdc1290c7ce381e100d78bb0f46a4facc3fb90))
+* **reactions:** emoji picker with burst animation, 5 reactions, chat redesign ([#161](https://github.com/CrystalPlatforms/wspolniak/issues/161)) ([79a5dcb](https://github.com/CrystalPlatforms/wspolniak/commit/79a5dcb290dbf240fcafb978dfbba2a04d4f7a0e))
+
 # [3.28.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.27.0...v3.28.0) (2026-08-24)
 
 
