@@ -1,3 +1,10 @@
+# [3.26.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.25.0...v3.26.0) (2026-08-24)
+
+
+### Features
+
+* **chat:** feature flag, navigation, offline handling and settings note ([#159](https://github.com/CrystalPlatforms/wspolniak/issues/159)) ([b4341a5](https://github.com/CrystalPlatforms/wspolniak/commit/b4341a5f7d4305c1a4ddc35ccfcba39f9a7cf120))
+
 # [3.25.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.24.0...v3.25.0) (2026-08-24)
 
 
