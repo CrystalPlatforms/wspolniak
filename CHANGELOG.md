@@ -1,3 +1,10 @@
+# [3.28.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.27.0...v3.28.0) (2026-08-24)
+
+
+### Features
+
+* **share:** restore /share access-code login with rate limiting ([#166](https://github.com/CrystalPlatforms/wspolniak/issues/166)) ([d21d4f9](https://github.com/CrystalPlatforms/wspolniak/commit/d21d4f909d42664a5e5aaa1bf2c5b313b73c547b))
+
 # [3.27.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.26.0...v3.27.0) (2026-08-24)
 
 
