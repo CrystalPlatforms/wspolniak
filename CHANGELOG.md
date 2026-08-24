@@ -1,3 +1,16 @@
+# [3.27.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.26.0...v3.27.0) (2026-08-24)
+
+
+### Bug Fixes
+
+* **app:** client-side navigation between feed and post view - no boot splash replay ([#164](https://github.com/CrystalPlatforms/wspolniak/issues/164)) ([03ac725](https://github.com/CrystalPlatforms/wspolniak/commit/03ac725537c38f1e89ceebfff31aaef0dc549a05))
+* **mentions:** clamp dropdown to viewport - flip above caret near bottom edge ([#162](https://github.com/CrystalPlatforms/wspolniak/issues/162)) ([dbd6169](https://github.com/CrystalPlatforms/wspolniak/commit/dbd61696b6b1e4d9d22caba06ed67e440b854f58))
+
+
+### Features
+
+* **chat:** glow quoted original blue for 7s on reply-quote click ([#165](https://github.com/CrystalPlatforms/wspolniak/issues/165)) ([34ba4b4](https://github.com/CrystalPlatforms/wspolniak/commit/34ba4b432c14427f0324e1ef65bda6c14d6396e8))
+
 # [3.26.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.25.0...v3.26.0) (2026-08-24)
 
 
