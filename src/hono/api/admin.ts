@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import type { ContentfulStatusCode } from "hono/utils/http-status";
+import { AppError } from "@/core/errors";
 import {
 	createMember,
 	listActiveMembers,
@@ -9,6 +12,8 @@ import {
 import {
 	getFeatureFlags,
 	getMaintenanceConfig,
+	getShareCode,
+	setShareCode,
 	updateFeatureFlags,
 	updateMaintenance,
 } from "@/db/instance/queries";
@@ -80,6 +85,31 @@ adminEndpoint.patch("/members/:id", async (c) => {
 
 	const updated = await updateMemberName(userId, name);
 	return c.json({ data: { id: updated.id, name: updated.name } });
+});
+
+// #166 — kod dostępu /share (dialog admina). Walidacja entropii (8–20 znaków)
+// mieszka w setShareCode; AppError z niej mapujemy tutaj na 400.
+adminEndpoint.get("/share-code", async (c) => {
+	const code = await getShareCode();
+	return c.json({ data: { code } });
+});
+
+adminEndpoint.put("/share-code", async (c) => {
+	const body = await c.req.json<{ code?: string }>();
+	const code = body.code?.trim();
+
+	if (!code) return c.json({ error: "Code is required" }, 400);
+
+	try {
+		await setShareCode(code);
+	} catch (error) {
+		if (error instanceof AppError) {
+			return c.json({ error: error.message }, error.status as ContentfulStatusCode);
+		}
+		throw error;
+	}
+
+	return c.json({ data: { code } });
 });
 
 adminEndpoint.get("/maintenance", async (c) => {

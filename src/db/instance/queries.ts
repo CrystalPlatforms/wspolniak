@@ -1,7 +1,35 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { eq } from "drizzle-orm";
+import { AppError } from "@/core/errors";
 import { getDb } from "@/db/setup";
 import { instanceConfig } from "./table";
+
+// #166 — kod dostępu /share. Rewizja usera (2026-08-24): kody wyłącznie
+// cyfrowe, 4–20 znaków (rodzina wpisuje krótkie kody; osłoną przed brute-force
+// pozostaje rate limit 5/min/IP na API share).
+const SHARE_CODE_PATTERN = /^\d{4,20}$/;
+
+export async function getShareCode(): Promise<string | null> {
+	const rows = await getDb()
+		.select({ shareCode: instanceConfig.shareCode })
+		.from(instanceConfig)
+		.limit(1);
+	return rows[0]?.shareCode ?? null;
+}
+
+export async function setShareCode(code: string): Promise<void> {
+	const trimmed = code.trim();
+	if (!SHARE_CODE_PATTERN.test(trimmed)) {
+		throw new AppError("Share code must be 4-20 digits", "VALIDATION", 400);
+	}
+	const rows = await getDb().select({ id: instanceConfig.id }).from(instanceConfig).limit(1);
+	const row = rows[0];
+	if (!row) throw new Error("setShareCode: no instance_config row");
+	await getDb()
+		.update(instanceConfig)
+		.set({ shareCode: trimmed })
+		.where(eq(instanceConfig.id, row.id));
+}
 
 export async function isSetupCompleted(): Promise<boolean> {
 	const rows = await getDb()

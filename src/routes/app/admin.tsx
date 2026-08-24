@@ -1,10 +1,22 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect, useSearch } from "@tanstack/react-router";
-import { AlertTriangle, ArrowLeft, Check, Copy, Link, Pencil, Plus, Trash2, X } from "lucide-react";
+import {
+	AlertTriangle,
+	ArrowLeft,
+	Check,
+	Copy,
+	Link,
+	Pencil,
+	Plus,
+	Trash2,
+	Waypoints,
+	X,
+} from "lucide-react";
 import { useState } from "react";
 import { FeatureToggles } from "@/components/admin/feature-toggles";
 import { MaintenanceDialog } from "@/components/admin/maintenance-dialog";
+import { ShareCodeDialog } from "@/components/admin/share-code-dialog";
 import {
 	type UploadFailureEntry,
 	UploadFailuresSection,
@@ -47,6 +59,8 @@ function AdminPage() {
 	const [lastMagicLink, setLastMagicLink] = useState<{ name: string; link: string } | null>(null);
 	const [addDialogOpen, setAddDialogOpen] = useState(false);
 	const [maintenanceDialogOpen, setMaintenanceDialogOpen] = useState(false);
+	// #166: dialog kodu dostępu /share (kod + QR per członek).
+	const [shareCodeDialogOpen, setShareCodeDialogOpen] = useState(false);
 
 	const membersQuery = useQuery({
 		queryKey: ["admin", "members"],
@@ -279,6 +293,14 @@ function AdminPage() {
 					>
 						<AlertTriangle className="h-4 w-4" />
 					</Button>
+					<Button
+						variant="ghost"
+						size="lg"
+						onClick={() => setShareCodeDialogOpen(true)}
+						title="Kod dostępu /share"
+					>
+						<Waypoints className="h-4 w-4" />
+					</Button>
 				</div>
 			</div>
 
@@ -300,6 +322,8 @@ function AdminPage() {
 					maintenanceMutation.mutate(input);
 				}}
 			/>
+
+			<ShareCodeDialog open={shareCodeDialogOpen} onOpenChange={setShareCodeDialogOpen} />
 
 			<Dialog
 				open={addDialogOpen}
@@ -503,27 +527,27 @@ function MemberRow({
 						<Button size="sm" variant="ghost" onClick={startEdit} title="Zmień imię">
 							<Pencil className="h-4 w-4" />
 						</Button>
+						{/* Regeneracja linku dostępna także dla admina (wniosek usera
+						    2026-08-24); usuwanie — tylko dla członków. */}
+						<Button
+							size="sm"
+							variant="ghost"
+							onClick={onRegenerate}
+							disabled={isRegenerating}
+							title="Nowy link logowania"
+						>
+							<Link className="h-4 w-4" />
+						</Button>
 						{member.role !== "admin" && (
-							<>
-								<Button
-									size="sm"
-									variant="ghost"
-									onClick={onRegenerate}
-									disabled={isRegenerating}
-									title="Nowy link logowania"
-								>
-									<Link className="h-4 w-4" />
-								</Button>
-								<Button
-									size="sm"
-									variant="ghost"
-									onClick={onDelete}
-									disabled={isDeleting}
-									title="Usuń członka"
-								>
-									<Trash2 className="h-4 w-4 text-destructive" />
-								</Button>
-							</>
+							<Button
+								size="sm"
+								variant="ghost"
+								onClick={onDelete}
+								disabled={isDeleting}
+								title="Usuń członka"
+							>
+								<Trash2 className="h-4 w-4 text-destructive" />
+							</Button>
 						)}
 					</div>
 				</div>

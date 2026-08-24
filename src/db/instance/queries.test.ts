@@ -5,11 +5,13 @@ import {
 	completeSetup,
 	getFeatureFlags,
 	getMaintenanceConfig,
+	getShareCode,
 	getYoutubeConnection,
 	getYoutubeRefreshToken,
 	invalidateFeatureFlagsCache,
 	invalidateMaintenanceCache,
 	isSetupCompleted,
+	setShareCode,
 	setYoutubeConnection,
 	updateFeatureFlags,
 	updateMaintenance,
@@ -512,6 +514,86 @@ describe("YouTube connection storage", () => {
 				youtubeConnectedBy: null,
 			});
 			expect(where).toHaveBeenCalledWith(eq(instanceConfig.id, "inst-1"));
+		});
+	});
+});
+
+// #166 — kod dostępu /share: entropia egzekwowana w głębi modułu (setShareCode
+// rzuca AppError VALIDATION/400), odczyt zwraca null gdy kod nieustawiony.
+describe("share code", () => {
+	/** select z jednym wierszem instance_config (limit 1). */
+	function mockInstanceRow(row: Record<string, unknown>) {
+		const limit = vi.fn().mockResolvedValue([row]);
+		const from = vi.fn().mockReturnValue({ limit });
+		const select = vi.fn().mockReturnValue({ from });
+		mockGetDb.mockReturnValue({ select } as never);
+		return { select, from, limit };
+	}
+
+	/** update where(eq(id)) — zwraca mocki do asercji. */
+	function mockUpdateById(rowId: string) {
+		const where = vi.fn();
+		const set = vi.fn().mockReturnValue({ where });
+		const update = vi.fn().mockReturnValue({ set });
+		const limit = vi.fn().mockResolvedValue([{ id: rowId }]);
+		const from = vi.fn().mockReturnValue({ limit });
+		const select = vi.fn().mockReturnValue({ from });
+		mockGetDb.mockReturnValue({ select, update } as never);
+		return { update, set, where };
+	}
+
+	describe("getShareCode", () => {
+		it("returns the stored code", async () => {
+			mockInstanceRow({ shareCode: "rodzina-2026" });
+
+			await expect(getShareCode()).resolves.toBe("rodzina-2026");
+		});
+
+		it("returns null when no code is set", async () => {
+			mockInstanceRow({ shareCode: null });
+
+			await expect(getShareCode()).resolves.toBeNull();
+		});
+	});
+
+	describe("setShareCode", () => {
+		it("rejects codes shorter than 4 digits (after trim)", async () => {
+			await expect(setShareCode("  123  ")).rejects.toMatchObject({
+				code: "VALIDATION",
+				status: 400,
+			});
+		});
+
+		it("rejects non-digit codes (letters)", async () => {
+			await expect(setShareCode("abcd1234")).rejects.toMatchObject({
+				code: "VALIDATION",
+				status: 400,
+			});
+		});
+
+		it("rejects codes longer than 20 digits", async () => {
+			await expect(setShareCode("1".repeat(21))).rejects.toMatchObject({
+				code: "VALIDATION",
+				status: 400,
+			});
+		});
+
+		it("saves a valid digit code trimmed into instance_config", async () => {
+			const { set, where } = mockUpdateById("inst-1");
+
+			await setShareCode("  4827  ");
+
+			expect(set).toHaveBeenCalledWith({ shareCode: "4827" });
+			expect(where).toHaveBeenCalledWith(eq(instanceConfig.id, "inst-1"));
+		});
+
+		it("throws when instance_config row is missing", async () => {
+			const limit = vi.fn().mockResolvedValue([]);
+			const from = vi.fn().mockReturnValue({ limit });
+			const select = vi.fn().mockReturnValue({ from });
+			mockGetDb.mockReturnValue({ select, update: vi.fn() } as never);
+
+			await expect(setShareCode("4827")).rejects.toThrow(/no instance_config row/i);
 		});
 	});
 });

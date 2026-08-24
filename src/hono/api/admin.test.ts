@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { Hono } from "hono";
+import { AppError } from "@/core/errors";
 
 vi.mock("@/db/identity/session", () => ({
 	verifySessionCookie: vi.fn(),
@@ -18,6 +19,8 @@ vi.mock("@/db/identity/queries", () => ({
 vi.mock("@/db/instance/queries", () => ({
 	getFeatureFlags: vi.fn(),
 	getMaintenanceConfig: vi.fn(),
+	getShareCode: vi.fn(),
+	setShareCode: vi.fn(),
 	updateFeatureFlags: vi.fn(),
 	updateMaintenance: vi.fn(),
 }));
@@ -42,6 +45,8 @@ import { verifySessionCookie } from "@/db/identity/session";
 import {
 	getFeatureFlags,
 	getMaintenanceConfig,
+	getShareCode,
+	setShareCode,
 	updateFeatureFlags,
 	updateMaintenance,
 } from "@/db/instance/queries";
@@ -60,6 +65,8 @@ const mockGetMaintenanceConfig = vi.mocked(getMaintenanceConfig);
 const mockUpdateMaintenance = vi.mocked(updateMaintenance);
 const mockGetFeatureFlags = vi.mocked(getFeatureFlags);
 const mockUpdateFeatureFlags = vi.mocked(updateFeatureFlags);
+const mockGetShareCode = vi.mocked(getShareCode);
+const mockSetShareCode = vi.mocked(setShareCode);
 const mockGetStatsSummary = vi.mocked(getStatsSummary);
 const mockListRecentUploadFailures = vi.mocked(listRecentUploadFailures);
 
@@ -801,5 +808,76 @@ describe("GET /api/admin/upload-failures", () => {
 		);
 
 		expect(res.status).toBe(403);
+	});
+});
+
+// #166 — kod dostępu /share: odczyt + zapis (admin-only, guardy globalne).
+// Walidacja entropii mieszka w setShareCode (queries.test.ts) — tutaj testujemy
+// mapowanie AppError→400 i wymóg niepustego kodu.
+describe("share-code (#166)", () => {
+	it("GET returns the current share code", async () => {
+		mockGetShareCode.mockResolvedValue("rodzina-26");
+
+		const res = await createApi().request(
+			"/api/admin/share-code",
+			{ headers: adminHeaders() },
+			{ SESSION_SECRET: "secret" },
+		);
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { data: { code: string | null } };
+		expect(body.data.code).toBe("rodzina-26");
+	});
+
+	it("PUT saves a valid code via setShareCode", async () => {
+		const res = await createApi().request(
+			"/api/admin/share-code",
+			{
+				method: "PUT",
+				headers: { ...adminHeaders(), "Content-Type": "application/json" },
+				body: JSON.stringify({ code: "  rodzina-27  " }),
+			},
+			{ SESSION_SECRET: "secret" },
+		);
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { data: { code: string } };
+		expect(body.data.code).toBe("rodzina-27");
+		expect(mockSetShareCode).toHaveBeenCalledWith("rodzina-27");
+	});
+
+	it("PUT returns 400 for a missing/empty code", async () => {
+		const res = await createApi().request(
+			"/api/admin/share-code",
+			{
+				method: "PUT",
+				headers: { ...adminHeaders(), "Content-Type": "application/json" },
+				body: JSON.stringify({ code: "   " }),
+			},
+			{ SESSION_SECRET: "secret" },
+		);
+
+		expect(res.status).toBe(400);
+		expect(mockSetShareCode).not.toHaveBeenCalled();
+	});
+
+	it("PUT maps AppError from setShareCode (too short) to 400", async () => {
+		mockSetShareCode.mockRejectedValue(
+			new AppError("Share code must be 8-20 characters", "VALIDATION", 400),
+		);
+
+		const res = await createApi().request(
+			"/api/admin/share-code",
+			{
+				method: "PUT",
+				headers: { ...adminHeaders(), "Content-Type": "application/json" },
+				body: JSON.stringify({ code: "abc" }),
+			},
+			{ SESSION_SECRET: "secret" },
+		);
+
+		expect(res.status).toBe(400);
+		const body = (await res.json()) as { error: string };
+		expect(body.error).toContain("8-20");
 	});
 });
