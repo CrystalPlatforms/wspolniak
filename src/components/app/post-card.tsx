@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { Link } from "@tanstack/react-router";
 import { ExternalLinkIcon, MessageCircleIcon, PinIcon } from "lucide-react";
 import { useState } from "react";
 import { BookmarkButton } from "@/components/app/bookmark-button";
@@ -206,24 +207,27 @@ export function PostCard({
 			{visible.reactions ? (
 				<div className="mt-3 flex items-center justify-between">
 					<div className="flex items-center gap-1">
-						<a
-							href={`/app/post/${post.id}#comments`}
+						<Link
+							to="/app/post/$id"
+							params={{ id: post.id }}
+							hash="comments"
 							className="flex items-center gap-1.5 rounded-md px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground sm:gap-1 sm:px-2 sm:py-1"
 						>
 							<MessageCircleIcon className="size-6 sm:size-4" />
 							{post.commentCount ?? 0}
-						</a>
+						</Link>
 						<ReactionBar target={{ kind: "post", postId: post.id }} />
 					</div>
-					<a
-						href={`/app/post/${post.id}`}
+					<Link
+						to="/app/post/$id"
+						params={{ id: post.id }}
 						className="flex items-center gap-1.5 rounded-md px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground sm:gap-1 sm:px-2 sm:py-1"
 						aria-label="Otwórz pełny post"
 					>
 						<ExternalLinkIcon className="size-6 sm:size-4" />
 						<span className="sm:hidden">Otwórz</span>
 						<span className="hidden sm:inline">Otwórz pełny post</span>
-					</a>
+					</Link>
 				</div>
 			) : (
 				<SkeletonMeta />

@@ -12,12 +12,36 @@
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
-import type { ReactElement } from "react";
+import type { ComponentProps, ReactElement } from "react";
 import { useBootSettled } from "@/core/boot-splash";
 import { PostCard, type PostCardPost } from "./post-card";
 
 vi.mock("@/core/boot-splash", () => ({
 	useBootSettled: vi.fn(),
+}));
+
+// PostCard renderuje Link (TanStack Router) — nawigacja kliencka do posta bez
+// przeładowania dokumentu (#164). W testach karty wystarczy passthrough na <a>
+// z rozwiązanymi params/hash; samo kliknięcie nawigacyjne testuje osobny plik
+// post-card.navigation.test.tsx (prawdziwy router).
+vi.mock("@tanstack/react-router", () => ({
+	Link: ({
+		to,
+		params,
+		hash,
+		className,
+		children,
+		...rest
+	}: ComponentProps<"a"> & { to: string; params?: Record<string, string>; hash?: string }) => {
+		const resolved = params
+			? Object.entries(params).reduce((path, [k, v]) => path.replace(`$${k}`, v), to)
+			: to;
+		return (
+			<a href={hash ? `${resolved}#${hash}` : resolved} className={className} {...rest}>
+				{children}
+			</a>
+		);
+	},
 }));
 
 // VideoThumb wymaga kontekstu routera (Link) — testujemy bramkowanie etapem

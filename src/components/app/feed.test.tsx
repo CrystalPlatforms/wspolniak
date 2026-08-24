@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { Feed } from "./feed";
 
 // Testy feedu opisują stan warm (choreografia bootu zakończona, #145);
@@ -9,6 +9,34 @@ import { Feed } from "./feed";
 vi.mock("@/core/boot-splash", () => ({
 	useBootSettled: () => true,
 }));
+
+// PostCard renderuje Link (TanStack Router) — nawigacja kliencka do posta bez
+// przeładowania dokumentu (#164); w testach feedu wystarczy passthrough na <a>
+// + stub useNavigate (PostActions) — reszta modułu bez zmian.
+vi.mock("@tanstack/react-router", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("@tanstack/react-router")>();
+	return {
+		...actual,
+		useNavigate: () => () => {},
+		Link: ({
+			to,
+			params,
+			hash,
+			className,
+			children,
+			...rest
+		}: ComponentProps<"a"> & { to: string; params?: Record<string, string>; hash?: string }) => {
+			const resolved = params
+				? Object.entries(params).reduce((path, [k, v]) => path.replace(`$${k}`, v), to)
+				: to;
+			return (
+				<a href={hash ? `${resolved}#${hash}` : resolved} className={className} {...rest}>
+					{children}
+				</a>
+			);
+		},
+	};
+});
 
 function createWrapper() {
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

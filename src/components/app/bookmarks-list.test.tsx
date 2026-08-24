@@ -2,7 +2,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import type { PostCardPost } from "@/components/app/post-card";
 import { BookmarksList } from "./bookmarks-list";
 import { PENDING_SKELETONS } from "./post-card-skeleton";
@@ -11,6 +11,28 @@ import { PENDING_SKELETONS } from "./post-card-skeleton";
 // #145: przed osiadnięciem pasków PostCard pokazuje szkielety etapów.
 vi.mock("@/core/boot-splash", () => ({
 	useBootSettled: () => true,
+}));
+
+// PostCard renderuje Link (TanStack Router) — nawigacja kliencka do posta bez
+// przeładowania dokumentu (#164); w testach biblioteki wystarczy passthrough na <a>.
+vi.mock("@tanstack/react-router", () => ({
+	Link: ({
+		to,
+		params,
+		hash,
+		className,
+		children,
+		...rest
+	}: ComponentProps<"a"> & { to: string; params?: Record<string, string>; hash?: string }) => {
+		const resolved = params
+			? Object.entries(params).reduce((path, [k, v]) => path.replace(`$${k}`, v), to)
+			: to;
+		return (
+			<a href={hash ? `${resolved}#${hash}` : resolved} className={className} {...rest}>
+				{children}
+			</a>
+		);
+	},
 }));
 
 function createWrapper() {

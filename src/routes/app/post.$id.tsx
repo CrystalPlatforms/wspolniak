@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { CommentSection, commentsQueryOptions } from "@/components/app/comment-section";
 import { POST_VIEW_STAGES, PostView } from "@/components/app/post-view";
@@ -94,12 +94,12 @@ function PostPage() {
 			{!lightboxOpen && (
 				<div className="sticky top-0 z-10 border-b border-border bg-background/95 px-4 py-3 backdrop-blur-sm">
 					<div className="mx-auto flex max-w-5xl items-center justify-between">
-						<a
-							href="/app"
+						<Link
+							to="/app"
 							className="rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
 						>
 							&larr; Wróć do feedu
-						</a>
+						</Link>
 					</div>
 				</div>
 			)}
