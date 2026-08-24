@@ -36,6 +36,8 @@ interface NewPostFormProps {
 	}) => void;
 	isSubmitting: boolean;
 	featureFlags?: FeatureFlags;
+	/** Wstępnie wypełniony opis (np. szablon „Zaproponuj datę", #163). */
+	initialDescription?: string;
 }
 
 interface MediaItem {
@@ -100,8 +102,9 @@ export function NewPostForm({
 	onSubmit,
 	isSubmitting,
 	featureFlags = DEFAULT_FEATURE_FLAGS,
+	initialDescription,
 }: NewPostFormProps) {
-	const [description, setDescription] = useState("");
+	const [description, setDescription] = useState(initialDescription ?? "");
 	const [mentions, setMentions] = useState<Mention[]>([]);
 	const [media, setMedia] = useState<MediaItem[]>([]);
 	const [videoIds, setVideoIds] = useState<string[]>([]);

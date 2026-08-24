@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, redirect } from "@tanstack/react-router";
-import { Pencil, Plus, Trash2 } from "lucide-react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { MailQuestion, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { CalendarGrid, formatEventDate } from "@/components/app/calendar-grid";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -33,21 +34,6 @@ interface EventInput {
 
 const EMPTY_FORM: EventForm = { title: "", description: "", day: "", month: "" };
 
-const MONTHS_PL = [
-	"styczeń",
-	"luty",
-	"marzec",
-	"kwiecień",
-	"maj",
-	"czerwiec",
-	"lipiec",
-	"sierpień",
-	"wrzesień",
-	"październik",
-	"listopad",
-	"grudzień",
-];
-
 function eventToForm(event: CalendarEventDTO): EventForm {
 	return {
 		title: event.title,
@@ -67,15 +53,13 @@ function formToInput(form: EventForm): EventInput {
 }
 
 export const Route = createFileRoute("/app/calendar")({
-	beforeLoad: ({ context }) => {
-		if (context.session.role !== "admin") {
-			throw redirect({ to: "/app" });
-		}
-	},
 	component: CalendarPage,
 });
 
 function CalendarPage() {
+	const { session } = Route.useRouteContext();
+	const isAdmin = session.role === "admin";
+	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const [addOpen, setAddOpen] = useState(false);
 	const [addForm, setAddForm] = useState<EventForm>(EMPTY_FORM);
@@ -84,9 +68,9 @@ function CalendarPage() {
 	const [deleting, setDeleting] = useState<CalendarEventDTO | null>(null);
 
 	const eventsQuery = useQuery({
-		queryKey: ["admin", "calendar"],
+		queryKey: ["app", "calendar"],
 		queryFn: async (): Promise<CalendarEventDTO[]> => {
-			const res = await fetch("/api/admin/calendar");
+			const res = await fetch("/api/app/calendar");
 			if (!res.ok) throw new Error("Nie udało się pobrać wydarzeń");
 			const json = (await res.json()) as { data: CalendarEventDTO[] };
 			return json.data;
@@ -109,7 +93,7 @@ function CalendarPage() {
 		onSuccess: async () => {
 			setAddForm(EMPTY_FORM);
 			setAddOpen(false);
-			await queryClient.invalidateQueries({ queryKey: ["admin", "calendar"] });
+			await queryClient.invalidateQueries({ queryKey: ["app", "calendar"] });
 		},
 	});
 
@@ -128,7 +112,7 @@ function CalendarPage() {
 		},
 		onSuccess: async () => {
 			setEditing(null);
-			await queryClient.invalidateQueries({ queryKey: ["admin", "calendar"] });
+			await queryClient.invalidateQueries({ queryKey: ["app", "calendar"] });
 		},
 	});
 
@@ -142,7 +126,7 @@ function CalendarPage() {
 		},
 		onSuccess: async () => {
 			setDeleting(null);
-			await queryClient.invalidateQueries({ queryKey: ["admin", "calendar"] });
+			await queryClient.invalidateQueries({ queryKey: ["app", "calendar"] });
 		},
 	});
 
@@ -169,9 +153,25 @@ function CalendarPage() {
 			<div className="mb-6 flex items-center gap-2">
 				<h1 className="text-2xl font-bold text-foreground">Kalendarz</h1>
 				<div className="flex-1" />
-				<Button variant="ghost" size="lg" onClick={() => setAddOpen(true)} title="Dodaj wydarzenie">
-					<Plus className="h-4 w-4" />
+				<Button
+					variant="ghost"
+					size="lg"
+					title="Zaproponuj datę"
+					onClick={() => navigate({ to: "/app/new", search: { calendar: true } })}
+				>
+					<MailQuestion className="h-4 w-4" />
+					<span className="hidden sm:inline">Zaproponuj datę</span>
 				</Button>
+				{isAdmin && (
+					<Button
+						variant="ghost"
+						size="lg"
+						onClick={() => setAddOpen(true)}
+						title="Dodaj wydarzenie"
+					>
+						<Plus className="h-4 w-4" />
+					</Button>
+				)}
 			</div>
 
 			<Dialog
@@ -256,7 +256,7 @@ function CalendarPage() {
 					{deleting && (
 						<p className="text-sm text-muted-foreground">
 							Wydarzenie <span className="font-medium text-foreground">{deleting.title}</span> (
-							{deleting.day} {MONTHS_PL[deleting.month - 1]}) zostanie trwale usunięte.
+							{formatEventDate(deleting.day, deleting.month)}) zostanie trwale usunięte.
 						</p>
 					)}
 
@@ -291,11 +291,12 @@ function CalendarPage() {
 			</Dialog>
 
 			{eventsQuery.data && (
-				<div className="space-y-2">
-					{eventsQuery.data.map((event) => (
-						<EventRow key={event.id} event={event} onEdit={openEdit} onDelete={setDeleting} />
-					))}
-				</div>
+				<CalendarGrid
+					events={eventsQuery.data}
+					isAdmin={isAdmin}
+					onEdit={openEdit}
+					onDelete={setDeleting}
+				/>
 			)}
 		</div>
 	);
@@ -344,47 +345,5 @@ function EventFormFields({ form, setForm }: EventFormFieldsProps) {
 				/>
 			</div>
 		</>
-	);
-}
-
-interface EventRowProps {
-	event: CalendarEventDTO;
-	onEdit: (event: CalendarEventDTO) => void;
-	onDelete: (event: CalendarEventDTO) => void;
-}
-
-function EventRow({ event, onEdit, onDelete }: EventRowProps) {
-	return (
-		<div className="rounded-lg border border-border bg-card p-3">
-			<div className="flex items-center justify-between gap-2">
-				<div className="flex min-w-0 flex-col">
-					<span className="font-medium text-foreground">{event.title}</span>
-					<span className="text-sm text-muted-foreground">
-						{event.day} {MONTHS_PL[event.month - 1]}
-					</span>
-				</div>
-				<div className="flex shrink-0 gap-1">
-					<button
-						type="button"
-						className="rounded-md p-4 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-						title="Edytuj"
-						onClick={() => onEdit(event)}
-					>
-						<Pencil className="h-8 w-8" />
-					</button>
-					<button
-						type="button"
-						className="rounded-md p-4 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-						title="Usuń"
-						onClick={() => onDelete(event)}
-					>
-						<Trash2 className="h-8 w-8" />
-					</button>
-				</div>
-			</div>
-			{event.description && (
-				<p className="mt-1 text-sm text-muted-foreground">{event.description}</p>
-			)}
-		</div>
 	);
 }

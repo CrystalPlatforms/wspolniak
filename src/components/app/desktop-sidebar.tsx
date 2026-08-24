@@ -43,7 +43,7 @@ const NAV_ITEMS: NavItem[] = [
 		to: "/app/calendar",
 		icon: Calendar,
 		label: "Kalendarz",
-		adminOnly: true,
+		adminOnly: false,
 		fillWhenActive: true,
 	},
 	{ to: "/app/stats", icon: ChartNoAxesColumn, label: "Statystyki", adminOnly: false },

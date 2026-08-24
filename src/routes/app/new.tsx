@@ -2,17 +2,27 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ArrowLeft } from "lucide-react";
 import { useRef } from "react";
+import { calendarProposalTemplate } from "@/components/app/calendar-proposal";
 import { NewPostForm } from "@/components/app/new-post-form";
 import { UploadErrorAlert } from "@/components/app/upload-error-alert";
 import { type PublishPostInput, usePublishPost } from "@/components/app/use-publish-post";
 
+/** ?calendar=1 — wejście z przycisku „Zaproponuj datę" (Kalendarz v2, #163). */
+interface NewPostSearch {
+	calendar?: boolean;
+}
+
 export const Route = createFileRoute("/app/new")({
+	validateSearch: (search: Record<string, unknown>): NewPostSearch => ({
+		calendar: search.calendar === true || search.calendar === "1",
+	}),
 	component: NewPostPage,
 });
 
 function NewPostPage() {
 	const navigate = useNavigate();
-	const { featureFlags } = Route.useRouteContext();
+	const { featureFlags, session } = Route.useRouteContext();
+	const { calendar } = Route.useSearch();
 	const { publish, isPending, isError, error, reset } = usePublishPost();
 	// Ostatni input trzymany do ręcznego ponowienia (issue #135) — forma po błędzie
 	// trzyma stan, ale retry z Alertu musi mieć dane, którymi wołamy publish.
@@ -55,6 +65,7 @@ function NewPostPage() {
 
 			<NewPostForm
 				featureFlags={featureFlags}
+				initialDescription={calendar ? calendarProposalTemplate(session.name) : undefined}
 				onSubmit={(data) =>
 					handlePublish({
 						description: data.description || null,

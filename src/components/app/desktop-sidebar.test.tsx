@@ -110,6 +110,19 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 		expect(link.querySelector("svg")?.getAttribute("fill")).toBe("currentColor");
 	});
 
+	it("shows the Kalendarz nav link for a regular member (#163)", () => {
+		setPathname("/app");
+		const memberRole = "member";
+		render(
+			<DesktopSidebar
+				role={memberRole}
+				featureFlags={{ video: true, markdown: true, library: true, chat: true }}
+			/>,
+		);
+
+		expect(screen.queryByRole("link", { name: /^kalendarz$/i })).not.toBeNull();
+	});
+
 	it("hides the Biblioteka nav link when library disabled", () => {
 		setPathname("/app");
 		render(

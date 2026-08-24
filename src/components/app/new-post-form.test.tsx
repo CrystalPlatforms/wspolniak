@@ -22,6 +22,19 @@ describe("NewPostForm", () => {
 		expect(screen.getByRole("button", { name: /opublikuj/i })).toBeDefined();
 	});
 
+	it("prefills the description from initialDescription (Zaproponuj datę, #163)", () => {
+		render(
+			<NewPostForm
+				onSubmit={vi.fn()}
+				isSubmitting={false}
+				initialDescription="Witam, tu Tomek\nI chciałem/ałam zaproponować nową datę do naszego Kalendarza:"
+			/>,
+		);
+
+		const field = screen.getByLabelText(/^tekst$/i) as HTMLTextAreaElement;
+		expect(field.value).toContain("Witam, tu Tomek");
+	});
+
 	it("shows the formatting switch (default OFF) when markdown is enabled", () => {
 		render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
 
