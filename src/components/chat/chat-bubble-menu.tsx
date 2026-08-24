@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { Copy, CornerUpLeft, Info, Trash2, Users } from "lucide-react";
+import { Copy, CornerUpLeft, Info, Smile, SmilePlus, Trash2 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
+import { EmojiReactionPicker } from "@/components/app/emoji-reaction-picker";
 import {
-	ChatReactionBar,
 	ChatWhoReactedDialog,
 	useChatReactions,
+	useToggleChatReaction,
 } from "@/components/chat/chat-reactions";
 import type { ChatMessageItem } from "@/components/chat/chat-view";
 import {
@@ -76,16 +77,27 @@ export function ChatBubbleMenu({
 	const menuRef = useRef<HTMLDivElement>(null);
 	const [whoOpen, setWhoOpen] = useState(false);
 	const [infoOpen, setInfoOpen] = useState(false);
+	const [pickerOpen, setPickerOpen] = useState(false);
+	// Pill zakotwiczony w DYMKU wiadomości (rewizja HITL) — nie w pozycji menu.
+	const [pillAnchor, setPillAnchor] = useState<{
+		left: number;
+		top: number;
+		align: "left" | "right";
+	} | null>(null);
 	const reactions = useChatReactions(message.id);
+	const myReaction = reactions.find((item) => item.userId === currentUserId)?.reaction ?? null;
+	const toggleReaction = useToggleChatReaction(message.id, currentUserId, currentUserName);
 	const canDelete = message.authorId === currentUserId || isAdmin;
 	const dialogOpen = whoOpen || infoOpen;
+	// Nakładka (dialog albo pill reakcji) chowa menu — komponent żyje do jej końca.
+	const overlayOpen = dialogOpen || pickerOpen;
 
 	useEffect(() => {
 		// Zamknięcie: pointerdown poza menu (klik w menu nie zamyka — np. kilka
-		// reakcji pod rząd) oraz Escape. Gdy otwarty jest NASZ dialog (lub dialog
-		// paska reakcji), steruje on sam — klik w dialog nie zjada menu+dialogu.
+		// reakcji pod rząd) oraz Escape. Gdy otwarta jest nakładka (dialog lub
+		// pill reakcji), steruje ona sama — klik w nią nie zjada menu+nakładki.
 		function handlePointerDown(event: PointerEvent) {
-			if (dialogOpen) return;
+			if (overlayOpen) return;
 			const target = event.target as HTMLElement | null;
 			if (target?.closest?.('[role="dialog"]')) return;
 			if (menuRef.current?.contains(event.target as Node)) return;
@@ -93,7 +105,7 @@ export function ChatBubbleMenu({
 		}
 		function handleKeyDown(event: KeyboardEvent) {
 			if (event.key !== "Escape") return;
-			if (dialogOpen) return; // Radix zamyka dialog sam; po zamknięciu → onClose
+			if (overlayOpen) return; // Radix/pill zamyka się sam; po zamknięciu → onClose
 			onClose();
 		}
 		window.addEventListener("pointerdown", handlePointerDown);
@@ -102,7 +114,7 @@ export function ChatBubbleMenu({
 			window.removeEventListener("pointerdown", handlePointerDown);
 			window.removeEventListener("keydown", handleKeyDown);
 		};
-	}, [onClose, dialogOpen]);
+	}, [onClose, overlayOpen]);
 
 	const clamped = clampPosition(position);
 
@@ -110,6 +122,28 @@ export function ChatBubbleMenu({
 	function dialogClosed(setOpen: (open: boolean) => void, open: boolean) {
 		setOpen(open);
 		if (!open) onClose();
+	}
+
+	/** Pill „wybąbelkowuje się" z dymka wiadomości: mierzymy bąbelek w DOM
+	 *  (precedens: scrollToMessage w ChatView) i kotwiczymy nad jego rogiem. */
+	function openPicker() {
+		if (reactionsDisabled) return;
+		const bubble = document
+			.querySelector(`li[data-message-id="${message.id}"]`)
+			?.querySelector('[role="button"]');
+		const rect = bubble?.getBoundingClientRect();
+		if (rect) {
+			const own = message.authorId === currentUserId;
+			setPillAnchor({
+				left: own ? rect.right : rect.left,
+				top: rect.top + 4,
+				align: own ? "right" : "left",
+			});
+		} else {
+			// Bąbelka nie ma w DOM (np. lista odmontowana) — fallback: pozycja menu.
+			setPillAnchor({ left: clamped.x + 16, top: clamped.y + 32, align: "left" });
+		}
+		setPickerOpen(true);
 	}
 
 	function item(
@@ -140,7 +174,7 @@ export function ChatBubbleMenu({
 
 	return (
 		<>
-			{!dialogOpen ? (
+			{!overlayOpen ? (
 				<div
 					ref={menuRef}
 					role="menu"
@@ -149,23 +183,21 @@ export function ChatBubbleMenu({
 					style={{ left: clamped.x, top: clamped.y }}
 					className="chat-menu-in fixed z-50 w-52 overflow-hidden rounded-xl border border-border bg-popover text-popover-foreground shadow-lg"
 				>
-					{/* Reakcje wprost w menu (życzenie usera HITL): duże ikony (24px)
-					    rozciągnięte na całą szerokość menu — variant="menu" paska. */}
-					<div className="border-b border-border">
-						<ChatReactionBar
-							messageId={message.id}
-							currentUserId={currentUserId}
-							currentUserName={currentUserName}
-							variant="menu"
-							disabled={reactionsDisabled}
-						/>
-					</div>
 					<div className="flex flex-col py-1">
+						{/* HITL: reakcje przez „Zareaguj" — pill z emoji jak w feedzie,
+						    nie rząd pojedynczych ikon. Pozycja pierwsza w menu. */}
+						{item(
+							"Zareaguj",
+							<SmilePlus className="size-4" />,
+							openPicker,
+							reactionsDisabled ? "pointer-events-none opacity-50" : "",
+							true,
+						)}
 						{item("Odpowiedz", <CornerUpLeft className="size-4" />, () => onReply(message))}
 						{item("Kopiuj", <Copy className="size-4" />, () => {
 							void navigator.clipboard?.writeText(message.text);
 						})}
-						{item("Kto zareagował", <Users className="size-4" />, () => setWhoOpen(true), "", true)}
+						{item("Kto zareagował", <Smile className="size-4" />, () => setWhoOpen(true), "", true)}
 						{item("Info", <Info className="size-4" />, () => setInfoOpen(true), "", true)}
 						{canDelete
 							? item(
@@ -178,6 +210,32 @@ export function ChatBubbleMenu({
 					</div>
 				</div>
 			) : null}
+
+			{/* Pill reakcji (bąbelek jak w feedzie) zakotwiczony w DYMKU wiadomości
+			    (openPicker mierzy bąbelek); po jego zamknięciu kończymy sesję menu. */}
+			<div
+				className="fixed z-50"
+				style={
+					pillAnchor
+						? { left: pillAnchor.left, top: pillAnchor.top }
+						: { left: clamped.x + 16, top: clamped.y + 32 }
+				}
+			>
+				<EmojiReactionPicker
+					open={pickerOpen}
+					onOpenChange={(open) => {
+						setPickerOpen(open);
+						if (!open) onClose();
+					}}
+					onReact={(type) => {
+						if (!reactionsDisabled) toggleReaction.mutate(type);
+					}}
+					active={myReaction}
+					size="sm"
+					align={pillAnchor?.align ?? "left"}
+					hideTrigger
+				/>
+			</div>
 			<ChatWhoReactedDialog
 				open={whoOpen}
 				onOpenChange={(open) => dialogClosed(setWhoOpen, open)}

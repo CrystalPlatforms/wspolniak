@@ -2,7 +2,7 @@
 import { isNotNull, isNull } from "drizzle-orm";
 import { pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 
-export const reactionTypes = ["heart", "laugh", "flame"] as const;
+export const reactionTypes = ["heart", "laugh", "flame", "wow", "sad"] as const;
 export type ReactionType = (typeof reactionTypes)[number];
 
 export const postReactions = pgTable(

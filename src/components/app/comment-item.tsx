@@ -4,10 +4,9 @@ import { ReplyIcon } from "lucide-react";
 import { useState } from "react";
 import { CommentActions } from "@/components/app/comment-actions";
 import type { CommentWithAuthor } from "@/components/app/comment-section";
+import { EmojiReactions } from "@/components/app/emoji-reactions";
 import { type Mention, MentionInput } from "@/components/app/mention-input";
 import { MentionText } from "@/components/app/mention-text";
-import { ReactionBar } from "@/components/app/reaction-bar";
-import { ReactionUsers } from "@/components/app/reaction-users";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
@@ -96,7 +95,6 @@ export function CommentItem({ comment, postId, currentUserId, currentUserRole }:
 							<ReplyIcon className="h-5 w-5" />
 						</button>
 					)}
-					<ReactionUsers target={{ kind: "comment", postId, commentId: comment.id }} />
 					{canManage && (
 						<CommentActions postId={postId} commentId={comment.id} body={comment.body} />
 					)}
@@ -109,7 +107,7 @@ export function CommentItem({ comment, postId, currentUserId, currentUserRole }:
 
 			{currentUserId && (
 				<div className="mt-2 flex items-center gap-2">
-					<ReactionBar target={{ kind: "comment", postId, commentId: comment.id }} />
+					<EmojiReactions target={{ kind: "comment", postId, commentId: comment.id }} />
 				</div>
 			)}
 

@@ -4,6 +4,7 @@ import { MessageSquare, SendHorizontal, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ChatBubbleMenu } from "@/components/chat/chat-bubble-menu";
+import { ChatBubbleReactions } from "@/components/chat/chat-bubble-reactions";
 import { useBubbleMenu } from "@/components/chat/use-bubble-menu";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
@@ -356,13 +357,20 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 										onKeyDown={(event) => handleKeyDown(message, event)}
 										className={`flex max-w-[85%] cursor-default items-end gap-2 rounded-2xl px-3 py-2 [-webkit-touch-callout:none] select-none ${side === "own" ? "rounded-br-md bg-primary text-primary-foreground" : "rounded-bl-md bg-muted text-foreground"}`}
 									>
+										{/* Małe emoji od innych — od zewnętrznego rogu dymka. */}
+										{side === "other" ? (
+											<ChatBubbleReactions messageId={message.id} currentUserId={currentUserId} />
+										) : null}
 										<p className="whitespace-pre-wrap break-words text-sm">{message.text}</p>
 										<span className="shrink-0 text-[10px] opacity-60">
 											{formatChatTime(message.createdAt)}
 										</span>
+										{side === "own" ? (
+											<ChatBubbleReactions messageId={message.id} currentUserId={currentUserId} />
+										) : null}
 									</div>
-									{/* Reakcje NIE renderują się pod bąbelkiem (decyzja usera po
-									    HITL F5) — dostępne wyłącznie w context menu bąbelka. */}
+									{/* Reakcje NA dymku (rewizja HITL #161 — zmiana decyzji
+									    z F5); pill „Zareaguj" zakotwiczony w wiadomości. */}
 								</li>
 							);
 						})}

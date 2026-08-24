@@ -3,6 +3,7 @@
 import { Download, Pin } from "lucide-react";
 import { useEffect, useState } from "react";
 import { BookmarkButton } from "@/components/app/bookmark-button";
+import { EmojiReactions } from "@/components/app/emoji-reactions";
 import { FadeImage } from "@/components/app/fade-image";
 import { ImageLightbox } from "@/components/app/image-lightbox";
 import { MarkdownText } from "@/components/app/markdown-text";
@@ -12,8 +13,7 @@ import {
 	SkeletonHeader,
 	SkeletonMeta,
 } from "@/components/app/post-card-skeleton";
-import { ReactionBar } from "@/components/app/reaction-bar";
-import { ReactionUsers } from "@/components/app/reaction-users";
+import { PostWhoReacted } from "@/components/app/post-who-reacted";
 import { VideoThumb } from "@/components/video/video-thumb";
 import { getImageUrl } from "@/images/client";
 import { downloadImage } from "@/lib/download-image";
@@ -132,7 +132,7 @@ export function PostView({
 						</time>
 						<div className="ml-auto flex items-center gap-1">
 							{libraryEnabled && <BookmarkButton postId={post.id} />}
-							<ReactionUsers target={{ kind: "post", postId: post.id }} />
+							<PostWhoReacted target={{ kind: "post", postId: post.id }} />
 							{canManage && (
 								<PostActions
 									postId={post.id}
@@ -159,7 +159,7 @@ export function PostView({
 			{currentUserId &&
 				(revealText ? (
 					<div className="flex items-center gap-2">
-						<ReactionBar target={{ kind: "post", postId: post.id }} />
+						<EmojiReactions target={{ kind: "post", postId: post.id }} />
 					</div>
 				) : (
 					<SkeletonMeta />

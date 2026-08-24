@@ -5,8 +5,8 @@ import {
 	useQuery,
 	useQueryClient,
 } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import { REACTION_CONFIG, REACTION_ORDER } from "@/components/app/reaction-config";
+import { AppleEmoji } from "@/components/app/apple-emoji";
+import { REACTION_ORDER } from "@/components/app/reaction-config";
 import {
 	Dialog,
 	DialogContent,
@@ -100,20 +100,15 @@ export function useChatReactions(messageId: string): ChatReactionItem[] {
 	return all.filter((item) => item.messageId === messageId);
 }
 
-/** Rodzaj optymistycznej zmiany — steruje animacją ikony (pop / fade-out). */
-export type ReactionAnimKind = "pop" | "fade-out";
-
 /**
- * Toggle reakcji z optymistycznym update'em cache'a (F5 #156: wydzielone z
- * ChatReactionBar, żeby context menu reagowało identycznie jak pasek). Limit
- * jednej reakcji na usera — klik innego typu zastępuje obecną; rollback przy
- * błędzie. `onOptimistic` odpala po wpisie do cache'a (animacja w wywołującym).
+ * Toggle reakcji z optymistycznym update'em cache'a (Reactions 3.0: używany
+ * przez pill „Zareaguj" w menu bąbelka). Limit jednej reakcji na usera — wybór
+ * innego typu zastępuje obecną; rollback przy błędzie.
  */
 export function useToggleChatReaction(
 	messageId: string,
 	currentUserId: string,
 	currentUserName: string,
-	onOptimistic?: (reaction: ReactionType, kind: ReactionAnimKind) => void,
 ): UseMutationResult<
 	{ data: { action: string } },
 	Error,
@@ -148,7 +143,6 @@ export function useToggleChatReaction(
 					user: me,
 				});
 			});
-			onOptimistic?.(reaction, iReacted ? "fade-out" : "pop");
 			return { previous };
 		},
 		onError: (_error, _reaction, context) => {
@@ -178,7 +172,6 @@ export function ChatWhoReactedDialog({
 	reactions,
 	type,
 }: ChatWhoReactedDialogProps) {
-	const whoConfig = type === null ? null : REACTION_CONFIG[type];
 	// Sekcje w stałej kolejności konfigu; type=null → wszystkie niepuste typy.
 	const sections = (type === null ? REACTION_ORDER : [type])
 		.map((sectionType) => ({
@@ -192,12 +185,8 @@ export function ChatWhoReactedDialog({
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle className="text-center">
-						{whoConfig ? (
-							<whoConfig.Icon
-								className="mx-auto size-6"
-								style={{ color: whoConfig.color }}
-								fill={whoConfig.filled ? "currentColor" : "none"}
-							/>
+						{type !== null ? (
+							<AppleEmoji name={type} size={24} className="mx-auto mb-1 block" />
 						) : null}
 						Kto zareagował
 					</DialogTitle>
@@ -210,16 +199,9 @@ export function ChatWhoReactedDialog({
 						<p className="text-center text-muted-foreground">Brak reakcji</p>
 					) : (
 						sections.map((section) => {
-							const config = REACTION_CONFIG[section.type];
 							return (
 								<div key={section.type} className="flex flex-col items-center gap-2">
-									{type === null ? (
-										<config.Icon
-											className="size-5 text-muted-foreground"
-											fill={config.filled ? "currentColor" : "none"}
-											aria-hidden="true"
-										/>
-									) : null}
+									{type === null ? <AppleEmoji name={section.type} size={20} /> : null}
 									<div className="flex flex-wrap items-center justify-center gap-2">
 										{section.people.map((item) => (
 											<span
@@ -237,112 +219,5 @@ export function ChatWhoReactedDialog({
 				</div>
 			</DialogContent>
 		</Dialog>
-	);
-}
-
-export interface ChatReactionBarProps {
-	messageId: string;
-	currentUserId: string;
-	currentUserName: string;
-	/** inline = kompaktowy pasek; menu = duże ikony rozciągnięte na całą szerokość
-	 *  (wariant dla context menu — decyzja usera po HITL F5). */
-	variant?: "inline" | "menu";
-	/** F8 #159: blokada reakcji offline — przyciski nieodklikalne (bez kolejowania). */
-	disabled?: boolean;
-}
-
-/** Czas życia klasy animacji (pop/fade-out) — nieco dłuższy niż animacja 200ms. */
-const ANIM_CLEAR_MS = 350;
-
-/**
- * Rząd reakcji (F4 #155) — trzy ikony jak w feedzie, BEZ liczników; od HITL F5
- * używany w context menu (pod bąbelkami usunięty). Sam subskrybuje cache reakcji
- * (filtr po messageId) — WS i optimistic updates wspólnym kluczem. Tap = toggle
- * (pop przy dodaniu, fade-out przy usunięciu); przytrzymanie / prawy klik =
- * lista kto zareagował. variant="menu": 24px ikony, przyciski flex-1 (równe
- * podziały na całą szerokość menu).
- */
-export function ChatReactionBar({
-	messageId,
-	currentUserId,
-	currentUserName,
-	variant = "inline",
-	disabled = false,
-}: ChatReactionBarProps) {
-	const [animating, setAnimating] = useState<{
-		type: ReactionType;
-		kind: "pop" | "fade-out";
-	} | null>(null);
-	const [whoType, setWhoType] = useState<ReactionType | null>(null);
-
-	const reactions = useChatReactions(messageId);
-
-	useEffect(() => {
-		if (!animating) return;
-		const timer = window.setTimeout(() => setAnimating(null), ANIM_CLEAR_MS);
-		return () => window.clearTimeout(timer);
-	}, [animating]);
-
-	const mutation = useToggleChatReaction(messageId, currentUserId, currentUserName, (type, kind) =>
-		setAnimating({ type, kind }),
-	);
-
-	const isMenu = variant === "menu";
-
-	return (
-		<>
-			<div
-				className={
-					isMenu ? "flex w-full items-stretch gap-1 p-1" : "flex items-center gap-0.5 px-1"
-				}
-				data-chat-reaction-bar
-			>
-				{REACTION_ORDER.map((type) => {
-					const { Icon, label, color, filled } = REACTION_CONFIG[type];
-					const iReacted = reactions.some(
-						(item) => item.userId === currentUserId && item.reaction === type,
-					);
-					const anyoneReacted = reactions.some((item) => item.reaction === type);
-					const animClass =
-						animating?.type === type
-							? animating.kind === "pop"
-								? "chat-reaction-pop"
-								: "chat-reaction-fade-out"
-							: "";
-					return (
-						<button
-							key={type}
-							type="button"
-							data-reaction-type={type}
-							data-mine={iReacted}
-							aria-pressed={iReacted}
-							aria-label={label}
-							title={`${label} — przytrzymaj, aby zobaczyć kto zareagował`}
-							disabled={disabled}
-							onClick={() => mutation.mutate(type)}
-							onContextMenu={(event) => {
-								event.preventDefault();
-								setWhoType(type);
-							}}
-							style={iReacted ? { color } : undefined}
-							className={`transition-colors hover:bg-accent ${
-								isMenu ? "flex flex-1 items-center justify-center rounded-lg p-2" : "rounded-md p-1"
-							} ${iReacted || anyoneReacted ? "" : "text-muted-foreground"} ${animClass}`}
-						>
-							<Icon
-								className={isMenu ? "h-6 w-6" : "h-4 w-4"}
-								fill={iReacted && filled ? "currentColor" : "none"}
-							/>
-						</button>
-					);
-				})}
-			</div>
-			<ChatWhoReactedDialog
-				open={whoType !== null}
-				onOpenChange={(open) => !open && setWhoType(null)}
-				reactions={reactions}
-				type={whoType}
-			/>
-		</>
 	);
 }

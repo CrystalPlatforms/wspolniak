@@ -94,11 +94,12 @@ export function BookmarkButton({ postId }: BookmarkButtonProps) {
 			onClick={handleClick}
 			aria-pressed={saved}
 			aria-label={saved ? "Usuń z Biblioteki" : "Zapisz do Biblioteki"}
+			title={saved ? "Usuń z Biblioteki" : "Zapisz do Biblioteki"}
 			style={saved ? { color: BOOKMARK_SAVED_COLOR } : undefined}
-			className="inline-flex items-center gap-1 rounded-md px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+			className="grid size-12 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground sm:size-16"
 		>
 			<Bookmark
-				className="h-5 w-5 transition-colors duration-200"
+				className="size-6 transition-colors duration-200 sm:size-8"
 				fill={saved ? "currentColor" : "none"}
 				style={popping ? { animation: "bookmark-pop 300ms ease-in-out" } : undefined}
 			/>

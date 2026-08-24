@@ -531,12 +531,12 @@ describe("ChatView — context menu (F5 #156)", () => {
 		// Prawy klik otwiera menu ze wszystkimi itemami.
 		fireEvent.contextMenu(bubbleOf("Cześć"), { clientX: 100, clientY: 100 });
 		expect(screen.getByRole("menu", { name: "Menu wiadomości" })).toBeDefined();
-		for (const label of ["Odpowiedz", "Kopiuj", "Kto zareagował", "Info"]) {
+		for (const label of ["Zareaguj", "Odpowiedz", "Kopiuj", "Kto zareagował", "Info"]) {
 			expect(screen.getByRole("menuitem", { name: label })).toBeDefined();
 		}
-		// Życzenie usera: reakcje też w menu (ten sam pasek serce/śmiech/ogień).
+		// Reactions 3.0: brak rzędu pojedynczych ikon — reakcje przez „Zareaguj".
 		const menuEl = screen.getByRole("menu", { name: "Menu wiadomości" });
-		expect(within(menuEl).getByRole("button", { name: "serce" })).toBeDefined();
+		expect(within(menuEl).queryByRole("button", { name: "serce" })).toBeNull();
 		// Cudza wiadomość + member → bez „Usuń".
 		expect(screen.queryByRole("menuitem", { name: "Usuń" })).toBeNull();
 
@@ -755,7 +755,7 @@ describe("ChatView — offline (F8 #159)", () => {
 		expect(screen.getByRole("button", { name: "Wyślij" }).getAttribute("disabled")).not.toBeNull();
 	});
 
-	it("disables reaction buttons in the context menu while offline", async () => {
+	it("disables the Zareaguj item in the context menu while offline", async () => {
 		setNavigatorOnline(false);
 		mockChatApi([apiMessage({ id: "m1", text: "Cześć" })]);
 		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
@@ -765,8 +765,8 @@ describe("ChatView — offline (F8 #159)", () => {
 
 		fireEvent.contextMenu(bubbleOf("Cześć"), { clientX: 100, clientY: 100 });
 		const menuEl = screen.getByRole("menu", { name: "Menu wiadomości" });
-		const heart = within(menuEl).getByRole("button", { name: "serce" });
-		expect(heart.getAttribute("disabled")).not.toBeNull();
+		const zareaguj = within(menuEl).getByRole("menuitem", { name: "Zareaguj" });
+		expect(zareaguj.classList.contains("pointer-events-none")).toBe(true);
 	});
 
 	it("re-enables the composer when back online", async () => {

@@ -38,6 +38,25 @@ if (typeof globalThis.ResizeObserver === "undefined") {
 }
 
 /**
+ * jsdom nie implementuje globalnej klasy `PointerEvent` ( MouseEvent bez
+ * pointer API). `motion-dom` (gesty whileTap/whileHover) syntetyzuje
+ * PointerEvent przy zdarzeniach klawiatury na przyciskach z gestami — bez
+ * stuba rzuca `ReferenceError: PointerEvent is not defined` (Reactions 3.0).
+ * Stub rozszerza MouseEvent i domyślnie pointerId=1; testy nie polegają
+ * na wartościach pól pointerowych.
+ */
+if (typeof globalThis.PointerEvent === "undefined") {
+	class PointerEventStub extends MouseEvent {
+		pointerId: number;
+		constructor(type: string, params: MouseEventInit & { pointerId?: number } = {}) {
+			super(type, params);
+			this.pointerId = params.pointerId ?? 1;
+		}
+	}
+	globalThis.PointerEvent = PointerEventStub as unknown as typeof PointerEvent;
+}
+
+/**
  * jsdom nie implementuje `window.matchMedia` (brak layoutu / media queries).
  * `useSupportsRichText` i lokalny `useIsDesktop` wołają je do detekcji szerokości
  * ekranu i trybu standalone. Bez stuba hooki cicho zwracają false (mobile), przez

@@ -11,7 +11,7 @@ function createWrapper() {
 	};
 }
 
-// ReactionUsers in the header fires a fetch on mount; stub it so tests don't hit the network.
+// EmojiReactions fires reaction fetches on mount; stub them so tests don't hit the network.
 beforeEach(() => {
 	vi.stubGlobal(
 		"fetch",

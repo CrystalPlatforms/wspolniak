@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { ExternalLinkIcon, MessageCircleIcon, PinIcon } from "lucide-react";
 import { useState } from "react";
 import { BookmarkButton } from "@/components/app/bookmark-button";
+import { EmojiReactions } from "@/components/app/emoji-reactions";
 import { FadeImage } from "@/components/app/fade-image";
 import { ImageLightbox } from "@/components/app/image-lightbox";
 import { MarkdownText } from "@/components/app/markdown-text";
@@ -12,8 +13,7 @@ import {
 	SkeletonHeader,
 	SkeletonMeta,
 } from "@/components/app/post-card-skeleton";
-import { ReactionBar } from "@/components/app/reaction-bar";
-import { ReactionUsers } from "@/components/app/reaction-users";
+import { PostWhoReacted } from "@/components/app/post-who-reacted";
 import { VideoThumb } from "@/components/video/video-thumb";
 import { useBootSequence } from "@/core/boot-sequence";
 import { getImageUrl } from "@/images/client";
@@ -134,7 +134,7 @@ export function PostCard({
 						</time>
 						<div className="ml-auto flex items-center gap-1">
 							{libraryEnabled && <BookmarkButton postId={post.id} />}
-							<ReactionUsers target={{ kind: "post", postId: post.id }} />
+							<PostWhoReacted target={{ kind: "post", postId: post.id }} />
 							{canManage && (
 								<PostActions
 									postId={post.id}
@@ -216,7 +216,7 @@ export function PostCard({
 							<MessageCircleIcon className="size-6 sm:size-4" />
 							{post.commentCount ?? 0}
 						</Link>
-						<ReactionBar target={{ kind: "post", postId: post.id }} />
+						<EmojiReactions target={{ kind: "post", postId: post.id }} />
 					</div>
 					<Link
 						to="/app/post/$id"

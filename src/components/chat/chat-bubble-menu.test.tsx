@@ -186,23 +186,6 @@ describe("ChatBubbleMenu", () => {
 		expect(props.onDelete).toHaveBeenCalledWith("m1");
 		expect(props.onClose).toHaveBeenCalled();
 	});
-
-	it("renders the reaction bar inside the menu; tapping a reaction POSTs the toggle", async () => {
-		const user = userEvent.setup();
-		const fetchMock = mockFetch();
-		renderMenu(createClient());
-
-		const heart = screen.getByRole("button", { name: "serce" });
-		expect(heart.getAttribute("aria-pressed")).toBe("false");
-		await user.click(heart);
-
-		expect(fetchMock).toHaveBeenCalledWith(
-			"/api/chat/messages/m1/reactions",
-			expect.objectContaining({ method: "POST" }),
-		);
-		// Menu pozostaje otwarte po reakcji (kilka reakcji pod rząd).
-		expect(screen.getByRole("menu")).toBeDefined();
-	});
 });
 
 // ─── Regresja HITL: dialogi w prawdziwym cyklu życia menu ─────────────────────
@@ -283,19 +266,39 @@ describe("ChatBubbleMenu — dialogi w cyklu życia ChatView (regresja HITL)", (
 	});
 });
 
-describe("ChatBubbleMenu — reakcje variant=menu (HITL: duże, na całą szerokość)", () => {
-	it("renders big reaction buttons spread across the menu width (flex-1, 24px icons)", () => {
+describe("ChatBubbleMenu — reakcje (HITL: przycisk Zareaguj + pill jak w feedzie)", () => {
+	it("shows Zareaguj as the first item and no standalone emoji row", () => {
 		mockFetch();
 		renderMenu(createClient());
 
-		for (const label of ["serce", "śmiech", "ogień"]) {
-			const button = screen.getByRole("button", { name: label });
-			// Rozciągnięte równo na całą szerokość menu…
-			expect(button.classList.contains("flex-1")).toBe(true);
-			// …i powiększone (h-6 w-6 = 24px zamiast 16px inline).
-			const icon = button.querySelector("svg");
-			expect(icon?.classList.contains("h-6")).toBe(true);
-			expect(icon?.classList.contains("w-6")).toBe(true);
-		}
+		const items = screen.getAllByRole("menuitem");
+		expect(items[0]?.textContent).toContain("Zareaguj");
+		// Brak rzędu pojedynczych emoji — reakcje tylko przez bąbelek pickera.
+		expect(screen.queryByRole("button", { name: "serce" })).toBeNull();
+		expect(screen.queryByRole("button", { name: "ogień" })).toBeNull();
+		// Kto zareagował zostaje w menu.
+		expect(screen.getByRole("menuitem", { name: "Kto zareagował" })).toBeTruthy();
+	});
+
+	it("clicking Zareaguj opens the emoji pill; picking a reaction POSTs the toggle", async () => {
+		const user = userEvent.setup();
+		const fetchMock = mockFetch();
+		renderMenu(createClient());
+
+		await user.click(screen.getByRole("menuitem", { name: "Zareaguj" }));
+
+		// Bąbelek z 5 emoji — ten sam co w feedzie.
+		const pill = screen.getByRole("menu", { name: "Wybierz reakcję" });
+		expect(pill).toBeTruthy();
+		expect(screen.getByRole("menuitem", { name: "smutek" })).toBeTruthy();
+
+		await user.click(screen.getByRole("menuitem", { name: "ogień" }));
+		expect(fetchMock).toHaveBeenCalledWith(
+			"/api/chat/messages/m1/reactions",
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({ reaction: "flame" }),
+			}),
+		);
 	});
 });

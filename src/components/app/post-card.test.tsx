@@ -109,7 +109,7 @@ describe("PostCard — choreografia odsłaniania (#145)", () => {
 		expect(screen.queryByTestId("skeleton-header")).toBeNull();
 		expect(screen.queryByTestId("skeleton-meta")).toBeNull();
 		// nakładki zdjęć znikają z ich onLoad (jsdom nie ładuje obrazków sam z siebie)
-		const imgs = container.querySelectorAll("article img");
+		const imgs = container.querySelectorAll('article img[loading="lazy"]');
 		fireEvent.load(imgs[0] as HTMLElement);
 		fireEvent.load(imgs[1] as HTMLElement);
 		expect(skeletonCount()).toBe(0);
@@ -126,7 +126,7 @@ describe("PostCard — choreografia odsłaniania (#145)", () => {
 		expect(screen.getByTestId("skeleton-meta")).toBeTruthy();
 		// sloty zdjęć: szare nakładki, ale <img> już pobiera (równoległy fetch)
 		expect(skeletonCount()).toBeGreaterThanOrEqual(2);
-		expect(container.querySelectorAll("article img").length).toBe(2);
+		expect(container.querySelectorAll('article img[loading="lazy"]').length).toBe(2);
 	});
 
 	it("osiadnięcie pasków odsłania text+reactions w tym samym renderze; zdjęcia czekają na load", () => {
@@ -148,7 +148,7 @@ describe("PostCard — choreografia odsłaniania (#145)", () => {
 		mockedSettled.mockReturnValue(true);
 		const { container } = renderCard(makePost());
 
-		const imgs = container.querySelectorAll("article img");
+		const imgs = container.querySelectorAll('article img[loading="lazy"]');
 		expect(imgs.length).toBe(2);
 		expect(skeletonCount()).toBe(2);
 
@@ -170,7 +170,7 @@ describe("PostCard — choreografia odsłaniania (#145)", () => {
 		const { container, rerenderCard } = renderCard(makePost());
 		const coldCount = skeletonCount(); // wszystkie kawałki szkieletu (nagłówek+opis+meta+sloty)
 
-		fireEvent.load(container.querySelectorAll("article img")[0] as HTMLElement);
+		fireEvent.load(container.querySelectorAll('article img[loading="lazy"]')[0] as HTMLElement);
 		expect(skeletonCount()).toBe(coldCount); // wciąż zakryte — choreografia ma pierwszeństwo
 
 		mockedSettled.mockReturnValue(true);

@@ -1,21 +1,21 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Założenia kontraktu reakcji czatu po stronie klienta (F4 #155):
+// Założenia kontraktu reakcji czatu po stronie klienta (F4 #155, Reactions 3.0):
 // - ChatReactionItem identyfikuje się TRÓJKĄ (messageId, userId, reaction) —
 //   tożsamość lokalna (UNIQUE w DB); własny broadcast echa nie dubluje (dedupe).
 // - applyReactionEvent(list, event): added → doklejka jeśli trójki nie ma;
 //   removed → odfiltrowanie trójki. Czysta funkcja — używana przez WS handler
-//   i przez optymistyczną mutację w ChatReactionBar.
+//   i przez optymistyczną mutację w useToggleChatReaction.
 // - CHAT_REACTIONS_KEY — współdzielony klucz cache listy reakcji.
+// - useToggleChatReaction — optymistyczny toggle pod pill „Zareaguj" w menu.
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { act, cleanup, renderHook } from "@testing-library/react";
+import type { ReactNode } from "react";
 import {
 	applyReactionEvent,
 	CHAT_REACTIONS_KEY,
-	ChatReactionBar,
-	type ChatReactionBarProps,
 	type ChatReactionEvent,
 	type ChatReactionItem,
+	useToggleChatReaction,
 } from "./chat-reactions";
 
 function added(overrides: Partial<ChatReactionEvent> = {}): ChatReactionEvent {
@@ -76,12 +76,10 @@ describe("CHAT_REACTIONS_KEY", () => {
 	});
 });
 
-// ─── ChatReactionBar (komponent) ─────────────────────────────────────────────
-// Założenia kontraktu UI:
-// - Trzy przyciski (serce/śmiech/ogień, konfig z feedu), BEZ liczników.
-// - Własna reakcja: aria-pressed + data-mine; klik = toggle (optymistyczny).
-// - Dodanie montuje klasę chat-reaction-pop, usunięcie chat-reaction-fade-out.
-// - contextmenu (prawy klik / przytrzymanie) na ikonie = lista kto zareagował.
+// ─── useToggleChatReaction (hook pod pill reakcji w menu czatu) ───────────────
+// Założenia kontraktu: toggle optymistyczny na wspólnym kluczu CHAT_REACTIONS_KEY
+// (dodanie / usunięcie / zamiana na inny typ), rollback po błędzie, POST na
+// endpoint wiadomości. UI (pill) renderuje ChatBubbleMenu.
 afterEach(() => {
 	cleanup();
 	vi.unstubAllGlobals();
@@ -103,14 +101,6 @@ function createClient(seed: ChatReactionItem[] = []): QueryClient {
 	return client;
 }
 
-function renderBar(client: QueryClient, props: Partial<ChatReactionBarProps> = {}) {
-	return render(
-		<QueryClientProvider client={client}>
-			<ChatReactionBar messageId="m-1" currentUserId="u1" currentUserName="Tomek" {...props} />
-		</QueryClientProvider>,
-	);
-}
-
 /** Stub fetcha — POST toggle domyślnie OK (konfigurowalny), nic innego nie wychodzi. */
 function mockToggleFetch(ok = true) {
 	const fetchMock = vi
@@ -122,102 +112,66 @@ function mockToggleFetch(ok = true) {
 	return fetchMock;
 }
 
-describe("ChatReactionBar", () => {
-	it("renders one icon per feed reaction type with no counters; own reaction highlighted", () => {
-		const client = createClient([
-			reaction({ userId: "u1", user: { id: "u1", name: "Tomek" } }),
-			reaction({ reaction: "laugh" }),
-		]);
-		renderBar(client);
+function renderToggleHook(client: QueryClient) {
+	const wrapper = ({ children }: { children: ReactNode }) => (
+		<QueryClientProvider client={client}>{children}</QueryClientProvider>
+	);
+	return renderHook(() => useToggleChatReaction("m-1", "u1", "Tomek"), { wrapper });
+}
 
-		const heart = screen.getByRole("button", { name: "serce" });
-		const laugh = screen.getByRole("button", { name: "śmiech" });
-		const flame = screen.getByRole("button", { name: "ogień" });
-		// Własna reakcja podświetlona (aria-pressed + data-mine).
-		expect(heart.getAttribute("aria-pressed")).toBe("true");
-		expect(heart.getAttribute("data-mine")).toBe("true");
-		expect(laugh.getAttribute("aria-pressed")).toBe("false");
-		expect(laugh.getAttribute("data-mine")).toBe("false");
-		expect(flame.getAttribute("aria-pressed")).toBe("false");
-		// Bez liczników — żaden przycisk nie pokazuje cyfr.
-		for (const button of [heart, laugh, flame]) {
-			expect(button.textContent).not.toMatch(/\d/);
-		}
-	});
-
-	it("tap on an unreacted type toggles optimistically with the pop animation class", async () => {
-		const user = userEvent.setup();
-		const client = createClient([]);
+describe("useToggleChatReaction", () => {
+	it("optimistically adds my reaction to the shared cache", async () => {
 		const fetchMock = mockToggleFetch();
-		renderBar(client);
+		const client = createClient([]);
+		const { result } = renderToggleHook(client);
 
-		const heart = screen.getByRole("button", { name: "serce" });
-		await user.click(heart);
+		await act(async () => result.current.mutate("heart"));
 
-		// POST z typem reakcji; optymistycznie podświetlone + klasa pop.
 		expect(fetchMock).toHaveBeenCalledWith(
 			"/api/chat/messages/m-1/reactions",
-			expect.objectContaining({ method: "POST" }),
+			expect.objectContaining({
+				method: "POST",
+				body: JSON.stringify({ reaction: "heart" }),
+			}),
 		);
-		expect(heart.getAttribute("aria-pressed")).toBe("true");
-		expect(heart.classList.contains("chat-reaction-pop")).toBe(true);
+		const cache = client.getQueryData<ChatReactionItem[]>(CHAT_REACTIONS_KEY) ?? [];
+		expect(cache.some((r) => r.userId === "u1" && r.reaction === "heart")).toBe(true);
 	});
 
-	it("tap on own reaction again removes it with the fade-out animation class", async () => {
-		const user = userEvent.setup();
-		const client = createClient([reaction({ userId: "u1", user: { id: "u1", name: "Tomek" } })]);
-		const fetchMock = mockToggleFetch();
-		renderBar(client);
-
-		const heart = screen.getByRole("button", { name: "serce" });
-		await user.click(heart);
-
-		expect(fetchMock).toHaveBeenCalled();
-		expect(heart.getAttribute("aria-pressed")).toBe("false");
-		expect(heart.classList.contains("chat-reaction-fade-out")).toBe(true);
-	});
-
-	it("tapping a different type replaces my current reaction (only the new one pressed)", async () => {
-		const user = userEvent.setup();
-		const client = createClient([reaction({ userId: "u1", user: { id: "u1", name: "Tomek" } })]);
+	it("optimistically removes my reaction when toggling the same type", async () => {
 		mockToggleFetch();
-		renderBar(client);
+		const client = createClient([reaction({ userId: "u1", user: { id: "u1", name: "Tomek" } })]);
+		const { result } = renderToggleHook(client);
 
-		const heart = screen.getByRole("button", { name: "serce" });
-		const laugh = screen.getByRole("button", { name: "śmiech" });
-		await user.click(laugh);
+		await act(async () => result.current.mutate("heart"));
 
-		// Stara zdejmuje, nowa wchodzi z popem — nigdy dwie naraz.
-		expect(heart.getAttribute("aria-pressed")).toBe("false");
-		expect(laugh.getAttribute("aria-pressed")).toBe("true");
-		expect(laugh.classList.contains("chat-reaction-pop")).toBe(true);
+		const cache = client.getQueryData<ChatReactionItem[]>(CHAT_REACTIONS_KEY) ?? [];
+		expect(cache.some((r) => r.userId === "u1")).toBe(false);
+	});
+
+	it("replaces my current reaction with the new type (one per user)", async () => {
+		mockToggleFetch();
+		const client = createClient([
+			reaction({ userId: "u1", reaction: "heart", user: { id: "u1", name: "Tomek" } }),
+		]);
+		const { result } = renderToggleHook(client);
+
+		await act(async () => result.current.mutate("flame"));
+
+		const cache = client.getQueryData<ChatReactionItem[]>(CHAT_REACTIONS_KEY) ?? [];
+		const mine = cache.filter((r) => r.userId === "u1");
+		expect(mine).toHaveLength(1);
+		expect(mine[0]?.reaction).toBe("flame");
 	});
 
 	it("rolls the optimistic toggle back when the request fails", async () => {
-		const user = userEvent.setup();
-		const client = createClient([]);
 		mockToggleFetch(false);
-		renderBar(client);
+		const client = createClient([]);
+		const { result } = renderToggleHook(client);
 
-		const heart = screen.getByRole("button", { name: "serce" });
-		await user.click(heart);
+		await act(async () => result.current.mutate("heart"));
 
-		await waitFor(() => {
-			expect(heart.getAttribute("aria-pressed")).toBe("false");
-		});
-	});
-
-	it("contextmenu on an icon opens the who-reacted dialog with names", async () => {
-		const client = createClient([
-			reaction({ userId: "u1", user: { id: "u1", name: "Tomek" } }),
-			reaction(),
-		]);
-		mockToggleFetch();
-		renderBar(client);
-
-		fireEvent.contextMenu(screen.getByRole("button", { name: "serce" }));
-
-		expect(await screen.findByText("Tomek")).toBeDefined();
-		expect(screen.getByText("Kasia")).toBeDefined();
+		const cache = client.getQueryData<ChatReactionItem[]>(CHAT_REACTIONS_KEY) ?? [];
+		expect(cache.some((r) => r.userId === "u1")).toBe(false);
 	});
 });

@@ -255,7 +255,7 @@ describe("Feed", () => {
 		expect(document.querySelector("output.loader")).not.toBeNull();
 	});
 
-	it("shows who-reacted button on someone else's post for member", () => {
+	it("shows reaction picker trigger on someone else's post for member", () => {
 		const now = new Date().toISOString();
 		const posts = [
 			{
@@ -271,7 +271,7 @@ describe("Feed", () => {
 
 		render(<Feed posts={posts} {...defaultProps} />, { wrapper: createWrapper() });
 
-		expect(screen.getByRole("button", { name: /pokaż kto zareagował/i })).toBeDefined();
+		expect(screen.getByRole("button", { name: "Dodaj reakcję" })).toBeDefined();
 	});
 
 	it("shows pin badge for pinned posts", () => {
