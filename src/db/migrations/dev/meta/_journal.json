@@ -190,6 +190,13 @@
       "when": 1787416065800,
       "tag": "0026_worthless_satana",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1787555585298,
+      "tag": "0027_real_alice",
+      "breakpoints": true
     }
   ]
 }

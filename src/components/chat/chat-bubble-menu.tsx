@@ -28,6 +28,8 @@ export interface ChatBubbleMenuProps {
 	currentUserName: string;
 	/** Admin widzi „Usuń" też na cudzych wiadomościach (F6 #157). */
 	isAdmin: boolean;
+	/** F8 #159: reakcje zablokowane offline — pasek w menu niedostępny. */
+	reactionsDisabled?: boolean;
 	onReply: (message: ChatMessageItem) => void;
 	onDelete: (messageId: string) => void;
 	onClose: () => void;
@@ -66,6 +68,7 @@ export function ChatBubbleMenu({
 	currentUserId,
 	currentUserName,
 	isAdmin,
+	reactionsDisabled = false,
 	onReply,
 	onDelete,
 	onClose,
@@ -154,6 +157,7 @@ export function ChatBubbleMenu({
 							currentUserId={currentUserId}
 							currentUserName={currentUserName}
 							variant="menu"
+							disabled={reactionsDisabled}
 						/>
 					</div>
 					<div className="flex flex-col py-1">

@@ -151,27 +151,56 @@ describe("feature flags", () => {
 	}
 
 	it("returns both features enabled when columns are true", async () => {
-		mockSelectRow({ videoEnabled: true, markdownEnabled: true, libraryEnabled: true });
+		mockSelectRow({
+			videoEnabled: true,
+			markdownEnabled: true,
+			libraryEnabled: true,
+			chatEnabled: true,
+		});
 
 		const flags = await getFeatureFlags();
 
-		expect(flags).toEqual({ video: true, markdown: true, library: true });
+		expect(flags).toEqual({ video: true, markdown: true, library: true, chat: true });
 	});
 
 	it("returns a disabled flag when its column is false", async () => {
-		mockSelectRow({ videoEnabled: false, markdownEnabled: true, libraryEnabled: true });
+		mockSelectRow({
+			videoEnabled: false,
+			markdownEnabled: true,
+			libraryEnabled: true,
+			chatEnabled: true,
+		});
 
 		const flags = await getFeatureFlags();
 
-		expect(flags).toEqual({ video: false, markdown: true, library: true });
+		expect(flags).toEqual({ video: false, markdown: true, library: true, chat: true });
+	});
+
+	// F8 #159: flaga czatu — domyślnie true, kolumna chat_enabled.
+	it("returns a disabled chat flag when its column is false", async () => {
+		mockSelectRow({
+			videoEnabled: true,
+			markdownEnabled: true,
+			libraryEnabled: true,
+			chatEnabled: false,
+		});
+
+		const flags = await getFeatureFlags();
+
+		expect(flags.chat).toBe(false);
 	});
 
 	it("defaults to enabled when columns are null (no opinion stored yet)", async () => {
-		mockSelectRow({ videoEnabled: null, markdownEnabled: null, libraryEnabled: null });
+		mockSelectRow({
+			videoEnabled: null,
+			markdownEnabled: null,
+			libraryEnabled: null,
+			chatEnabled: null,
+		});
 
 		const flags = await getFeatureFlags();
 
-		expect(flags).toEqual({ video: true, markdown: true, library: true });
+		expect(flags).toEqual({ video: true, markdown: true, library: true, chat: true });
 	});
 
 	it("serves cached flags on second call without hitting DB again", async () => {
@@ -219,12 +248,13 @@ describe("updateFeatureFlags", () => {
 	it("persists both flags when provided", async () => {
 		const { set } = mockUpdateById("inst-1");
 
-		await updateFeatureFlags({ video: false, markdown: false, library: false });
+		await updateFeatureFlags({ video: false, markdown: false, library: false, chat: false });
 
 		expect(set).toHaveBeenCalledWith({
 			videoEnabled: false,
 			markdownEnabled: false,
 			libraryEnabled: false,
+			chatEnabled: false,
 		});
 	});
 

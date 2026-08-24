@@ -99,12 +99,14 @@ export interface FeatureFlags {
 	video: boolean;
 	markdown: boolean;
 	library: boolean;
+	chat: boolean;
 }
 
 export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
 	video: true,
 	markdown: true,
 	library: true,
+	chat: true,
 };
 
 const FEATURE_FLAGS_CACHE_TTL_MS = 60_000;
@@ -123,6 +125,7 @@ export async function getFeatureFlags(): Promise<FeatureFlags> {
 			videoEnabled: instanceConfig.videoEnabled,
 			markdownEnabled: instanceConfig.markdownEnabled,
 			libraryEnabled: instanceConfig.libraryEnabled,
+			chatEnabled: instanceConfig.chatEnabled,
 		})
 		.from(instanceConfig)
 		.limit(1);
@@ -131,6 +134,7 @@ export async function getFeatureFlags(): Promise<FeatureFlags> {
 		video: row?.videoEnabled ?? DEFAULT_FEATURE_FLAGS.video,
 		markdown: row?.markdownEnabled ?? DEFAULT_FEATURE_FLAGS.markdown,
 		library: row?.libraryEnabled ?? DEFAULT_FEATURE_FLAGS.library,
+		chat: row?.chatEnabled ?? DEFAULT_FEATURE_FLAGS.chat,
 	};
 	featureFlagsCache = { data: flags, expiresAt: Date.now() + FEATURE_FLAGS_CACHE_TTL_MS };
 	return flags;
@@ -140,6 +144,7 @@ export interface FeatureFlagsUpdate {
 	video?: boolean;
 	markdown?: boolean;
 	library?: boolean;
+	chat?: boolean;
 }
 
 export async function updateFeatureFlags(input: FeatureFlagsUpdate): Promise<void> {
@@ -149,6 +154,7 @@ export async function updateFeatureFlags(input: FeatureFlagsUpdate): Promise<voi
 	if (input.video !== undefined) set.videoEnabled = input.video;
 	if (input.markdown !== undefined) set.markdownEnabled = input.markdown;
 	if (input.library !== undefined) set.libraryEnabled = input.library;
+	if (input.chat !== undefined) set.chatEnabled = input.chat;
 
 	if (Object.keys(set).length > 0) {
 		await getDb().update(instanceConfig).set(set).where(eq(instanceConfig.id, id));

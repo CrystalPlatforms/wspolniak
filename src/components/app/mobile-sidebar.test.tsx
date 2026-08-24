@@ -29,7 +29,9 @@ async function openMenu() {
 describe("MobileSidebar — Biblioteka nav link (#129)", () => {
 	it("renders a Biblioteka nav link to /app/lib", async () => {
 		setPathname("/app");
-		render(<MobileSidebar featureFlags={{ video: true, markdown: true, library: true }} />);
+		render(
+			<MobileSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+		);
 		await openMenu();
 
 		const link = screen.getByRole("link", { name: /^biblioteka$/i });
@@ -38,7 +40,9 @@ describe("MobileSidebar — Biblioteka nav link (#129)", () => {
 
 	it("highlights the Biblioteka link when on /app/lib", async () => {
 		setPathname("/app/lib");
-		render(<MobileSidebar featureFlags={{ video: true, markdown: true, library: true }} />);
+		render(
+			<MobileSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+		);
 		await openMenu();
 
 		const link = screen.getByRole("link", { name: /^biblioteka$/i });
@@ -47,7 +51,9 @@ describe("MobileSidebar — Biblioteka nav link (#129)", () => {
 
 	it("fills the bookmark icon white when Biblioteka is active", async () => {
 		setPathname("/app/lib");
-		render(<MobileSidebar featureFlags={{ video: true, markdown: true, library: true }} />);
+		render(
+			<MobileSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+		);
 		await openMenu();
 
 		const link = screen.getByRole("link", { name: /^biblioteka$/i });
@@ -56,9 +62,48 @@ describe("MobileSidebar — Biblioteka nav link (#129)", () => {
 
 	it("hides the Biblioteka nav link when library disabled", async () => {
 		setPathname("/app");
-		render(<MobileSidebar featureFlags={{ video: true, markdown: true, library: false }} />);
+		render(
+			<MobileSidebar featureFlags={{ video: true, markdown: true, library: false, chat: true }} />,
+		);
 		await openMenu();
 
 		expect(screen.queryByRole("link", { name: /^biblioteka$/i })).toBeNull();
+	});
+});
+
+// Założenia kontraktu (F8 #159): pozycja „Chat" w drawerze (nazwa usera — nie
+// „Czat"), /app/chat, MessageSquare wypełniona gdy aktywna; flaga chat OFF
+// ukrywa link (wzorzec Wideo/Biblioteka).
+describe("MobileSidebar — Chat nav link (F8 #159)", () => {
+	it("renders a Chat nav link to /app/chat", async () => {
+		setPathname("/app");
+		render(
+			<MobileSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+		);
+		await openMenu();
+
+		const link = screen.getByRole("link", { name: /^chat$/i });
+		expect(link.getAttribute("href")).toBe("/app/chat");
+	});
+
+	it("hides the Chat nav link when chat disabled", async () => {
+		setPathname("/app");
+		render(
+			<MobileSidebar featureFlags={{ video: true, markdown: true, library: true, chat: false }} />,
+		);
+		await openMenu();
+
+		expect(screen.queryByRole("link", { name: /^chat$/i })).toBeNull();
+	});
+
+	it("fills the message icon when Chat is active", async () => {
+		setPathname("/app/chat");
+		render(
+			<MobileSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+		);
+		await openMenu();
+
+		const link = screen.getByRole("link", { name: /^chat$/i });
+		expect(link.querySelector("svg")?.getAttribute("fill")).toBe("currentColor");
 	});
 });

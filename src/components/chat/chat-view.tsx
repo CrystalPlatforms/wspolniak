@@ -7,6 +7,7 @@ import { ChatBubbleMenu } from "@/components/chat/chat-bubble-menu";
 import { useBubbleMenu } from "@/components/chat/use-bubble-menu";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
+import { useOnlineStatus } from "@/pwa/use-online-status";
 import { isNearBottom, scrollToBottom } from "./chat-scroll";
 import { TypingIndicator } from "./typing-indicator";
 import { appendChatMessageIfNew, removeChatMessage, useChatSocket } from "./use-chat-socket";
@@ -96,6 +97,8 @@ interface ChatViewProps {
  *  reakcje, typing, context menu (Odpowiedz/Kopiuj/Info/reakcje) i usuwanie. */
 export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewProps) {
 	const queryClient = useQueryClient();
+	// Offline (F8 #159): banner + blokada wysyłki i reakcji (bez kolejowania — PRD).
+	const online = useOnlineStatus();
 	const { data: messages } = useQuery({
 		queryKey: CHAT_MESSAGES_KEY,
 		queryFn: fetchChatMessages,
@@ -130,8 +133,10 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 	const hadDataRef = useRef(false);
 	// Id wiadomości, które przyszły na żywo — tylko one dostają slide-in.
 	const [animatedIds, setAnimatedIds] = useState<ReadonlySet<string>>(new Set());
-	// Nowe wiadomości czekają poniżej, gdy użytkownik przewinięty w górę.
-	const [newBelow, setNewBelow] = useState(false);
+	// F8 #159 HITL: czy user jest przy dniu listy? Steruje przyciskowi „↓ Zjedź
+	// na sam dół" — widocznemu ZAWSZE po przewinięciu w górę (nie tylko przy
+	// nowych wiadomościach; zgłoszenie usera z QA animacji).
+	const [nearBottom, setNearBottom] = useState(true);
 
 	const list = messages ?? [];
 	const menuMessage = menu ? list.find((message) => message.id === menu.messageId) : undefined;
@@ -157,12 +162,11 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 			const el = containerRef.current;
 			if (!el) return;
 			// Własna wysyłka i otwarcie czatu zawsze lądują na dole; cudze live —
-			// tylko gdy user jest przy dniu (inaczej przycisk „↓ nowe wiadomości").
+			// tylko gdy user jest przy dniu. Daleko od dna? Bez auto-scrolla —
+			// przycisk „↓ Zjedź na sam dół" steruje już sama pozycja scrolla (onScroll).
 			if (pendingGrew || isFirstData || isNearBottom(el)) {
 				scrollToBottom(el);
-				setNewBelow(false);
-			} else {
-				setNewBelow(true);
+				setNearBottom(true);
 			}
 		}
 	}, [list, pending]);
@@ -231,7 +235,7 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 
 	function handleSend() {
 		const text = draft.trim();
-		if (!text || sendMutation.isPending) return;
+		if (!text || sendMutation.isPending || !online) return;
 		const reply = replyTo;
 		setDraft("");
 		setReplyTo(null);
@@ -250,7 +254,8 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 	function handleJumpToNew() {
 		const el = containerRef.current;
 		if (el) scrollToBottom(el);
-		setNewBelow(false);
+		// Optymistycznie — eventy smooth scrolla potwierdzą stan (onScroll).
+		setNearBottom(true);
 	}
 
 	/** Klik w quote (F5): scroll do żywego oryginału; wygasły/usunięty = no-op,
@@ -269,7 +274,12 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 	return (
 		<div className="flex h-full flex-col bg-background">
 			<div className="relative flex-1 overflow-hidden">
-				<div ref={containerRef} data-chat-scroll className="h-full overflow-y-auto px-4 py-4">
+				<div
+					ref={containerRef}
+					data-chat-scroll
+					className="h-full overflow-y-auto px-4 py-4"
+					onScroll={(event) => setNearBottom(isNearBottom(event.currentTarget))}
+				>
 					{hasMany ? (
 						// Starsze wiadomości z 24h istnieją, ale są ukryte — loader + notice u góry.
 						// (Loader sam niesie rolę status — <output aria-label="Ładowanie">.)
@@ -383,13 +393,13 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 						</div>
 					))}
 				</div>
-				{newBelow ? (
+				{!nearBottom ? (
 					<button
 						type="button"
 						onClick={handleJumpToNew}
 						className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full border border-border bg-background px-4 py-1.5 text-xs font-medium text-foreground shadow-md transition-colors hover:bg-accent"
 					>
-						↓ nowe wiadomości
+						↓ Zjedź na sam dół
 					</button>
 				) : null}
 			</div>
@@ -400,17 +410,29 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 					currentUserId={currentUserId}
 					currentUserName={currentUserName}
 					isAdmin={isAdmin}
+					reactionsDisabled={!online}
 					onReply={handleReply}
 					onDelete={(messageId) => deleteMutation.mutate(messageId)}
 					onClose={closeMenu}
 				/>
 			) : null}
+			{!online && (
+				// F8 #159: lokalny banner czatu (globalny „Brak połączenia" z PwaShell
+				// zostaje) — informuje, że wysyłka i reakcje są zablokowane.
+				<div
+					data-chat-offline
+					className="flex items-center justify-center gap-2 border-t border-border bg-muted px-3 py-2 text-sm font-medium text-muted-foreground"
+				>
+					<MessageSquare className="size-4" />
+					Jesteś offline
+				</div>
+			)}
 			<form
 				onSubmit={(event) => {
 					event.preventDefault();
 					handleSend();
 				}}
-				className="border-t border-border bg-background p-3 sm:mb-1"
+				className="p-3 sm:mb-1"
 			>
 				<div className="mx-auto flex max-w-2xl flex-col">
 					{/* F3: anonimowy wskaźnik nad inputem — zawsze zamontowany (fade, bez skoku layoutu). */}
@@ -446,6 +468,7 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 							placeholder="Wiadomość…"
 							aria-label="Wiadomość"
 							autoComplete="off"
+							disabled={!online}
 							className="flex-1 rounded-full border border-input bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 						/>
 						<Button
@@ -453,7 +476,7 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 							size="icon"
 							className="h-11 w-11 shrink-0 rounded-full"
 							aria-label="Wyślij"
-							disabled={!draft.trim() || sendMutation.isPending}
+							disabled={!draft.trim() || sendMutation.isPending || !online}
 						>
 							<SendHorizontal className="h-5 w-5" />
 						</Button>

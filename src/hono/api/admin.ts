@@ -131,9 +131,14 @@ adminEndpoint.get("/features", async (c) => {
 });
 
 adminEndpoint.put("/features", async (c) => {
-	const body = await c.req.json<{ video?: unknown; markdown?: unknown; library?: unknown }>();
+	const body = await c.req.json<{
+		video?: unknown;
+		markdown?: unknown;
+		library?: unknown;
+		chat?: unknown;
+	}>();
 
-	const update: { video?: boolean; markdown?: boolean; library?: boolean } = {};
+	const update: { video?: boolean; markdown?: boolean; library?: boolean; chat?: boolean } = {};
 	if (body.video !== undefined) {
 		if (typeof body.video !== "boolean") {
 			return c.json({ error: "video must be a boolean" }, 400);
@@ -151,6 +156,12 @@ adminEndpoint.put("/features", async (c) => {
 			return c.json({ error: "library must be a boolean" }, 400);
 		}
 		update.library = body.library;
+	}
+	if (body.chat !== undefined) {
+		if (typeof body.chat !== "boolean") {
+			return c.json({ error: "chat must be a boolean" }, 400);
+		}
+		update.chat = body.chat;
 	}
 
 	await updateFeatureFlags(update);

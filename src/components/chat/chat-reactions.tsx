@@ -247,6 +247,8 @@ export interface ChatReactionBarProps {
 	/** inline = kompaktowy pasek; menu = duże ikony rozciągnięte na całą szerokość
 	 *  (wariant dla context menu — decyzja usera po HITL F5). */
 	variant?: "inline" | "menu";
+	/** F8 #159: blokada reakcji offline — przyciski nieodklikalne (bez kolejowania). */
+	disabled?: boolean;
 }
 
 /** Czas życia klasy animacji (pop/fade-out) — nieco dłuższy niż animacja 200ms. */
@@ -265,6 +267,7 @@ export function ChatReactionBar({
 	currentUserId,
 	currentUserName,
 	variant = "inline",
+	disabled = false,
 }: ChatReactionBarProps) {
 	const [animating, setAnimating] = useState<{
 		type: ReactionType;
@@ -315,6 +318,7 @@ export function ChatReactionBar({
 							aria-pressed={iReacted}
 							aria-label={label}
 							title={`${label} — przytrzymaj, aby zobaczyć kto zareagował`}
+							disabled={disabled}
 							onClick={() => mutation.mutate(type)}
 							onContextMenu={(event) => {
 								event.preventDefault();

@@ -22,6 +22,7 @@ describe("instance_config table", () => {
 				"maintenanceSubtitle",
 				"maintenanceIcon",
 				"videoEnabled",
+				"chatEnabled",
 				"markdownEnabled",
 				"libraryEnabled",
 				"youtubeChannelId",
@@ -91,6 +92,13 @@ describe("instance_config table", () => {
 		expect(columns.libraryEnabled.dataType).toBe("boolean");
 		expect(columns.libraryEnabled.notNull).toBe(true);
 		expect(columns.libraryEnabled.hasDefault).toBe(true);
+	});
+
+	// F8 #159: master switch czatu — jak pozostałe flagi, domyślnie włączony.
+	it("chat_enabled is boolean not null with default true", () => {
+		expect(columns.chatEnabled.dataType).toBe("boolean");
+		expect(columns.chatEnabled.notNull).toBe(true);
+		expect(columns.chatEnabled.hasDefault).toBe(true);
 	});
 
 	it("created_at is timestamp not null with default", () => {

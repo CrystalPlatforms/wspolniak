@@ -7,17 +7,24 @@ import type { FeatureFlags } from "@/db/instance";
 interface FeatureTogglesProps {
 	flags?: FeatureFlags;
 	isSaving: boolean;
-	onChange: (input: { video?: boolean; markdown?: boolean; library?: boolean }) => void;
+	onChange: (input: {
+		video?: boolean;
+		markdown?: boolean;
+		library?: boolean;
+		chat?: boolean;
+	}) => void;
 }
 
 /**
- * Sekcja „Funkcje" w panelu admina — master switch dla Wideo, Edytora i Biblioteki.
- * Stan jest trzymany w `instance_config`; zmiana natychmiast wysyła PUT.
+ * Sekcja „Funkcje" w panelu admina — master switch dla Wideo, Edytora,
+ * Biblioteki i Chata. Stan jest trzymany w `instance_config`; zmiana natychmiast
+ * wysyła PUT.
  */
 export function FeatureToggles({ flags, isSaving, onChange }: FeatureTogglesProps) {
 	const video = flags?.video ?? true;
 	const markdown = flags?.markdown ?? true;
 	const library = flags?.library ?? true;
+	const chat = flags?.chat ?? true;
 
 	return (
 		<div className="rounded-lg border border-border bg-card p-4">
@@ -46,6 +53,13 @@ export function FeatureToggles({ flags, isSaving, onChange }: FeatureTogglesProp
 					checked={library}
 					disabled={isSaving}
 					onCheckedChange={(v) => onChange({ library: v })}
+				/>
+				<ToggleRow
+					label="Chat"
+					description="Czat rodzinny — wiadomości znikają po 24 godzinach."
+					checked={chat}
+					disabled={isSaving}
+					onCheckedChange={(v) => onChange({ chat: v })}
 				/>
 			</div>
 		</div>

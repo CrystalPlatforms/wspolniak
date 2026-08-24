@@ -600,7 +600,12 @@ describe("GET /api/admin/stats", () => {
 
 describe("GET /api/admin/features", () => {
 	it("returns current feature flags", async () => {
-		mockGetFeatureFlags.mockResolvedValue({ video: true, markdown: false, library: true });
+		mockGetFeatureFlags.mockResolvedValue({
+			video: true,
+			markdown: false,
+			library: true,
+			chat: true,
+		});
 
 		const api = createApi();
 		const res = await api.request(
@@ -613,13 +618,18 @@ describe("GET /api/admin/features", () => {
 		const body = (await res.json()) as {
 			data: { video: boolean; markdown: boolean; library: boolean };
 		};
-		expect(body.data).toEqual({ video: true, markdown: false, library: true });
+		expect(body.data).toEqual({ video: true, markdown: false, library: true, chat: true });
 	});
 });
 
 describe("PUT /api/admin/features", () => {
 	it("updates both flags and returns the new state", async () => {
-		mockGetFeatureFlags.mockResolvedValue({ video: false, markdown: false, library: false });
+		mockGetFeatureFlags.mockResolvedValue({
+			video: false,
+			markdown: false,
+			library: false,
+			chat: false,
+		});
 
 		const api = createApi();
 		const res = await api.request(
@@ -627,7 +637,7 @@ describe("PUT /api/admin/features", () => {
 			{
 				method: "PUT",
 				headers: { ...adminHeaders(), "Content-Type": "application/json" },
-				body: JSON.stringify({ video: false, markdown: false, library: false }),
+				body: JSON.stringify({ video: false, markdown: false, library: false, chat: false }),
 			},
 			{ SESSION_SECRET: "secret" },
 		);
@@ -637,11 +647,17 @@ describe("PUT /api/admin/features", () => {
 			video: false,
 			markdown: false,
 			library: false,
+			chat: false,
 		});
 	});
 
 	it("forwards a partial update (only video)", async () => {
-		mockGetFeatureFlags.mockResolvedValue({ video: false, markdown: true, library: true });
+		mockGetFeatureFlags.mockResolvedValue({
+			video: false,
+			markdown: true,
+			library: true,
+			chat: true,
+		});
 
 		const api = createApi();
 		const res = await api.request(
@@ -698,6 +714,23 @@ describe("PUT /api/admin/features", () => {
 				method: "PUT",
 				headers: { ...adminHeaders(), "Content-Type": "application/json" },
 				body: JSON.stringify({ library: "yes" }),
+			},
+			{ SESSION_SECRET: "secret" },
+		);
+
+		expect(res.status).toBe(400);
+		expect(mockUpdateFeatureFlags).not.toHaveBeenCalled();
+	});
+
+	// F8 #159: czwarta flaga — chat, ta sama walidacja co pozostałe.
+	it("rejects non-boolean chat", async () => {
+		const api = createApi();
+		const res = await api.request(
+			"/api/admin/features",
+			{
+				method: "PUT",
+				headers: { ...adminHeaders(), "Content-Type": "application/json" },
+				body: JSON.stringify({ chat: "yes" }),
 			},
 			{ SESSION_SECRET: "secret" },
 		);

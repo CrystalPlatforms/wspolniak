@@ -23,7 +23,9 @@ function setPathname(pathname: string) {
 describe("DesktopSidebar — Wideo feature flag", () => {
 	it("renders Wideo nav link and Dodaj wideo button when video enabled", () => {
 		setPathname("/app");
-		render(<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true }} />);
+		render(
+			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+		);
 
 		expect(screen.queryByRole("link", { name: /^wideo$/i })).not.toBeNull();
 		expect(screen.queryByRole("link", { name: /dodaj wideo/i })).not.toBeNull();
@@ -31,7 +33,9 @@ describe("DesktopSidebar — Wideo feature flag", () => {
 
 	it("hides Wideo nav link and Dodaj wideo button when video disabled", () => {
 		setPathname("/app");
-		render(<DesktopSidebar featureFlags={{ video: false, markdown: true, library: true }} />);
+		render(
+			<DesktopSidebar featureFlags={{ video: false, markdown: true, library: true, chat: true }} />,
+		);
 
 		expect(screen.queryByRole("link", { name: /^wideo$/i })).toBeNull();
 		expect(screen.queryByRole("link", { name: /dodaj wideo/i })).toBeNull();
@@ -41,7 +45,9 @@ describe("DesktopSidebar — Wideo feature flag", () => {
 describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 	it("renders a Biblioteka nav link to /app/lib", () => {
 		setPathname("/app");
-		render(<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true }} />);
+		render(
+			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+		);
 
 		const link = screen.getByRole("link", { name: /^biblioteka$/i });
 		expect(link.getAttribute("href")).toBe("/app/lib");
@@ -49,7 +55,9 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 
 	it("highlights the Biblioteka link when on /app/lib", () => {
 		setPathname("/app/lib");
-		render(<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true }} />);
+		render(
+			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+		);
 
 		const link = screen.getByRole("link", { name: /^biblioteka$/i });
 		expect(link.getAttribute("class")).toContain("font-bold");
@@ -57,7 +65,9 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 
 	it("fills the bookmark icon white when Biblioteka is active", () => {
 		setPathname("/app/lib");
-		render(<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true }} />);
+		render(
+			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+		);
 
 		const link = screen.getByRole("link", { name: /^biblioteka$/i });
 		// currentColor = aktywny kolor tekstu (biały w trybie ciemnym) — wypełniona zakładka.
@@ -66,7 +76,9 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 
 	it("leaves the bookmark icon unfilled when Biblioteka is not active", () => {
 		setPathname("/app");
-		render(<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true }} />);
+		render(
+			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+		);
 
 		const link = screen.getByRole("link", { name: /^biblioteka$/i });
 		expect(link.querySelector("svg")?.getAttribute("fill")).toBe("none");
@@ -74,7 +86,9 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 
 	it("fills the Wideo icon when active", () => {
 		setPathname("/app/video");
-		render(<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true }} />);
+		render(
+			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+		);
 
 		const link = screen.getByRole("link", { name: /^wideo$/i });
 		expect(link.querySelector("svg")?.getAttribute("fill")).toBe("currentColor");
@@ -88,7 +102,7 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 		render(
 			<DesktopSidebar
 				role={adminRole}
-				featureFlags={{ video: true, markdown: true, library: true }}
+				featureFlags={{ video: true, markdown: true, library: true, chat: true }}
 			/>,
 		);
 
@@ -98,8 +112,54 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 
 	it("hides the Biblioteka nav link when library disabled", () => {
 		setPathname("/app");
-		render(<DesktopSidebar featureFlags={{ video: true, markdown: true, library: false }} />);
+		render(
+			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: false, chat: true }} />,
+		);
 
 		expect(screen.queryByRole("link", { name: /^biblioteka$/i })).toBeNull();
+	});
+});
+
+// Założenia kontraktu (F8 #159): pozycja „Chat" (nazwa usera — nie „Czat")
+// pod Biblioteką, /app/chat, MessageSquare wypełniona gdy aktywna; flaga
+// chat OFF ukrywa link (wzorzec Wideo/Biblioteka).
+describe("DesktopSidebar — Chat nav link (F8 #159)", () => {
+	it("renders a Chat nav link to /app/chat after Biblioteka", () => {
+		setPathname("/app");
+		render(
+			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+		);
+
+		const link = screen.getByRole("link", { name: /^chat$/i });
+		expect(link.getAttribute("href")).toBe("/app/chat");
+	});
+
+	it("hides the Chat nav link when chat disabled", () => {
+		setPathname("/app");
+		render(
+			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: false }} />,
+		);
+
+		expect(screen.queryByRole("link", { name: /^chat$/i })).toBeNull();
+	});
+
+	it("fills the message icon when Chat is active", () => {
+		setPathname("/app/chat");
+		render(
+			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+		);
+
+		const link = screen.getByRole("link", { name: /^chat$/i });
+		expect(link.querySelector("svg")?.getAttribute("fill")).toBe("currentColor");
+	});
+
+	it("leaves the message icon unfilled when Chat is not active", () => {
+		setPathname("/app");
+		render(
+			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+		);
+
+		const link = screen.getByRole("link", { name: /^chat$/i });
+		expect(link.querySelector("svg")?.getAttribute("fill")).toBe("none");
 	});
 });

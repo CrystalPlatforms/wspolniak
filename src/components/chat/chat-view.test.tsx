@@ -380,29 +380,61 @@ describe("ChatView — real-time (WS)", () => {
 		await screen.findByText("Nowa");
 
 		expect(scroller.scrollTo).toHaveBeenCalled();
-		expect(screen.queryByRole("button", { name: /nowe wiadomości/i })).toBeNull();
+		expect(screen.queryByRole("button", { name: /zjedź na sam dół/i })).toBeNull();
 	});
 
-	it("shows the „↓ nowe wiadomości” button when scrolled up; click scrolls down", async () => {
+	it("shows the „↓ Zjedź na sam dół” button when scrolled up; click scrolls down", async () => {
 		mockChatApi([apiMessage({ id: "m1", text: "Starsza" })]);
 		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
 			wrapper: createWrapper(),
 		});
 		expect(await screen.findByText("Starsza")).toBeDefined();
 		const scroller = prepareScroller(500); // 500px od dna → przewinięte w górę
+		// Przewinięcie = event scroll (przeglądarka odpala go przy scrollu usera).
+		await act(async () => {
+			fireEvent.scroll(scroller);
+		});
 
 		act(() => {
 			FakeWebSocket.instances[0]?.onmessage?.({ data: wsIncoming("m2", "Nowa") });
 		});
-		const jumpButton = await screen.findByRole("button", { name: /nowe wiadomości/i });
+		await screen.findByText("Nowa");
+		const jumpButton = screen.getByRole("button", { name: /zjedź na sam dół/i });
 		expect(scroller.scrollTo).not.toHaveBeenCalled();
 
 		await userEvent.click(jumpButton);
 
 		expect(scroller.scrollTo).toHaveBeenCalled();
 		await waitFor(() => {
-			expect(screen.queryByRole("button", { name: /nowe wiadomości/i })).toBeNull();
+			expect(screen.queryByRole("button", { name: /zjedź na sam dół/i })).toBeNull();
 		});
+	});
+
+	// F8 #159 HITL (zgłoszenie usera): przycisk widoczny ZAWSZE gdy przewinięto
+	// w górę — nie tylko po nadejściu nowej wiadomości. Sterowany pozycją scrolla.
+	it("shows the jump button on scroll-up alone (no new message); hides back at the bottom", async () => {
+		mockChatApi([apiMessage({ id: "m1", text: "Starsza" })]);
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
+		expect(await screen.findByText("Starsza")).toBeDefined();
+
+		// Bez eventu scroll przycisku nie ma (stan startowy: przy dniu).
+		expect(screen.queryByRole("button", { name: /zjedź na sam dół/i })).toBeNull();
+
+		// User przewija w górę → przycisk natychmiast (bez nowych wiadomości).
+		const scroller = prepareScroller(500);
+		await act(async () => {
+			fireEvent.scroll(scroller);
+		});
+		expect(screen.getByRole("button", { name: /zjedź na sam dół/i })).toBeDefined();
+
+		// Powrót na dół → przycisk znika.
+		Object.defineProperty(scroller, "scrollTop", { value: 1000, configurable: true });
+		await act(async () => {
+			fireEvent.scroll(scroller);
+		});
+		expect(screen.queryByRole("button", { name: /zjedź na sam dół/i })).toBeNull();
 	});
 });
 
@@ -694,5 +726,69 @@ describe("ChatView — delete for everyone (F6 #157)", () => {
 		await user.click(screen.getByRole("menuitem", { name: "Usuń" }));
 
 		expect(fetchMock).toHaveBeenCalledWith("/api/chat/messages/m1", { method: "DELETE" });
+	});
+});
+
+// Założenia kontraktu offline (F8 #159): navigator.onLine = granica przeglądarki
+// (override przez defineProperty jak w use-online-status.test.ts). Offline →
+// banner „Jesteś offline" nad kompozytorem, input i Wyślij zablokowane, reakcje
+// w menu zablokowane (bez kolejowania — PRD). Powrót online odblokowuje.
+function setNavigatorOnline(value: boolean) {
+	Object.defineProperty(navigator, "onLine", { value, configurable: true });
+}
+
+describe("ChatView — offline (F8 #159)", () => {
+	afterEach(() => {
+		setNavigatorOnline(true);
+	});
+
+	it("shows the Jesteś offline banner and disables the composer while offline", async () => {
+		setNavigatorOnline(false);
+		mockChatApi([apiMessage({ id: "m1", text: "Cześć" })]);
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
+		await screen.findByText("Cześć");
+
+		expect(screen.getByText("Jesteś offline")).toBeDefined();
+		expect(screen.getByLabelText("Wiadomość")).toHaveProperty("disabled", true);
+		expect(screen.getByRole("button", { name: "Wyślij" }).getAttribute("disabled")).not.toBeNull();
+	});
+
+	it("disables reaction buttons in the context menu while offline", async () => {
+		setNavigatorOnline(false);
+		mockChatApi([apiMessage({ id: "m1", text: "Cześć" })]);
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
+		await screen.findByText("Cześć");
+
+		fireEvent.contextMenu(bubbleOf("Cześć"), { clientX: 100, clientY: 100 });
+		const menuEl = screen.getByRole("menu", { name: "Menu wiadomości" });
+		const heart = within(menuEl).getByRole("button", { name: "serce" });
+		expect(heart.getAttribute("disabled")).not.toBeNull();
+	});
+
+	it("re-enables the composer when back online", async () => {
+		setNavigatorOnline(false);
+		mockChatApi([apiMessage({ id: "m1", text: "Cześć" })]);
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
+		await screen.findByText("Cześć");
+		expect(screen.getByText("Jesteś offline")).toBeDefined();
+
+		await act(async () => {
+			setNavigatorOnline(true);
+			window.dispatchEvent(new Event("online"));
+		});
+
+		expect(screen.queryByText("Jesteś offline")).toBeNull();
+		expect(screen.getByLabelText("Wiadomość")).toHaveProperty("disabled", false);
+
+		// Wyślij odblokowany, gdy jest tekst (przy pustym drafcie disabled zawsze).
+		const user = userEvent.setup();
+		await user.type(screen.getByLabelText("Wiadomość"), "wracam");
+		expect(screen.getByRole("button", { name: "Wyślij" }).getAttribute("disabled")).toBeNull();
 	});
 });

@@ -6,6 +6,7 @@ import {
 	ChartNoAxesColumn,
 	Cog,
 	Home,
+	MessageSquare,
 	Plus,
 	SlidersHorizontal,
 	Video,
@@ -35,6 +36,8 @@ const NAV_ITEMS: NavItem[] = [
 	{ to: "/app", icon: Home, label: "Feed", exact: true },
 	{ to: "/app/video", icon: Video, label: "Wideo", fillWhenActive: true },
 	{ to: "/app/lib", icon: Bookmark, label: "Biblioteka", fillWhenActive: true },
+	// F8 #159: nazwa usera „Chat" (nie „Czat"); wypełniona gdy aktywna.
+	{ to: "/app/chat", icon: MessageSquare, label: "Chat", fillWhenActive: true },
 	{ to: "/app/admin", icon: SlidersHorizontal, label: "Admin", adminOnly: true },
 	{
 		to: "/app/calendar",
@@ -57,6 +60,7 @@ export function DesktopSidebar({
 	const items = NAV_ITEMS.filter((item) => {
 		if (item.to === "/app/video" && !featureFlags.video) return false;
 		if (item.to === "/app/lib" && !featureFlags.library) return false;
+		if (item.to === "/app/chat" && !featureFlags.chat) return false;
 		return true;
 	});
 
