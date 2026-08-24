@@ -97,6 +97,25 @@
 	animation: chat-bubble-out 200ms ease-in forwards;
 }
 
+/* Podświetlenie oryginału po kliknięciu quote (#165) — niebieska poświata
+   przez 7s (timer w TSX: klasa zdejmuje się po HIGHLIGHT_MS). Motyw appki ma
+   zielone --primary, dlatego dedykowany niebieski (jak brandowy granat
+   „Dodaj wideo"); statyczny styl, nie animacja — reduced-motion nie dotyczy. */
+.chat-highlight {
+	background-color: oklch(0.62 0.17 255 / 0.16);
+	box-shadow:
+		0 0 0 1px oklch(0.62 0.17 255 / 0.5),
+		0 0 14px oklch(0.62 0.17 255 / 0.45);
+	border-radius: 1rem;
+}
+
+.dark .chat-highlight {
+	background-color: oklch(0.62 0.17 255 / 0.22);
+	box-shadow:
+		0 0 0 1px oklch(0.62 0.17 255 / 0.55),
+		0 0 16px oklch(0.62 0.17 255 / 0.5);
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.chat-bubble-in {
 		animation: none;

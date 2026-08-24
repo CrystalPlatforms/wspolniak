@@ -76,6 +76,9 @@ const MAX_MESSAGE_LENGTH = 200;
 /** Czas animacji zniknięcia bąbelka (F6 #157) — po nim sprzątamy cache. */
 const BUBBLE_OUT_MS = 230;
 
+/** Czas podświetlenia oryginału po kliknięciu quote (#165) — „świeci 7sec". */
+const HIGHLIGHT_MS = 7000;
+
 /** Wiadomość w locie (optymistyczna) — Bubble visible natychmiast, status steruje paskiem. */
 interface PendingMessage {
 	clientId: string;
@@ -137,6 +140,11 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 	// na sam dół" — widocznemu ZAWSZE po przewinięciu w górę (nie tylko przy
 	// nowych wiadomościach; zgłoszenie usera z QA animacji).
 	const [nearBottom, setNearBottom] = useState(true);
+	// #165: id wiadomości podświetlonej po kliknięciu quote (niebieska poświata).
+	const [highlightedId, setHighlightedId] = useState<string | null>(null);
+	const highlightTimerRef = useRef<number | undefined>(undefined);
+	// Timer poświaty gasi ją po 7s; sprzątamy go przy odmontowaniu czatu.
+	useEffect(() => () => window.clearTimeout(highlightTimerRef.current), []);
 
 	const list = messages ?? [];
 	const menuMessage = menu ? list.find((message) => message.id === menu.messageId) : undefined;
@@ -259,12 +267,17 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 	}
 
 	/** Klik w quote (F5): scroll do żywego oryginału; wygasły/usunięty = no-op,
-	 *  snapshot quote zostaje na miejscu. */
+	 *  snapshot quote zostaje na miejscu. #165: żywy oryginał dostaje niebieską
+	 *  poświatę (chat-highlight) na 7 sekund. */
 	function scrollToMessage(messageId: string | null) {
 		if (!messageId) return;
-		containerRef.current
-			?.querySelector(`[data-message-id="${messageId}"]`)
-			?.scrollIntoView({ behavior: "smooth", block: "center" });
+		const target = containerRef.current?.querySelector(`[data-message-id="${messageId}"]`);
+		if (!target) return;
+		target.scrollIntoView({ behavior: "smooth", block: "center" });
+		// #165: podświetl oryginał i zapal licznik 7s (restart przy kolejnym kliknięciu).
+		window.clearTimeout(highlightTimerRef.current);
+		setHighlightedId(messageId);
+		highlightTimerRef.current = window.setTimeout(() => setHighlightedId(null), HIGHLIGHT_MS);
 	}
 
 	// Przy dużej liczbie wiadomości renderujemy tylko najnowsze — szybciej na telefonach.
@@ -310,7 +323,7 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 									key={message.id}
 									data-message-id={message.id}
 									data-side={side}
-									className={`flex w-full flex-col ${side === "own" ? "items-end" : "items-start"} ${isFirstOfGroup ? "mt-3" : "mt-0.5"} ${slideIn ? "chat-bubble-in" : ""} ${removing ? "chat-bubble-out" : ""} first:mt-0`}
+									className={`flex w-full flex-col ${side === "own" ? "items-end" : "items-start"} ${isFirstOfGroup ? "mt-3" : "mt-0.5"} ${slideIn ? "chat-bubble-in" : ""} ${removing ? "chat-bubble-out" : ""} ${message.id === highlightedId ? "chat-highlight" : ""} first:mt-0`}
 								>
 									{side === "other" && isFirstOfGroup ? (
 										<span className="mb-0.5 px-1 text-xs font-medium text-muted-foreground">

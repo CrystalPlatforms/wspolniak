@@ -792,3 +792,139 @@ describe("ChatView — offline (F8 #159)", () => {
 		expect(screen.getByRole("button", { name: "Wyślij" }).getAttribute("disabled")).toBeNull();
 	});
 });
+
+// ─── #165 ─────────────────────────────────────────────────────────────────────
+// Założenia kontraktu UI (podświetlenie oryginału po kliknięciu quote):
+// - Klik w quote scrolluje do żywego oryginału ORAZ świeci go na niebiesko:
+//   wiersz (li[data-message-id]) dostaje klasę chat-highlight na dokładnie 7s.
+// - Poświata zaczyna się natychmiast przy kliknięciu (równolegle ze scrollem).
+// - Wygasły/usunięty oryginał = no-op: bez scrolla i bez podświetlenia.
+// - Klik w inny quote przenosi poświatę i startuje nowe pełne 7s.
+describe("ChatView — reply quote highlight (#165)", () => {
+	beforeEach(() => {
+		vi.stubGlobal("WebSocket", FakeWebSocket);
+		FakeWebSocket.instances = [];
+	});
+
+	/** Quote (przycisk cytatu odpowiedzi) w wierszu o danym id wiadomości. */
+	function quoteIn(rowId: string): HTMLElement {
+		const quote = document.querySelector(`[data-message-id="${rowId}"] [data-reply-quote]`);
+		if (!quote) throw new Error(`brak quote w wierszu ${rowId}`);
+		return quote as HTMLElement;
+	}
+
+	/** Wiersz (li) wiadomości o danym id. */
+	function rowOf(rowId: string): HTMLElement {
+		return document.querySelector(`[data-message-id="${rowId}"]`) as HTMLElement;
+	}
+
+	it("clicking a live quote highlights the original row (chat-highlight class)", async () => {
+		mockChatApi([
+			apiMessage({ id: "m1", text: "Pierwszy oryginał" }),
+			apiMessage({ id: "m2", text: "Odp", replyToId: "m1", replyText: "Pierwszy oryginał" }),
+		]);
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
+		await screen.findByText("Odp");
+		Element.prototype.scrollIntoView = vi.fn();
+
+		fireEvent.click(quoteIn("m2"));
+
+		// Oryginał świeci; wiersz odpowiedzi (ten z quote) — nie.
+		expect(rowOf("m1").classList.contains("chat-highlight")).toBe(true);
+		expect(rowOf("m2").classList.contains("chat-highlight")).toBe(false);
+	});
+
+	it("highlight fades after exactly 7 seconds", async () => {
+		mockChatApi([
+			apiMessage({ id: "m1", text: "Oryginał" }),
+			apiMessage({ id: "m2", text: "Odp", replyToId: "m1", replyText: "Oryginał" }),
+		]);
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
+		await screen.findByText("Odp");
+		Element.prototype.scrollIntoView = vi.fn();
+		const row = rowOf("m1");
+
+		vi.useFakeTimers();
+		try {
+			fireEvent.click(quoteIn("m2"));
+			expect(row.classList.contains("chat-highlight")).toBe(true);
+
+			// 6999ms — jeszcze świeci (issue: „przez 7sec").
+			act(() => {
+				vi.advanceTimersByTime(6999);
+			});
+			expect(row.classList.contains("chat-highlight")).toBe(true);
+
+			// 7000ms — poświata znika.
+			act(() => {
+				vi.advanceTimersByTime(1);
+			});
+			expect(row.classList.contains("chat-highlight")).toBe(false);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("a gone original neither scrolls nor highlights anything", async () => {
+		mockChatApi([apiMessage({ id: "m3", text: "Odp2", replyToId: "gone", replyText: "Stara" })]);
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
+		await screen.findByText("Odp2");
+		const scrollIntoView = vi.fn();
+		Element.prototype.scrollIntoView = scrollIntoView;
+
+		fireEvent.click(quoteIn("m3"));
+
+		// Wygasły/usunięty oryginał = pełny no-op (quote zostaje na miejscu).
+		expect(scrollIntoView).not.toHaveBeenCalled();
+		expect(document.querySelectorAll(".chat-highlight")).toHaveLength(0);
+	});
+
+	it("clicking another quote moves the highlight and restarts the 7s timer", async () => {
+		mockChatApi([
+			apiMessage({ id: "m1", text: "Pierwszy oryginał" }),
+			apiMessage({ id: "m2", text: "Odp", replyToId: "m1", replyText: "Pierwszy oryginał" }),
+			apiMessage({ id: "m3", text: "Drugi oryginał" }),
+			apiMessage({ id: "m4", text: "Odp2", replyToId: "m3", replyText: "Drugi oryginał" }),
+		]);
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
+		await screen.findByText("Odp2");
+		Element.prototype.scrollIntoView = vi.fn();
+
+		vi.useFakeTimers();
+		try {
+			fireEvent.click(quoteIn("m2"));
+			expect(rowOf("m1").classList.contains("chat-highlight")).toBe(true);
+
+			act(() => {
+				vi.advanceTimersByTime(4000);
+			});
+
+			// Drugi quote: poświata przenosi się na nowy oryginał.
+			fireEvent.click(quoteIn("m4"));
+			expect(rowOf("m1").classList.contains("chat-highlight")).toBe(false);
+			expect(rowOf("m3").classList.contains("chat-highlight")).toBe(true);
+
+			// 6999ms od DRUGIEGO kliknięcia — nadal świeci (timer wystartował od
+			// nowa; bez restartu stary timer zgasiłby poświatę 3s wcześniej).
+			act(() => {
+				vi.advanceTimersByTime(6999);
+			});
+			expect(rowOf("m3").classList.contains("chat-highlight")).toBe(true);
+
+			act(() => {
+				vi.advanceTimersByTime(1);
+			});
+			expect(rowOf("m3").classList.contains("chat-highlight")).toBe(false);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+});
