@@ -1,3 +1,10 @@
+# [3.31.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.30.0...v3.31.0) (2026-08-27)
+
+
+### Features
+
+* **albums:** add F1 — create, list and view albums ([#170](https://github.com/CrystalPlatforms/wspolniak/issues/170)) ([9092a6c](https://github.com/CrystalPlatforms/wspolniak/commit/9092a6c765912e41b86d8c2df05f8129efea6e42))
+
 # [3.30.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.29.0...v3.30.0) (2026-08-27)
 
 
