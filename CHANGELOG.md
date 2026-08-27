@@ -1,3 +1,10 @@
+# [3.30.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.29.0...v3.30.0) (2026-08-27)
+
+
+### Features
+
+* **chat:** add [@mentions](https://github.com/mentions) with member autocomplete ([#168](https://github.com/CrystalPlatforms/wspolniak/issues/168)) ([6ecc7d7](https://github.com/CrystalPlatforms/wspolniak/commit/6ecc7d786a026ffbb142f060d1422faaaa135942))
+
 # [3.29.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.28.0...v3.29.0) (2026-08-24)
 
 
