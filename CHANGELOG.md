@@ -1,3 +1,10 @@
+# [4.0.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.31.0...v4.0.0) (2026-08-27)
+
+
+### Features
+
+* **ui:** enlarge header icon actions and reaction picker ([781791f](https://github.com/CrystalPlatforms/wspolniak/commit/781791f25147e2d4d380a1e85af5a3566190846a))
+
 # [3.31.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.30.0...v3.31.0) (2026-08-27)
 
 
@@ -445,7 +452,7 @@
 
 ## Project Metrics
 
-- Current application codebase size: **49,003 lines of code** as measured on 2026-08-27.
+- Current application codebase size: **49,027 lines of code** as measured on 2026-08-27.
 - Scope: `src/` and `scripts/` source files, excluding generated files, SQL migrations, build artifacts, and dependencies.
 - This metric must be recalculated and kept current whenever the codebase changes in a way that materially affects line count.
 
