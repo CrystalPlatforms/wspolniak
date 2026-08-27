@@ -33,7 +33,7 @@ function VideoFeedScreen() {
 					<div className="flex-1" />
 					<Link to="/app/new-video">
 						<Button variant="ghost" size="lg" title="Dodaj wideo">
-							<Plus className="h-4 w-4" />
+							<Plus className="size-6" />
 						</Button>
 					</Link>
 				</div>

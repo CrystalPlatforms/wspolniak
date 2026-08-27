@@ -95,6 +95,10 @@ describe("AlbumsList", () => {
 		const button = screen.getByRole("button", { name: /nowy album/i });
 		// Dostępna nazwa z title, treść = sama ikona Plus (bez tekstu).
 		expect(button.textContent).toBe("");
+		// Ikona MUSI mieć klasę typu size-* — shadcn Button wymusza size-4 na svg
+		// bez takiej klasy ([&_svg:not([class*='size-'])]:size-4) i 1.5x nie działa.
+		const icon = button.querySelector("svg");
+		expect(icon?.getAttribute("class")).toContain("size-6");
 	});
 
 	it("shows an empty state with a create hint when there are no albums", async () => {

@@ -169,7 +169,7 @@ function CalendarPage() {
 						onClick={() => setAddOpen(true)}
 						title="Dodaj wydarzenie"
 					>
-						<Plus className="h-4 w-4" />
+						<Plus className="size-6" />
 					</Button>
 				)}
 			</div>

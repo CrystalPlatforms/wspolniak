@@ -81,7 +81,7 @@ export function EmojiReactions({ target }: EmojiReactionsProps) {
 
 	return (
 		<div className="inline-flex items-center gap-1" data-slot="emoji-reactions">
-			<EmojiReactionPicker onReact={handleSelect} last={selected} active={selected} size="sm" />
+			<EmojiReactionPicker onReact={handleSelect} last={selected} active={selected} size="md" />
 		</div>
 	);
 }

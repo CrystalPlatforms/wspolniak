@@ -283,7 +283,7 @@ function AdminPage() {
 						onClick={() => setAddDialogOpen(true)}
 						title="Dodaj członka"
 					>
-						<Plus className="h-4 w-4" />
+						<Plus className="size-6" />
 					</Button>
 					<Button
 						variant="ghost"

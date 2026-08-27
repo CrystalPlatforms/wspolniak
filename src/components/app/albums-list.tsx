@@ -58,7 +58,7 @@ export function AlbumsList() {
 				<h1 className="text-2xl font-bold text-foreground">Albumy</h1>
 				<div className="flex-1" />
 				<Button variant="ghost" size="lg" title="Nowy album" onClick={() => setCreateOpen(true)}>
-					<Plus className="h-4 w-4" />
+					<Plus className="size-6" />
 				</Button>
 			</div>
 

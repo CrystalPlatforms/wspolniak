@@ -182,3 +182,11 @@ describe("EmojiReactions", () => {
 		await waitFor(() => expect(screen.getByRole("button", { name: "Dodaj reakcję" })).toBeTruthy());
 	});
 });
+
+it("renders a bigger picker trigger (size-10, reviza usera)", async () => {
+	render(<EmojiReactions target={POST_TARGET} />, { wrapper: createWrapper() });
+	await waitFor(() => {
+		const trigger = screen.getByRole("button", { name: /Dodaj reakcję/ });
+		expect(trigger.getAttribute("class")).toContain("size-10");
+	});
+});

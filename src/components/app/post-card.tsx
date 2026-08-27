@@ -206,7 +206,8 @@ export function PostCard({
 
 			{visible.reactions ? (
 				<div className="mt-3 flex items-center justify-between">
-					<div className="flex items-center gap-1">
+					{/* gap-4: picker reakcji wyraźnie odstaje od przycisku komentarzy (reviza usera). */}
+					<div className="flex items-center gap-4">
 						<Link
 							to="/app/post/$id"
 							params={{ id: post.id }}

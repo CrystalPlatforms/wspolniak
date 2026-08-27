@@ -55,7 +55,7 @@ function FeedScreen() {
 					<div className="flex-1" />
 					<Link to="/app/settings">
 						<Button variant="ghost" size="lg" title="Ustawienia">
-							<Cog className="h-4 w-4" />
+							<Cog className="size-6" />
 						</Button>
 					</Link>
 				</div>

@@ -199,4 +199,15 @@ describe("PostCard — choreografia odsłaniania (#145)", () => {
 		rerenderCard(post);
 		expect(screen.getByText("Wakacje")).toBeTruthy();
 	});
+
+	it("picker reakcji jest wyraźnie oddalony od przycisku komentarzy (reviza usera)", () => {
+		mockedSettled.mockReturnValue(true);
+		renderCard(makePost({ images: [], videos: [] }));
+
+		// Kontener wiersza komentarze+reakcje (EmojiReactions ma data-slot) — odstęp gap-4.
+		const reactions = document.querySelector('[data-slot="emoji-reactions"]');
+		expect(reactions).not.toBeNull();
+		const row = reactions?.parentElement;
+		expect(row?.getAttribute("class")).toContain("gap-4");
+	});
 });
