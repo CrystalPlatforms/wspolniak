@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { infiniteQueryOptions, useInfiniteQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { Cog } from "lucide-react";
 import { Feed } from "@/components/app/feed";
 import { type FeedPage, feedQueryKey } from "@/components/app/feed-query";
 import { PullToRefresh } from "@/components/app/pull-to-refresh";
+import { Button } from "@/components/ui/button";
 import { getFeedPage } from "@/core/functions/feed";
 
 type FeedCursor = NonNullable<FeedPage["meta"]["nextCursor"]>;
@@ -45,7 +47,18 @@ function FeedScreen() {
 			}}
 		>
 			<div className="max-w-2xl bg-background px-4 py-6 pb-28 sm:pb-6">
-				<h1 className="mb-6 text-2xl font-bold text-foreground">Witaj {session.name}</h1>
+				{/* Header 1:1 jak Kalendarz/Albumy: tytuł + flex-1 + ghost ikona.
+				    Ustawienia przeniesione tu z menu (reviza usera) — po przeciwnej
+				    stronie „Witaj", na tej samej wysokości. */}
+				<div className="mb-6 flex items-center gap-2">
+					<h1 className="text-2xl font-bold text-foreground">Witaj {session.name}</h1>
+					<div className="flex-1" />
+					<Link to="/app/settings">
+						<Button variant="ghost" size="lg" title="Ustawienia">
+							<Cog className="h-4 w-4" />
+						</Button>
+					</Link>
+				</div>
 				<Feed
 					posts={allPosts as never[]}
 					imageAccountHash={imageAccountHash}

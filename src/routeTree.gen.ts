@@ -15,6 +15,7 @@ import { Route as SetupRouteImport } from './routes/setup'
 import { Route as ShareRouteImport } from './routes/share'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppAdminRouteImport } from './routes/app/admin'
+import { Route as AppAlbumsRouteImport } from './routes/app/albums'
 import { Route as AppCalendarRouteImport } from './routes/app/calendar'
 import { Route as AppChatRouteImport } from './routes/app/chat'
 import { Route as AppLibRouteImport } from './routes/app/lib'
@@ -25,6 +26,8 @@ import { Route as AppStatsRouteImport } from './routes/app/stats'
 import { Route as AppVideoRouteImport } from './routes/app/video'
 import { Route as AuthErrorRouteImport } from './routes/auth/error'
 import { Route as SharedPostIdRouteImport } from './routes/shared-post.$id'
+import { Route as AppAlbumsIndexRouteImport } from './routes/app/albums/index'
+import { Route as AppAlbumsIdRouteImport } from './routes/app/albums/$id'
 import { Route as AppPostIdRouteImport } from './routes/app/post.$id'
 import { Route as AppVideoIndexRouteImport } from './routes/app/video/index'
 import { Route as AppVideoIdRouteImport } from './routes/app/video.$id'
@@ -58,6 +61,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
 const AppAdminRoute = AppAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAlbumsRoute = AppAlbumsRouteImport.update({
+  id: '/albums',
+  path: '/albums',
   getParentRoute: () => AppRoute,
 } as any)
 const AppCalendarRoute = AppCalendarRouteImport.update({
@@ -110,6 +118,16 @@ const SharedPostIdRoute = SharedPostIdRouteImport.update({
   path: '/shared-post/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppAlbumsIndexRoute = AppAlbumsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppAlbumsRoute,
+} as any)
+const AppAlbumsIdRoute = AppAlbumsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AppAlbumsRoute,
+} as any)
 const AppPostIdRoute = AppPostIdRouteImport.update({
   id: '/post/$id',
   path: '/post/$id',
@@ -137,6 +155,7 @@ export interface FileRoutesByFullPath {
   '/setup': typeof SetupRoute
   '/share': typeof ShareRoute
   '/app/admin': typeof AppAdminRoute
+  '/app/albums': typeof AppAlbumsRouteWithChildren
   '/app/calendar': typeof AppCalendarRoute
   '/app/chat': typeof AppChatRoute
   '/app/lib': typeof AppLibRoute
@@ -148,8 +167,10 @@ export interface FileRoutesByFullPath {
   '/auth/error': typeof AuthErrorRoute
   '/shared-post/$id': typeof SharedPostIdRoute
   '/app/': typeof AppIndexRoute
+  '/app/albums/$id': typeof AppAlbumsIdRoute
   '/app/post/$id': typeof AppPostIdRoute
   '/app/video/$id': typeof AppVideoIdRoute
+  '/app/albums/': typeof AppAlbumsIndexRoute
   '/app/video/': typeof AppVideoIndexRoute
   '/app/post/$id/edit': typeof AppPostIdEditRoute
 }
@@ -168,8 +189,10 @@ export interface FileRoutesByTo {
   '/auth/error': typeof AuthErrorRoute
   '/shared-post/$id': typeof SharedPostIdRoute
   '/app': typeof AppIndexRoute
+  '/app/albums/$id': typeof AppAlbumsIdRoute
   '/app/post/$id': typeof AppPostIdRoute
   '/app/video/$id': typeof AppVideoIdRoute
+  '/app/albums': typeof AppAlbumsIndexRoute
   '/app/video': typeof AppVideoIndexRoute
   '/app/post/$id/edit': typeof AppPostIdEditRoute
 }
@@ -180,6 +203,7 @@ export interface FileRoutesById {
   '/setup': typeof SetupRoute
   '/share': typeof ShareRoute
   '/app/admin': typeof AppAdminRoute
+  '/app/albums': typeof AppAlbumsRouteWithChildren
   '/app/calendar': typeof AppCalendarRoute
   '/app/chat': typeof AppChatRoute
   '/app/lib': typeof AppLibRoute
@@ -191,8 +215,10 @@ export interface FileRoutesById {
   '/auth/error': typeof AuthErrorRoute
   '/shared-post/$id': typeof SharedPostIdRoute
   '/app/': typeof AppIndexRoute
+  '/app/albums/$id': typeof AppAlbumsIdRoute
   '/app/post/$id': typeof AppPostIdRoute
   '/app/video/$id': typeof AppVideoIdRoute
+  '/app/albums/': typeof AppAlbumsIndexRoute
   '/app/video/': typeof AppVideoIndexRoute
   '/app/post/$id_/edit': typeof AppPostIdEditRoute
 }
@@ -204,6 +230,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/share'
     | '/app/admin'
+    | '/app/albums'
     | '/app/calendar'
     | '/app/chat'
     | '/app/lib'
@@ -215,8 +242,10 @@ export interface FileRouteTypes {
     | '/auth/error'
     | '/shared-post/$id'
     | '/app/'
+    | '/app/albums/$id'
     | '/app/post/$id'
     | '/app/video/$id'
+    | '/app/albums/'
     | '/app/video/'
     | '/app/post/$id/edit'
   fileRoutesByTo: FileRoutesByTo
@@ -235,8 +264,10 @@ export interface FileRouteTypes {
     | '/auth/error'
     | '/shared-post/$id'
     | '/app'
+    | '/app/albums/$id'
     | '/app/post/$id'
     | '/app/video/$id'
+    | '/app/albums'
     | '/app/video'
     | '/app/post/$id/edit'
   id:
@@ -246,6 +277,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/share'
     | '/app/admin'
+    | '/app/albums'
     | '/app/calendar'
     | '/app/chat'
     | '/app/lib'
@@ -257,8 +289,10 @@ export interface FileRouteTypes {
     | '/auth/error'
     | '/shared-post/$id'
     | '/app/'
+    | '/app/albums/$id'
     | '/app/post/$id'
     | '/app/video/$id'
+    | '/app/albums/'
     | '/app/video/'
     | '/app/post/$id_/edit'
   fileRoutesById: FileRoutesById
@@ -314,6 +348,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/app/admin'
       preLoaderRoute: typeof AppAdminRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/albums': {
+      id: '/app/albums'
+      path: '/albums'
+      fullPath: '/app/albums'
+      preLoaderRoute: typeof AppAlbumsRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/calendar': {
@@ -386,6 +427,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SharedPostIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app/albums/': {
+      id: '/app/albums/'
+      path: '/'
+      fullPath: '/app/albums/'
+      preLoaderRoute: typeof AppAlbumsIndexRouteImport
+      parentRoute: typeof AppAlbumsRoute
+    }
+    '/app/albums/$id': {
+      id: '/app/albums/$id'
+      path: '/$id'
+      fullPath: '/app/albums/$id'
+      preLoaderRoute: typeof AppAlbumsIdRouteImport
+      parentRoute: typeof AppAlbumsRoute
+    }
     '/app/post/$id': {
       id: '/app/post/$id'
       path: '/post/$id'
@@ -417,6 +472,20 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AppAlbumsRouteChildren {
+  AppAlbumsIdRoute: typeof AppAlbumsIdRoute
+  AppAlbumsIndexRoute: typeof AppAlbumsIndexRoute
+}
+
+const AppAlbumsRouteChildren: AppAlbumsRouteChildren = {
+  AppAlbumsIdRoute: AppAlbumsIdRoute,
+  AppAlbumsIndexRoute: AppAlbumsIndexRoute,
+}
+
+const AppAlbumsRouteWithChildren = AppAlbumsRoute._addFileChildren(
+  AppAlbumsRouteChildren,
+)
+
 interface AppVideoRouteChildren {
   AppVideoIdRoute: typeof AppVideoIdRoute
   AppVideoIndexRoute: typeof AppVideoIndexRoute
@@ -433,6 +502,7 @@ const AppVideoRouteWithChildren = AppVideoRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRoute
+  AppAlbumsRoute: typeof AppAlbumsRouteWithChildren
   AppCalendarRoute: typeof AppCalendarRoute
   AppChatRoute: typeof AppChatRoute
   AppLibRoute: typeof AppLibRoute
@@ -448,6 +518,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRoute,
+  AppAlbumsRoute: AppAlbumsRouteWithChildren,
   AppCalendarRoute: AppCalendarRoute,
   AppChatRoute: AppChatRoute,
   AppLibRoute: AppLibRoute,

@@ -107,3 +107,43 @@ describe("MobileSidebar — Chat nav link (F8 #159)", () => {
 		expect(link.querySelector("svg")?.getAttribute("fill")).toBe("currentColor");
 	});
 });
+
+// Albumy (#170): pozycja mobilnego menu — mirror desktop-sidebar (jedno źródło
+// prawdy trzymane ręcznie w obu plikach).
+describe("MobileSidebar — Albumy nav link (#170)", () => {
+	it("renders an Albumy nav link to /app/albums", async () => {
+		setPathname("/app");
+		render(
+			<MobileSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+		);
+		await openMenu();
+
+		const link = screen.getByRole("link", { name: /^albumy$/i });
+		expect(link.getAttribute("href")).toBe("/app/albums");
+	});
+
+	it("leaves the Albumy icon unfilled when /app/albums is active (#170 reviza)", async () => {
+		setPathname("/app/albums");
+		render(
+			<MobileSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+		);
+		await openMenu();
+
+		const link = screen.getByRole("link", { name: /^albumy$/i });
+		expect(link.querySelector("svg")?.getAttribute("fill")).toBe("none");
+	});
+});
+
+// Ustawienia przeniesione z menu do nagłówka feeda (ikona Cog obok „Witaj",
+// reviza usera) — pozycja menu znika z obu sidebarów.
+describe("MobileSidebar — Ustawienia moved to feed header (reviza usera)", () => {
+	it("does not render a Ustawienia nav link anymore", async () => {
+		setPathname("/app");
+		render(
+			<MobileSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+		);
+		await openMenu();
+
+		expect(screen.queryByRole("link", { name: /^ustawienia$/i })).toBeNull();
+	});
+});

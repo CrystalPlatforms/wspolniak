@@ -4,8 +4,8 @@ import {
 	Bookmark,
 	Calendar,
 	ChartNoAxesColumn,
-	Cog,
 	Home,
+	Images,
 	Menu,
 	MessageSquare,
 	Plus,
@@ -34,6 +34,9 @@ const NAV_ITEMS: NavItem[] = [
 	{ to: "/app", icon: Home, label: "Feed", exact: true },
 	{ to: "/app/video", icon: Video, label: "Wideo", fillWhenActive: true },
 	{ to: "/app/lib", icon: Bookmark, label: "Biblioteka", fillWhenActive: true },
+	// Albumy (#170): mirror desktop-sidebar; brak flagi w F1 — zawsze widoczna,
+	// bez fillWhenActive (wypełniona ikona Images wygląda źle — reviza usera).
+	{ to: "/app/albums", icon: Images, label: "Albumy" },
 	// F8 #159: nazwa usera „Chat" (nie „Czat"); wypełniona gdy aktywna.
 	{ to: "/app/chat", icon: MessageSquare, label: "Chat", fillWhenActive: true },
 	{ to: "/app/admin", icon: SlidersHorizontal, label: "Admin", adminOnly: true },
@@ -45,7 +48,7 @@ const NAV_ITEMS: NavItem[] = [
 		fillWhenActive: true,
 	},
 	{ to: "/app/stats", icon: ChartNoAxesColumn, label: "Statystyki", adminOnly: false },
-	{ to: "/app/settings", icon: Cog, label: "Ustawienia" },
+	// Ustawienia przeniesione do nagłówka feeda (ikona Cog obok „Witaj", reviza usera).
 ];
 
 interface MobileSidebarProps {

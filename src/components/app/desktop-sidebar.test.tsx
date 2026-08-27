@@ -176,3 +176,53 @@ describe("DesktopSidebar — Chat nav link (F8 #159)", () => {
 		expect(link.querySelector("svg")?.getAttribute("fill")).toBe("none");
 	});
 });
+
+// Albumy (#170): pozycja „Albumy" → /app/albums, widoczna dla zalogowanych
+// członków (brak flagi w F1 — nav zawsze widoczny). Ikona Images wypełniona
+// gdy aktywna (wzorzec Biblioteka/Wideo/Chat).
+describe("DesktopSidebar — Albumy nav link (#170)", () => {
+	it("renders an Albumy nav link to /app/albums", () => {
+		setPathname("/app");
+		render(
+			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+		);
+
+		const link = screen.getByRole("link", { name: /^albumy$/i });
+		expect(link.getAttribute("href")).toBe("/app/albums");
+	});
+
+	it("highlights the Albumy link but leaves the icon unfilled when active (#170 reviza)", () => {
+		setPathname("/app/albums");
+		render(
+			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+		);
+
+		const link = screen.getByRole("link", { name: /^albumy$/i });
+		expect(link.getAttribute("class")).toContain("font-bold");
+		// Ikona Images z lucide wypełniona wygląda źle — zostaje konturowa (reviza usera).
+		expect(link.querySelector("svg")?.getAttribute("fill")).toBe("none");
+	});
+
+	it("leaves the Albumy icon unfilled when not active", () => {
+		setPathname("/app");
+		render(
+			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+		);
+
+		const link = screen.getByRole("link", { name: /^albumy$/i });
+		expect(link.querySelector("svg")?.getAttribute("fill")).toBe("none");
+	});
+});
+
+// Ustawienia przeniesione z menu do nagłówka feeda (ikona Cog obok „Witaj",
+// reviza usera) — pozycja menu znika z obu sidebarów.
+describe("DesktopSidebar — Ustawienia moved to feed header (reviza usera)", () => {
+	it("does not render a Ustawienia nav link anymore", () => {
+		setPathname("/app");
+		render(
+			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+		);
+
+		expect(screen.queryByRole("link", { name: /^ustawienia$/i })).toBeNull();
+	});
+});
