@@ -5,6 +5,9 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ChatBubbleMenu } from "@/components/chat/chat-bubble-menu";
 import { ChatBubbleReactions } from "@/components/chat/chat-bubble-reactions";
+import { ChatBubbleText } from "@/components/chat/chat-bubble-text";
+import { ChatInput } from "@/components/chat/chat-input";
+import { ChatPendingBubble, type PendingMessage } from "@/components/chat/chat-pending-bubble";
 import { useBubbleMenu } from "@/components/chat/use-bubble-menu";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
@@ -71,9 +74,6 @@ const MAX_VISIBLE_MESSAGES = 50;
 /** Granica, powyżej której pojawia się loader + notice o ukrytych starszych wiadomości. */
 const MANY_MESSAGES_THRESHOLD = 50;
 
-/** Maksymalna długość wiadomości — limit PRD, egzekwowany też przez API (Zod). */
-const MAX_MESSAGE_LENGTH = 200;
-
 /** Czas animacji zniknięcia bąbelka (F6 #157) — po nim sprzątamy cache. */
 const BUBBLE_OUT_MS = 230;
 
@@ -81,14 +81,6 @@ const BUBBLE_OUT_MS = 230;
 const HIGHLIGHT_MS = 7000;
 
 /** Wiadomość w locie (optymistyczna) — Bubble visible natychmiast, status steruje paskiem. */
-interface PendingMessage {
-	clientId: string;
-	text: string;
-	replyToId?: string;
-	replyText: string | null;
-	status: "sending" | "error";
-}
-
 interface ChatViewProps {
 	currentUserId: string;
 	/** Imię usera z sesji — trafia do optymistycznych reakcji (lista kto-zareagował). */
@@ -361,7 +353,7 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 										{side === "other" ? (
 											<ChatBubbleReactions messageId={message.id} currentUserId={currentUserId} />
 										) : null}
-										<p className="whitespace-pre-wrap break-words text-sm">{message.text}</p>
+										<ChatBubbleText text={message.text} own={side === "own"} />
 										<span className="shrink-0 text-[10px] opacity-60">
 											{formatChatTime(message.createdAt)}
 										</span>
@@ -377,41 +369,7 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 					</ol>
 					{pending.map((message) => (
 						// Bąbelek w locie — zawsze własny, zjeżdża z dołu (Telegram), pasek pod nim.
-						<div
-							key={message.clientId}
-							data-side="own"
-							className="chat-bubble-in mt-0.5 flex w-full flex-col items-end"
-						>
-							{message.replyToId ? (
-								// Quote odpowiedzi w locie — tekst z lokalnego snapshotu (F5).
-								<div className="mb-0.5 max-w-[85%] truncate rounded-lg border-l-2 border-primary/60 bg-muted/60 px-2 py-1 text-right text-xs text-muted-foreground">
-									{message.replyText}
-								</div>
-							) : null}
-							<div
-								className={`flex max-w-[85%] items-end gap-2 rounded-2xl rounded-br-md px-3 py-2 bg-primary text-primary-foreground ${message.status === "error" ? "opacity-80 ring-1 ring-destructive" : ""}`}
-							>
-								<p className="whitespace-pre-wrap break-words text-sm">{message.text}</p>
-							</div>
-							<div
-								className="mt-1 h-[3px] w-24 overflow-hidden rounded-full bg-primary/20"
-								role="progressbar"
-								aria-label={message.status === "error" ? "Błąd wysyłania" : "Wysyłanie"}
-							>
-								<div
-									className={`h-full w-1/3 rounded-full ${message.status === "error" ? "bg-destructive" : "chat-progress-indeterminate bg-primary"}`}
-								/>
-							</div>
-							{message.status === "error" ? (
-								<button
-									type="button"
-									onClick={() => handleRetry(message)}
-									className="mt-1 text-xs font-medium text-destructive hover:underline"
-								>
-									Ponów
-								</button>
-							) : null}
-						</div>
+						<ChatPendingBubble key={message.clientId} message={message} onRetry={handleRetry} />
 					))}
 				</div>
 				{!nearBottom ? (
@@ -479,18 +437,15 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 						</div>
 					) : null}
 					<div className="flex items-center gap-2">
-						<input
+						<ChatInput
 							value={draft}
-							onChange={(event) => {
-								setDraft(event.target.value);
+							onChange={(next) => {
+								setDraft(next);
 								notifyTyping();
 							}}
-							maxLength={MAX_MESSAGE_LENGTH}
-							placeholder="Wiadomość…"
-							aria-label="Wiadomość"
-							autoComplete="off"
+							onSend={handleSend}
+							currentUserId={currentUserId}
 							disabled={!online}
-							className="flex-1 rounded-full border border-input bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 						/>
 						<Button
 							type="submit"

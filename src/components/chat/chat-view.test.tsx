@@ -928,3 +928,72 @@ describe("ChatView — reply quote highlight (#165)", () => {
 		}
 	});
 });
+
+// #168 — @mentions w czacie: wysłany tekst `@imię` renderuje się wyróżniony.
+// Kontrakt: cudze bąbelki → mention w kolorze marki (jak MentionText postów);
+// własne bąbelki (biały tekst na bg-primary — zielony niewidoczny) → podkreślenie.
+describe("ChatView — @mentions w bąbelkach (#168)", () => {
+	it("podświetla @imię kolorem marki w cudzym bąbelku", async () => {
+		mockChatApi([apiMessage({ id: "m1", text: "Hej @Kasia, co tam?" })]);
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
+
+		const mention = await screen.findByText("@Kasia");
+		expect(mention.classList.contains("text-primary")).toBe(true);
+		expect(mention.classList.contains("font-medium")).toBe(true);
+		// Reszta tekstu zostaje zwykłym segmentem w tym samym akapicie.
+		expect(mention.parentElement?.textContent).toBe("Hej @Kasia, co tam?");
+	});
+
+	it("podkreśla @imię we własnym bąbelku (zieleń niewidoczna na bg-primary)", async () => {
+		mockChatApi([apiMessage({ id: "m1", authorId: "u1", text: "Widzę @Kasia!" })]);
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
+
+		const mention = await screen.findByText("@Kasia");
+		expect(mention.classList.contains("underline")).toBe(true);
+		// Bez koloru marki — własny bąbelek ma już tekst primary-foreground.
+		expect(mention.classList.contains("text-primary")).toBe(false);
+	});
+});
+
+// Pełny przepływ #168: @ → dropdown → wybór (Enter) → Enter wysyła. POST musi
+// nieść `@imię` w treści — mention to czysty tekst (bez metadanych).
+it("@ → wybór z listy → Enter: POST niesie @imię w treści", async () => {
+	const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+		if (init?.method === "POST") {
+			return Promise.resolve({
+				ok: true,
+				json: () =>
+					Promise.resolve({ data: apiMessage({ id: "m2", authorId: "u1", text: "Hej @Ania" }) }),
+			});
+		}
+		if (url.includes("/api/app/users")) {
+			return Promise.resolve({
+				ok: true,
+				json: () => Promise.resolve({ data: [{ id: "u2", name: "Ania" }] }),
+			});
+		}
+		return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: [] }) });
+	});
+	vi.stubGlobal("fetch", fetchMock);
+	render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+		wrapper: createWrapper(),
+	});
+
+	const user = userEvent.setup();
+	const input = screen.getByLabelText("Wiadomość");
+	await user.type(input, "Hej @");
+	await screen.findByText("Ania");
+	// Pierwszy Enter wybiera mention z listy (nie wysyła), drugi wysyła.
+	await user.type(input, "{Enter}{Enter}");
+
+	const postCall = fetchMock.mock.calls.find(([, init]) => init?.method === "POST");
+	expect(postCall).toBeDefined();
+	expect(JSON.parse(String(postCall?.[1]?.body)).text).toBe("Hej @Ania");
+	// Optymistyczny/potwierdzony bąbelek własny — mention podkreślony.
+	const mention = await screen.findByText("@Ania");
+	expect(mention.classList.contains("underline")).toBe(true);
+});

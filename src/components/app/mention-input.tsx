@@ -1,15 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
+import { type RefObject, useCallback, useRef, useState } from "react";
 import { type CaretCoordinates, getCaretCoordinates } from "./caret-position";
+import { type MemberOption, MentionDropdown, useMentionUsers } from "./mention-dropdown";
 import { detectMentionQuery, insertMention, type MentionDetection } from "./mentions-text";
 
 export interface Mention {
 	userId: string;
-	name: string;
-}
-
-interface MemberOption {
-	id: string;
 	name: string;
 }
 
@@ -40,7 +36,7 @@ export interface DropdownPosition {
  * - brak miejsca → flip nad linię karety (kotwica `bottom`);
  * - `left` jest klamrowane, by lista o najgorszej szerokości zmieściła się
  *   między marginesami viewportu.
- * `textarea` = prostokąt pola we viewportu; brak wymiarów → stare zachowanie.
+ * `textarea` = prostokąt pola we viewportcie; brak wymiarów → stare zachowanie.
  */
 export function clampDropdownPosition(
 	caret: CaretCoordinates,
@@ -98,7 +94,6 @@ export function MentionInput({
 	textareaRef: forwardedTextareaRef,
 }: MentionInputProps) {
 	const textareaRef = useRef<HTMLTextAreaElement>(null);
-	const listRef = useRef<HTMLUListElement>(null);
 
 	/** Utrzymuje wewnętrzny ref i (opcjonalnie) ref parenta na tym samym węźle. */
 	const setNode = useCallback(
@@ -108,41 +103,13 @@ export function MentionInput({
 		},
 		[forwardedTextareaRef],
 	);
-	const activeItemRef = useRef<HTMLLIElement>(null);
 	const [detection, setDetection] = useState<MentionDetection | null>(null);
-	const [users, setUsers] = useState<MemberOption[]>([]);
+	const users = useMentionUsers(detection?.query ?? null);
 	const [activeIndex, setActiveIndex] = useState(0);
 	const [mentions, setMentions] = useState<Mention[]>([]);
 	const [caretCoords, setCaretCoords] = useState<CaretCoordinates | null>(null);
 
 	const filteredUsers = currentUserId ? users.filter((u) => u.id !== currentUserId) : users;
-
-	// Re-fetch członków gdy zmieni się aktywny query (ciąg po `@`).
-	useEffect(() => {
-		if (!detection) {
-			setUsers([]);
-			return;
-		}
-		let cancelled = false;
-		fetch(`/api/app/users?q=${encodeURIComponent(detection.query)}`)
-			.then(async (r) => {
-				if (!r.ok) return [];
-				const json = (await r.json()) as { data?: MemberOption[] };
-				return json.data ?? [];
-			})
-			.then((data) => {
-				if (!cancelled) {
-					setUsers(data);
-					setActiveIndex(0);
-				}
-			})
-			.catch(() => {
-				if (!cancelled) setUsers([]);
-			});
-		return () => {
-			cancelled = true;
-		};
-	}, [detection?.query, detection]);
 
 	function handleChange(event: React.ChangeEvent<HTMLTextAreaElement>) {
 		const target = event.target;
@@ -151,6 +118,8 @@ export function MentionInput({
 		onChange(next);
 		const detected = detectMentionQuery(next, caret);
 		setDetection(detected);
+		// Nowy query = nowa lista podpowiedzi → aktywny wraca na pierwszy wiersz.
+		if (detected) setActiveIndex(0);
 		// Pozycja dropdown = przy kursorze (nie pod całym polem).
 		setCaretCoords(detected ? getCaretCoordinates(target, caret) : null);
 	}
@@ -221,23 +190,6 @@ export function MentionInput({
 			)
 		: null;
 
-	// Utrzymuj aktywny (zaznaczony klawiaturą) wiersz dropdownu w widoku. Przewijamy SAM
-	// kontener listy (scrollTop), NIE scrollIntoView — to przewiera też stronę/textarea,
-	// co powoduje "nienaturalne" skoki przy wpisaniu @ i strzałkach (bug #96).
-	// biome-ignore lint/correctness/useExhaustiveDependencies: celowe deps — czytamy ref.current, nie wartości z closure
-	useEffect(() => {
-		const list = listRef.current;
-		const item = activeItemRef.current;
-		if (!list || !item) return;
-		const listRect = list.getBoundingClientRect();
-		const itemRect = item.getBoundingClientRect();
-		if (itemRect.bottom > listRect.bottom) {
-			list.scrollTop += itemRect.bottom - listRect.bottom;
-		} else if (itemRect.top < listRect.top) {
-			list.scrollTop -= listRect.top - itemRect.top;
-		}
-	}, [activeIndex, showDropdown]);
-
 	return (
 		<div className="relative">
 			<textarea
@@ -252,37 +204,18 @@ export function MentionInput({
 				rows={rows}
 			/>
 			{showDropdown && dropdownPos && (
-				<ul
-					ref={listRef}
-					aria-label="Wspomnij osobę"
+				<MentionDropdown
+					users={filteredUsers}
+					activeIndex={activeIndex}
+					onHover={setActiveIndex}
+					onSelect={selectUser}
+					positionClassName="min-w-[220px] max-w-[320px]"
 					style={{
 						top: dropdownPos.top !== undefined ? `${dropdownPos.top}px` : undefined,
 						bottom: dropdownPos.bottom !== undefined ? `${dropdownPos.bottom}px` : undefined,
 						left: `${dropdownPos.left}px`,
 					}}
-					className="absolute z-50 max-h-[200px] min-w-[220px] max-w-[320px] overflow-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
-				>
-					{filteredUsers.map((user, index) => (
-						<li
-							key={user.id}
-							ref={index === activeIndex ? activeItemRef : undefined}
-							data-active={index === activeIndex}
-							onMouseDown={(event) => {
-								event.preventDefault();
-								selectUser(user);
-							}}
-							onMouseEnter={() => setActiveIndex(index)}
-							className={`flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm ${
-								index === activeIndex ? "bg-primary text-primary-foreground" : "text-foreground"
-							}`}
-						>
-							<span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-muted text-xs font-medium text-muted-foreground">
-								{user.name.slice(0, 1).toUpperCase()}
-							</span>
-							<span>{user.name}</span>
-						</li>
-					))}
-				</ul>
+				/>
 			)}
 		</div>
 	);
