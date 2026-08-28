@@ -1,3 +1,10 @@
+# [5.0.0](https://github.com/CrystalPlatforms/wspolniak/compare/v4.3.0...v5.0.0) (2026-08-28)
+
+
+### Chores
+
+* remove shipped plan docs and env templates, ignore ai-demo ([8b5053d](https://github.com/CrystalPlatforms/wspolniak/commit/8b5053d02cbd4c43474c4148890fdde3b6dabddd))
+
 # [4.3.0](https://github.com/CrystalPlatforms/wspolniak/compare/v4.2.0...v4.3.0) (2026-08-28)
 
 
