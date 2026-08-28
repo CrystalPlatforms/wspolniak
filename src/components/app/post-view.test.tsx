@@ -4,6 +4,15 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { POST_VIEW_STAGES, PostView } from "./post-view";
 
+// VideoThumb linkuje do /app/video/$id (TanStack Router) — passthrough na <a>.
+vi.mock("@tanstack/react-router", () => ({
+	Link: ({ to, children, ...rest }: Record<string, unknown> & { to: string }) => (
+		<a href={to} {...(rest as object)}>
+			{children as ReactNode}
+		</a>
+	),
+}));
+
 function createWrapper() {
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	return function Wrapper({ children }: { children: ReactNode }) {
@@ -199,5 +208,61 @@ describe("PostView — choreografia widoku posta (#147)", () => {
 		// pierwsze tak — dokładnie raz
 		fireEvent.load(imgs[0] as HTMLElement);
 		expect(onFirstImageLoad).toHaveBeenCalledTimes(1);
+	});
+});
+
+// Założenia kontraktu (#171/#172):
+// - Róg zdjęcia: przycisk „Dodaj do albumu" przy każdym zdjęciu dla
+//   zalogowanych; napis tylko na desktopie (span hidden sm:inline), mobile =
+//   ikona (rewizja usera). Lightbox dostaje canAddToAlbum, gdy jest user.
+// - Wideo w poście: przycisk „Dodaj wideo do albumu" przy miniaturce.
+describe("PostView — Dodaj do albumu (#171/#172)", () => {
+	const now = new Date().toISOString();
+	const post = {
+		id: "post-1",
+		authorId: "u1",
+		description: "Opis",
+		createdAt: now,
+		updatedAt: now,
+		author: { id: "u1", name: "Tomek" },
+		images: [
+			{ id: "img-1", postId: "post-1", cfImageId: "cf-aaa", displayOrder: 0, createdAt: now },
+		],
+		videos: [
+			{
+				id: "v-1",
+				youtubeVideoId: "abc",
+				title: "Fiesta",
+				thumbnailUrl: "https://img.example/t.jpg",
+				position: 0,
+			},
+		],
+	};
+
+	it("renders the photo corner add-to-album button for a signed-in user", () => {
+		render(<PostView post={post} imageAccountHash="hash-1" currentUserId="u2" />, {
+			wrapper: createWrapper(),
+		});
+
+		const btn = screen.getByRole("button", { name: "Dodaj zdjęcie 1 do albumu" });
+		expect(btn).not.toBeNull();
+		// Napis tylko na desktopie (mobile = sama ikona).
+		expect(btn.textContent).toContain("Dodaj do albumu");
+		expect(btn.querySelector(".sm\\:inline")).not.toBeNull();
+	});
+
+	it("hides album buttons without a signed-in user", () => {
+		render(<PostView post={post} imageAccountHash="hash-1" />, { wrapper: createWrapper() });
+
+		expect(screen.queryByRole("button", { name: "Dodaj zdjęcie 1 do albumu" })).toBeNull();
+		expect(screen.queryByRole("button", { name: "Dodaj wideo do albumu" })).toBeNull();
+	});
+
+	it("renders the video add-to-album button next to a post video", () => {
+		render(<PostView post={post} imageAccountHash="hash-1" currentUserId="u2" />, {
+			wrapper: createWrapper(),
+		});
+
+		expect(screen.getByRole("button", { name: "Dodaj wideo do albumu" })).not.toBeNull();
 	});
 });

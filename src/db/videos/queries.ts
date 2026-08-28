@@ -150,6 +150,17 @@ export async function listPaginatedVideos(
  * Pojedyncze wideo z imieniem autora (strona szczegółów /app/video/$id).
  * `null` gdy nie istnieje.
  */
+/**
+ * Batchowy odczyt wideo po id (#172): miniaturki i tytuły dla elementów
+ * albumu. Zwraca Map — id bez wiersza (wideo usunięte przed kaskadą F5)
+ * po prostu nie ma wpisu.
+ */
+export async function listVideosByIds(ids: string[]): Promise<Map<string, Video>> {
+	if (ids.length === 0) return new Map();
+	const rows = await getDb().select().from(videos).where(inArray(videos.id, ids));
+	return new Map(rows.map((v) => [v.id, v] as const));
+}
+
 export async function getVideoById(id: string): Promise<VideoFeedItem | null> {
 	const rows = await getDb()
 		.select({

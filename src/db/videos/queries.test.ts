@@ -390,3 +390,39 @@ describe("getVideoById", () => {
 		expect(result).toBeNull();
 	});
 });
+
+// #172: batchowy odczyt wideo po id dla elementow albumu.
+describe("listVideosByIds", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("returns a Map of videos by id (thumbnail + title for album grid)", async () => {
+		const rows = [
+			{ id: "v1", title: "Fiesta", thumbnailUrl: "https://img.example/1" },
+			{ id: "v2", title: "Plener", thumbnailUrl: "https://img.example/2" },
+		];
+		const where = vi.fn().mockResolvedValue(rows);
+		mockGetDb.mockReturnValue({
+			select: vi.fn(() => ({ from: vi.fn(() => ({ where })) })),
+		} as never);
+
+		const { listVideosByIds } = await import("./queries");
+		const map = await listVideosByIds(["v1", "v2"]);
+
+		expect(map.size).toBe(2);
+		expect(map.get("v1")?.title).toBe("Fiesta");
+		expect(map.get("v2")?.thumbnailUrl).toBe("https://img.example/2");
+	});
+
+	it("skips the DB entirely for an empty id list", async () => {
+		const select = vi.fn();
+		mockGetDb.mockReturnValue({ select } as never);
+
+		const { listVideosByIds } = await import("./queries");
+		const map = await listVideosByIds([]);
+
+		expect(map.size).toBe(0);
+		expect(select).not.toHaveBeenCalled();
+	});
+});

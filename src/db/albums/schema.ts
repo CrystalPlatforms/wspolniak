@@ -21,3 +21,25 @@ export const createAlbumSchema = z.object({
 });
 
 export type CreateAlbumRequest = z.infer<typeof createAlbumSchema>;
+
+/**
+ * Rodzaje elementów albumu — mirror polimorficznej tabeli `album_items`:
+ * `own_image` = wgrane wprost do albumu, `post_photo` = pożyczone z posta
+ * (ref = cfImageId), `video` = pożyczone z biblioteki wideo (ref = id wiersza).
+ */
+export const ALBUM_ITEM_KINDS = ["own_image", "post_photo", "video"] as const;
+export type AlbumItemKind = (typeof ALBUM_ITEM_KINDS)[number];
+
+/** Batch dołączany jednym requestem — mirror limitu kompozytora posta. */
+export const MAX_ALBUM_ITEMS_PER_REQUEST = 10;
+
+// POST /albums/:id/items — pożyczenie zdjęcia/wideo albo „Dodaj zdjęcia" (#171/#172).
+export const addAlbumItemsSchema = z.object({
+	kind: z.enum(ALBUM_ITEM_KINDS),
+	refs: z
+		.array(z.string().min(1))
+		.min(1, "Dodaj co najmniej jeden element")
+		.max(MAX_ALBUM_ITEMS_PER_REQUEST),
+});
+
+export type AddAlbumItemsRequest = z.infer<typeof addAlbumItemsSchema>;

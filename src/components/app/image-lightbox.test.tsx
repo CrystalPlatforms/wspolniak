@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { userEvent } from "@testing-library/user-event";
 import { ImageLightbox } from "./image-lightbox";
@@ -455,5 +456,44 @@ describe("ImageLightbox", () => {
 
 			expect(screen.getByRole("img").getAttribute("src")).toBe("https://example.com/2.jpg");
 		});
+	});
+});
+
+// #171: „Dodaj do albumu" w lightboxie — włącza go PostView (canAddToAlbum +
+// cfImageId na obrazie); lightbox albumu i feedu (bez props) nie pożycza.
+// Overlay idzie przez portal do body (naprawa: komentarze przebijaly lightbox).
+describe("ImageLightbox — Dodaj do albumu (#171)", () => {
+	const postImages = [
+		{ id: "img-1", src: "https://example.com/1.jpg", alt: "Zdjęcie 1", cfImageId: "cf-aaa" },
+		{ id: "img-2", src: "https://example.com/2.jpg", alt: "Zdjęcie 2" },
+	];
+
+	function renderLightbox(images: typeof postImages, props?: { canAddToAlbum?: boolean }) {
+		const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		return render(
+			<QueryClientProvider client={queryClient}>
+				<ImageLightbox images={images} open={true} onClose={() => {}} {...props} />
+			</QueryClientProvider>,
+		);
+	}
+
+	it("renders the add-to-album button next to download when enabled", () => {
+		renderLightbox(postImages, { canAddToAlbum: true });
+
+		expect(screen.getByRole("button", { name: "Dodaj zdjęcie do albumu" })).not.toBeNull();
+		expect(screen.getByRole("button", { name: "Pobierz zdjęcie" })).not.toBeNull();
+	});
+
+	it("hides the button when canAddToAlbum is off (album/feed lightbox)", () => {
+		renderLightbox(postImages);
+
+		expect(screen.queryByRole("button", { name: "Dodaj zdjęcie do albumu" })).toBeNull();
+	});
+
+	it("hides the button for images without a cfImageId", () => {
+		const noRef = [{ id: "img-2", src: "https://example.com/2.jpg", alt: "Zdjęcie 2" }];
+		renderLightbox(noRef, { canAddToAlbum: true });
+
+		expect(screen.queryByRole("button", { name: "Dodaj zdjęcie do albumu" })).toBeNull();
 	});
 });

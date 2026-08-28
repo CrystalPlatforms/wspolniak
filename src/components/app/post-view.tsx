@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { Download, Pin } from "lucide-react";
+import { Download, Images, Pin } from "lucide-react";
 import { useEffect, useState } from "react";
+import { AddToAlbumButton } from "@/components/app/add-to-album-button";
 import { BookmarkButton } from "@/components/app/bookmark-button";
 import { EmojiReactions } from "@/components/app/emoji-reactions";
 import { FadeImage } from "@/components/app/fade-image";
@@ -100,6 +101,7 @@ export function PostView({
 			variant: "public",
 		}),
 		alt: `Zdjęcie ${img.displayOrder + 1}`,
+		cfImageId: img.cfImageId,
 	}));
 
 	return (
@@ -190,14 +192,27 @@ export function PostView({
 									onImageLoad={index === 0 ? onFirstImageLoad : undefined}
 								/>
 							</button>
-							<button
-								type="button"
-								onClick={() => downloadImage(src, `post-${image.displayOrder + 1}.jpg`)}
-								className="absolute right-2 bottom-2 rounded-full bg-background/80 p-2 text-foreground opacity-0 backdrop-blur-sm transition-opacity hover:bg-background group-hover:opacity-100"
-								aria-label={`Pobierz zdjęcie ${image.displayOrder + 1}`}
-							>
-								<Download className="h-5 w-5" />
-							</button>
+							<div className="absolute right-2 bottom-2 flex gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+								{currentUserId && (
+									<AddToAlbumButton
+										kind="post_photo"
+										itemRef={image.cfImageId}
+										ariaLabel={`Dodaj zdjęcie ${image.displayOrder + 1} do albumu`}
+										className="flex items-center gap-1 rounded-full bg-background/80 p-2 text-foreground backdrop-blur-sm transition-colors hover:bg-background"
+									>
+										<Images className="h-5 w-5" />
+										<span className="hidden pr-1 text-sm sm:inline">Dodaj do albumu</span>
+									</AddToAlbumButton>
+								)}
+								<button
+									type="button"
+									onClick={() => downloadImage(src, `post-${image.displayOrder + 1}.jpg`)}
+									className="rounded-full bg-background/80 p-2 text-foreground backdrop-blur-sm transition-colors hover:bg-background"
+									aria-label={`Pobierz zdjęcie ${image.displayOrder + 1}`}
+								>
+									<Download className="h-5 w-5" />
+								</button>
+							</div>
 						</div>
 					);
 				})}
@@ -206,12 +221,19 @@ export function PostView({
 			{post.videos && post.videos.length > 0 && (
 				<div className="space-y-2">
 					{post.videos.map((video) => (
-						<VideoThumb
-							key={video.id}
-							id={video.id}
-							title={video.title}
-							thumbnailUrl={video.thumbnailUrl}
-						/>
+						<div key={video.id} className="group relative">
+							<VideoThumb id={video.id} title={video.title} thumbnailUrl={video.thumbnailUrl} />
+							{currentUserId && (
+								<AddToAlbumButton
+									kind="video"
+									itemRef={video.id}
+									ariaLabel="Dodaj wideo do albumu"
+									className="absolute right-2 top-2 hidden rounded-full bg-background/80 p-2 text-foreground opacity-0 backdrop-blur-sm transition-opacity hover:bg-background group-hover:opacity-100 sm:block"
+								>
+									<Images className="h-5 w-5" />
+								</AddToAlbumButton>
+							)}
+						</div>
 					))}
 				</div>
 			)}
@@ -221,6 +243,7 @@ export function PostView({
 				initialIndex={lightboxIndex ?? 0}
 				open={lightboxIndex !== null}
 				onClose={() => setLightboxIndex(null)}
+				canAddToAlbum={Boolean(currentUserId)}
 			/>
 		</article>
 	);

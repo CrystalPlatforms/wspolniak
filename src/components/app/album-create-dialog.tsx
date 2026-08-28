@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import {
 	Dialog,
 	DialogContent,
-	DialogDescription,
 	DialogFooter,
 	DialogHeader,
 	DialogTitle,
@@ -19,17 +18,31 @@ const ACCEPTED_IMAGE_TYPES = "image/jpeg,image/png,image/webp,image/heic,image/h
 interface AlbumCreateDialogProps {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
-	/** Wywoływane po utworzeniu albumu (parent odświeża listę). */
+	/** Wywoływane po utworzeniu albumu albo dołączeniu zdjęć (parent odświeża widoki). */
 	onCreated: (album: { id: string; title: string }) => void;
+	/**
+	 * create (default) — nowy album (#170); append (#171) — "Dodaj zdjęcia"
+	 * w widoku albumu: bez pola tytuł, upload dokłada own_image do istniejącego.
+	 */
+	mode?: "create" | "append";
+	/** Id albumu w trybie append. */
+	albumId?: string;
 }
 
 /**
- * Dialog tworzenia albumu (#170): tytuł + multi-select zdjęć (ten sam pipeline
- * HEIC/co kompozytor posta — uploadImages najpierw, potem POST /api/app/albums).
- * Walidacja kliencka blokuje submit bez tytułu lub bez zdjęć; serwer waliduje
- * ponownie (Zod) i odrzuca 400.
+ * Dialog tworzenia albumu (#170) i "Dodaj zdjęcia" (#171): tytuł + multi-select
+ * zdjęć (ten sam pipeline HEIC/co kompozytor posta — uploadImages najpierw,
+ * potem POST /api/app/albums albo POST /albums/:id/items w trybie append).
+ * Walidacja kliencka blokuje submit bez tytułu (create) lub bez zdjęć; serwer
+ * waliduje ponownie (Zod) i odrzuca 400.
  */
-export function AlbumCreateDialog({ open, onOpenChange, onCreated }: AlbumCreateDialogProps) {
+export function AlbumCreateDialog({
+	open,
+	onOpenChange,
+	onCreated,
+	mode = "create",
+	albumId,
+}: AlbumCreateDialogProps) {
 	const [title, setTitle] = useState("");
 	const [files, setFiles] = useState<File[]>([]);
 	const [previews, setPreviews] = useState<string[]>([]);
@@ -61,9 +74,40 @@ export function AlbumCreateDialog({ open, onOpenChange, onCreated }: AlbumCreate
 		onOpenChange(false);
 	}
 
+	/** Append (#171): upload + doklada own_image do istniejacego albumu. */
+	async function submitAppend(photoIds: string[]) {
+		const res = await fetch(`/api/app/albums/${albumId}/items`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ kind: "own_image", refs: photoIds }),
+		});
+		if (!res.ok) {
+			const body = (await res.json().catch(() => null)) as { error?: string } | null;
+			throw new Error(body?.error ?? "Nie udało się dodać zdjęć do albumu");
+		}
+		onCreated({ id: albumId ?? "", title: "" });
+		resetAndClose();
+	}
+
+	/** Create (#170): upload + nowy album z tytułem i zdjęciami. */
+	async function submitCreate(photoIds: string[]) {
+		const res = await fetch("/api/app/albums", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ title: title.trim(), photoIds }),
+		});
+		if (!res.ok) {
+			const body = (await res.json().catch(() => null)) as { error?: string } | null;
+			throw new Error(body?.error ?? "Nie udało się utworzyć albumu");
+		}
+		const json = (await res.json()) as { data: { id: string; title: string } };
+		onCreated(json.data);
+		resetAndClose();
+	}
+
 	async function handleSubmit(event: React.FormEvent) {
 		event.preventDefault();
-		if (title.trim().length === 0) {
+		if (mode === "create" && title.trim().length === 0) {
 			setError("Podaj tytuł albumu");
 			return;
 		}
@@ -76,18 +120,11 @@ export function AlbumCreateDialog({ open, onOpenChange, onCreated }: AlbumCreate
 		setSubmitting(true);
 		try {
 			const photoIds = await uploadImages(files);
-			const res = await fetch("/api/app/albums", {
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ title: title.trim(), photoIds }),
-			});
-			if (!res.ok) {
-				const body = (await res.json().catch(() => null)) as { error?: string } | null;
-				throw new Error(body?.error ?? "Nie udało się utworzyć albumu");
+			if (mode === "append") {
+				await submitAppend(photoIds);
+				return;
 			}
-			const json = (await res.json()) as { data: { id: string; title: string } };
-			onCreated(json.data);
-			resetAndClose();
+			await submitCreate(photoIds);
 		} catch (e) {
 			setError(e instanceof Error ? e.message : "Nie udało się utworzyć albumu");
 			setSubmitting(false);
@@ -96,25 +133,24 @@ export function AlbumCreateDialog({ open, onOpenChange, onCreated }: AlbumCreate
 
 	return (
 		<Dialog open={open} onOpenChange={onOpenChange}>
-			<DialogContent className="sm:max-w-md">
+			<DialogContent aria-describedby={undefined} className="sm:max-w-md">
 				<form onSubmit={handleSubmit} className="space-y-4">
 					<DialogHeader>
-						<DialogTitle>Nowy album</DialogTitle>
-						<DialogDescription>
-							Zbierz zdjęcia w albumie — album nie pojawia się na feedzie.
-						</DialogDescription>
+						<DialogTitle>{mode === "append" ? "Dodaj zdjęcia" : "Nowy album"}</DialogTitle>
 					</DialogHeader>
 
-					<div className="space-y-2">
-						<Label htmlFor="album-title">Tytuł</Label>
-						<Input
-							id="album-title"
-							value={title}
-							onChange={(e) => setTitle(e.target.value)}
-							placeholder="np. Wakacje 2026"
-							maxLength={100}
-						/>
-					</div>
+					{mode === "create" && (
+						<div className="space-y-2">
+							<Label htmlFor="album-title">Tytuł</Label>
+							<Input
+								id="album-title"
+								value={title}
+								onChange={(e) => setTitle(e.target.value)}
+								placeholder="np. Wakacje 2026"
+								maxLength={100}
+							/>
+						</div>
+					)}
 
 					<div className="space-y-2">
 						<Label htmlFor="album-photos" className="sr-only">
@@ -175,7 +211,13 @@ export function AlbumCreateDialog({ open, onOpenChange, onCreated }: AlbumCreate
 							Anuluj
 						</Button>
 						<Button type="submit" disabled={submitting}>
-							{submitting ? "Tworzenie..." : "Utwórz"}
+							{submitting
+								? mode === "append"
+									? "Dodawanie..."
+									: "Tworzenie..."
+								: mode === "append"
+									? "Dodaj"
+									: "Utwórz"}
 						</Button>
 					</DialogFooter>
 				</form>

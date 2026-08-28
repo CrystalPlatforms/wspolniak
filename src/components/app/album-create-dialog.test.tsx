@@ -126,3 +126,62 @@ describe("AlbumCreateDialog", () => {
 		});
 	});
 });
+
+// Tryb append (#171): „Dodaj zdjęcia" w widoku albumu — bez pola tytuł,
+// upload → POST /api/app/albums/:id/items z kind own_image.
+describe("AlbumCreateDialog — tryb append (#171)", () => {
+	function renderAppendDialog(albumId = "album-1") {
+		const onCreated = vi.fn();
+		render(
+			<AlbumCreateDialog
+				open
+				onOpenChange={() => {}}
+				onCreated={onCreated}
+				mode="append"
+				albumId={albumId}
+			/>,
+		);
+		return { onCreated };
+	}
+
+	it("hides the title field and submits photos to the items endpoint", async () => {
+		mockUploadImages.mockResolvedValue(["cf-9", "cf-8"]);
+		const fetchSpy = vi.fn().mockResolvedValue({
+			ok: true,
+			status: 201,
+			json: () => Promise.resolve({ data: { added: 2 } }),
+		});
+		vi.stubGlobal("fetch", fetchSpy);
+		const { onCreated } = renderAppendDialog();
+
+		// Tryb append: bez pola tytuł; przycisk submit to „Dodaj".
+		expect(screen.queryByLabelText(/^tytuł$/i)).toBeNull();
+		// { selector: "input" } — tytuł dialogu („Dodaj zdjęcia") też pasuje do regexu.
+		const input = screen.getByLabelText(/dodaj zdjęcia/i, {
+			selector: "input",
+		}) as HTMLInputElement;
+		await userEvent.upload(input, [photoFile("a.jpg"), photoFile("b.jpg")]);
+		await userEvent.click(screen.getByRole("button", { name: /^dodaj$/i }));
+
+		await waitFor(() => {
+			expect(onCreated).toHaveBeenCalledWith({ id: "album-1", title: "" });
+		});
+		expect(fetchSpy).toHaveBeenCalledWith("/api/app/albums/album-1/items", expect.anything());
+		const init = fetchSpy.mock.calls[0]?.[1] as RequestInit;
+		expect(JSON.parse(init.body as string)).toEqual({
+			kind: "own_image",
+			refs: ["cf-9", "cf-8"],
+		});
+	});
+
+	it("blocks submit without photos also in append mode", async () => {
+		const fetchSpy = vi.fn();
+		vi.stubGlobal("fetch", fetchSpy);
+		renderAppendDialog();
+
+		await userEvent.click(screen.getByRole("button", { name: /^dodaj$/i }));
+
+		expect(screen.getByRole("alert").textContent).toContain("zdjęcie");
+		expect(fetchSpy).not.toHaveBeenCalled();
+	});
+});

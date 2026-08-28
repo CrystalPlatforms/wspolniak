@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Images } from "lucide-react";
+import { AddToAlbumButton } from "@/components/app/add-to-album-button";
 import { VideoActions } from "@/components/video/video-actions";
 import { YouTubePlayer } from "@/components/video/youtube-player";
 import type { VideoFeedItem } from "@/db/videos";
@@ -54,6 +55,17 @@ function VideoPage() {
 						Wróć do wideo
 					</button>
 					<div className="flex-1" />
+					{video && (
+						<AddToAlbumButton
+							kind="video"
+							itemRef={video.id}
+							ariaLabel="Dodaj wideo do albumu"
+							className="inline-flex h-12 items-center justify-center gap-2 rounded-md px-3 text-foreground/70 transition-colors hover:bg-accent hover:text-foreground sm:h-16 sm:px-4"
+						>
+							<Images className="size-6 sm:size-8" />
+							<span className="text-base font-medium sm:text-lg">Dodaj do albumu</span>
+						</AddToAlbumButton>
+					)}
 					{video && (session.userId === video.authorId || session.role === "admin") && (
 						<VideoActions videoId={video.id} />
 					)}

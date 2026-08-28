@@ -13,6 +13,7 @@ interface AlbumTileDto {
 	id: string;
 	title: string;
 	photoCount: number;
+	videoCount: number;
 	coverImageId: string | null;
 }
 
@@ -86,6 +87,7 @@ export function AlbumsList() {
 							<p className="mt-2 truncate text-sm font-medium text-foreground">{tile.title}</p>
 							<p className="text-xs text-muted-foreground">
 								{tile.photoCount} {tile.photoCount === 1 ? "zdjęcie" : "zdjęć"}
+								{tile.videoCount > 0 && ` · ${tile.videoCount} wideo`}
 							</p>
 						</a>
 					))}

@@ -141,3 +141,83 @@ describe("AlbumView", () => {
 		});
 	});
 });
+
+// Założenia kontraktu (#171/#172):
+// - Widok albumu ma akcję „Dodaj zdjęcia" (append własnych zdjęć, #171).
+// - Elementy wideo renderują się jako kafelek z miniaturką i play, linkujący
+//   do /app/video/$id; lightbox otwierają WYŁĄCZNIE zdjęcia.
+// - Nagłówek pokazuje liczniki per kind: „X zdjęć · Y wideo" (wideo znika przy 0).
+describe("AlbumView — Dodaj zdjęcia i wideo (#171/#172)", () => {
+	function detailWith(
+		items: {
+			id: string;
+			albumId: string;
+			kind: string;
+			ref: string;
+			createdAt: string;
+			video?: { id: string; title: string; thumbnailUrl: string } | null;
+		}[],
+	) {
+		return { ...sampleDetail, items };
+	}
+
+	const photoItem = {
+		id: "item-1",
+		albumId: "album-1",
+		kind: "own_image",
+		ref: "cf-1",
+		createdAt: "2026-08-27T10:00:00.000Z",
+	};
+	const videoItem = {
+		id: "item-2",
+		albumId: "album-1",
+		kind: "video",
+		ref: "yt-1",
+		createdAt: "2026-08-27T10:00:00.001Z",
+		video: { id: "yt-1", title: "Fiesta", thumbnailUrl: "https://img.example/yt-1" },
+	};
+
+	it("renders the Dodaj zdjęcia action in the header (#171)", async () => {
+		vi.stubGlobal("fetch", mockAlbumApi());
+		render(<AlbumView albumId="album-1" />, { wrapper: createWrapper() });
+
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: /Dodaj zdjęcia/i })).not.toBeNull();
+		});
+	});
+
+	it("renders a video tile with play linking to the video page; lightbox is photos only (#172)", async () => {
+		vi.stubGlobal("fetch", mockAlbumApi(detailWith([photoItem, videoItem])));
+		render(<AlbumView albumId="album-1" />, { wrapper: createWrapper() });
+
+		await waitFor(() => {
+			expect(screen.getByRole("img", { name: "Fiesta" })).not.toBeNull();
+		});
+		// Kafelek wideo linkuje do strony wideo (mock Link → <a href>).
+		const link = screen.getByRole("img", { name: "Fiesta" }).closest("a");
+		expect(link?.getAttribute("href")).toContain("/app/video/");
+		// Zdjęcie otwiera lightbox — wideo nie (brak przycisku Otwórz zdjęcie dla wideo).
+		expect(screen.queryByRole("button", { name: "Otwórz wideo" })).toBeNull();
+		expect(screen.getByRole("button", { name: "Otwórz zdjęcie 1" })).not.toBeNull();
+	});
+
+	it("skips video items whose record vanished from the library (#172)", async () => {
+		const ghost = { ...videoItem, video: null };
+		vi.stubGlobal("fetch", mockAlbumApi(detailWith([photoItem, ghost])));
+		render(<AlbumView albumId="album-1" />, { wrapper: createWrapper() });
+
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: "Otwórz zdjęcie 1" })).not.toBeNull();
+		});
+		expect(screen.queryByRole("img", { name: "Fiesta" })).toBeNull();
+	});
+
+	it("shows per-kind counts; the video part hides at zero (#172)", async () => {
+		vi.stubGlobal("fetch", mockAlbumApi(detailWith([photoItem, videoItem])));
+		render(<AlbumView albumId="album-1" />, { wrapper: createWrapper() });
+
+		await waitFor(() => {
+			expect(screen.getByText(/1 zdjęcie · 1 wideo/)).not.toBeNull();
+		});
+	});
+});

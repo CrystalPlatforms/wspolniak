@@ -2,8 +2,9 @@
 
 import { X } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { ReactionType } from "@/db/post-reactions/table";
 import { cn } from "@/lib/utils";
 import { AppleEmoji } from "./apple-emoji";
@@ -17,6 +18,16 @@ const BURST_MAX_WAIT_MS = 3400;
 const GAP = 16;
 const EDGE = 8;
 
+/**
+ * Pill w portalu do body: fixed pozycjonowanie ucieka z overflow/sticky
+ * kontekstow stron (np. kolumna posta z overflowY: auto obcinala babeklek).
+ * SSR renderuje inline — pill jest i tak zamkniety na serwerze.
+ */
+function PillLayer({ children }: { children: ReactNode }) {
+	if (typeof document === "undefined") return children;
+	return createPortal(children, document.body);
+}
+
 const SIZES = {
 	sm: { trigger: "size-8", icon: 16, emoji: 26, pill: "gap-0.5 p-1", burst: 26 },
 	md: { trigger: "size-10", icon: 20, emoji: 34, pill: "gap-1 p-1.5", burst: 34 },
@@ -25,7 +36,12 @@ const SIZES = {
 
 type Align = "left" | "center" | "right";
 
-type Placement = { side: "top" | "bottom"; shift: number; tailX: number };
+/**
+ * Pozycja pilli we współrzędnych VIEWPORTU (portal do body, position: fixed) —
+ * pill musi uciec przed overflow/sticky kontekstami stron (np. kolumna posta
+ * z overflowY: auto obcinała go przy krawędzi).
+ */
+type Placement = { side: "top" | "bottom"; left: number; top: number; tailX: number };
 
 function SmilePlusIcon({ size }: { size: number }) {
 	return (
@@ -62,11 +78,16 @@ function getPlacement(trigger: DOMRect, width: number, height: number, align: Al
 	const overhangRight = anchored + width - (window.innerWidth - EDGE);
 	const shift = overhangLeft > 0 ? overhangLeft : overhangRight > 0 ? -overhangRight : 0;
 
+	const left = anchored + shift;
+	const side = trigger.top - height - GAP < EDGE ? "bottom" : "top";
+	const top = side === "top" ? trigger.top - height - GAP : trigger.bottom + GAP;
+
 	return {
-		side: trigger.top - height - GAP < EDGE ? "bottom" : "top",
-		shift,
+		side,
+		left,
+		top,
 		// Ogonek zostaje nad triggerem niezależnie od align i shift.
-		tailX: trigger.left + trigger.width / 2 - (anchored + shift),
+		tailX: trigger.left + trigger.width / 2 - left,
 	};
 }
 
@@ -125,7 +146,9 @@ export function EmojiReactionPicker({
 	const [particles, setParticles] = useState<Particle[]>([]);
 	const [placement, setPlacement] = useState<Placement>({
 		side: "top",
-		shift: 0,
+		// Poza ekranem do pierwszego pomiaru (placeBar) — motion i tak startuje z opacity 0.
+		left: -9999,
+		top: -9999,
 		tailX: 0,
 	});
 	const [activeIndex, setActiveIndex] = useState(0);
@@ -189,7 +212,9 @@ export function EmojiReactionPicker({
 		if (!open) return;
 
 		const onPointerDown = (event: globalThis.PointerEvent) => {
-			if (!rootRef.current?.contains(event.target as Node)) close();
+			const target = event.target as Node;
+			// Pill żyje w portalu (poza rootRef) — klik w niego nie zamyka.
+			if (!rootRef.current?.contains(target) && !barRef.current?.contains(target)) close();
 		};
 		const onKeyDown = (event: globalThis.KeyboardEvent) => {
 			if (event.key !== "Escape") return;
@@ -300,11 +325,6 @@ export function EmojiReactionPicker({
 	));
 
 	const top = placement.side === "top";
-	const anchor = align === "left" ? "left-0" : align === "right" ? "right-0" : "left-1/2";
-	const centering = align === "center" ? "-50%" : 0;
-	// Pill zakotwiczony prawą krawędzią — lewy margin go nie przesunie.
-	const nudge =
-		align === "right" ? { marginRight: -placement.shift } : { marginLeft: placement.shift };
 
 	const triggerLabel = open
 		? "Zamknij reakcje"
@@ -312,104 +332,107 @@ export function EmojiReactionPicker({
 			? `Reagowano ${REACTION_CONFIG[last].label}`
 			: "Dodaj reakcję";
 
+	const pill = (
+		<AnimatePresence>
+			{open && (
+				<motion.div
+					className="fixed z-50"
+					initial={{
+						opacity: 0,
+						y: top ? 10 : -10,
+						scale: 0.85,
+					}}
+					animate={{ opacity: 1, y: 0, scale: 1 }}
+					exit={{ opacity: 0, y: top ? 6 : -6, scale: 0.9 }}
+					transition={
+						reduced ? { duration: 0.15 } : { type: "spring", stiffness: 520, damping: 30 }
+					}
+					style={{ left: placement.left, top: placement.top, originY: top ? 1 : 0 }}
+				>
+					<div
+						ref={placeBar}
+						role="menu"
+						aria-label="Wybierz reakcję"
+						aria-orientation="horizontal"
+						onKeyDown={onMenuKeyDown}
+						className={cn("relative flex items-center rounded-full bg-muted", s.pill)}
+					>
+						{burst}
+
+						{reactions.map((type, i) => (
+							<motion.button
+								key={type}
+								ref={(node) => {
+									itemRefs.current[i] = node;
+								}}
+								type="button"
+								role="menuitem"
+								tabIndex={i === activeIndex ? 0 : -1}
+								data-emoji={type}
+								aria-label={REACTION_CONFIG[type].label}
+								onFocus={() => setActiveIndex(i)}
+								onPointerDown={(event) =>
+									startHold(type, event.currentTarget.getBoundingClientRect())
+								}
+								onPointerUp={() => {
+									stopHold();
+									closeAfterBurst();
+								}}
+								onPointerLeave={stopHold}
+								onPointerCancel={stopHold}
+								// Klawiatura: Enter/Space reaguje i zamyka (pointer obsłużył
+								// onPointerDown/Up). preventDefault gasi syntezy clicka.
+								onKeyDown={(event) => {
+									if (event.key !== "Enter" && event.key !== " ") return;
+									event.preventDefault();
+									react(type, event.currentTarget.getBoundingClientRect());
+									closeAfterBurst();
+								}}
+								className={`relative z-10 rounded-full p-1 outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+									type === active ? "ring-2 ring-green-500" : ""
+								}`}
+								initial={reduced ? false : { scale: 0.4, opacity: 0 }}
+								animate={{ scale: 1, opacity: 1 }}
+								transition={{
+									type: "spring",
+									stiffness: 800,
+									damping: 25,
+									delay: reduced ? 0 : 0.04 + i * 0.035,
+								}}
+								whileHover={reduced ? undefined : { scale: 1.28, y: -4 }}
+								whileTap={{ scale: 0.92 }}
+							>
+								<AppleEmoji name={type} size={s.emoji} />
+							</motion.button>
+						))}
+					</div>
+
+					<span
+						className={cn(
+							"absolute size-3 -translate-x-1/2 rounded-full bg-muted",
+							top ? "-bottom-1" : "-top-1",
+						)}
+						style={{ left: placement.tailX }}
+					/>
+					<span
+						className={cn(
+							"absolute size-1.5 -translate-x-1/2 rounded-full bg-muted",
+							top ? "-bottom-4" : "-top-4",
+						)}
+						style={{ left: placement.tailX + 6 }}
+					/>
+				</motion.div>
+			)}
+		</AnimatePresence>
+	);
+
 	return (
 		<div
 			ref={rootRef}
 			data-slot="emoji-reaction-picker"
 			className={cn("relative flex w-fit items-center", className)}
 		>
-			<AnimatePresence>
-				{open && (
-					<motion.div
-						className={cn("absolute z-30", anchor, top ? "bottom-full mb-4" : "top-full mt-4")}
-						initial={{
-							opacity: 0,
-							y: top ? 10 : -10,
-							scale: 0.85,
-							x: centering,
-						}}
-						animate={{ opacity: 1, y: 0, scale: 1, x: centering }}
-						exit={{ opacity: 0, y: top ? 6 : -6, scale: 0.9, x: centering }}
-						transition={
-							reduced ? { duration: 0.15 } : { type: "spring", stiffness: 520, damping: 30 }
-						}
-						style={{ originY: top ? 1 : 0, ...nudge }}
-					>
-						<div
-							ref={placeBar}
-							role="menu"
-							aria-label="Wybierz reakcję"
-							aria-orientation="horizontal"
-							onKeyDown={onMenuKeyDown}
-							className={cn("relative flex items-center rounded-full bg-muted", s.pill)}
-						>
-							{burst}
-
-							{reactions.map((type, i) => (
-								<motion.button
-									key={type}
-									ref={(node) => {
-										itemRefs.current[i] = node;
-									}}
-									type="button"
-									role="menuitem"
-									tabIndex={i === activeIndex ? 0 : -1}
-									data-emoji={type}
-									aria-label={REACTION_CONFIG[type].label}
-									onFocus={() => setActiveIndex(i)}
-									onPointerDown={(event) =>
-										startHold(type, event.currentTarget.getBoundingClientRect())
-									}
-									onPointerUp={() => {
-										stopHold();
-										closeAfterBurst();
-									}}
-									onPointerLeave={stopHold}
-									onPointerCancel={stopHold}
-									// Klawiatura: Enter/Space reaguje i zamyka (pointer obsłużył
-									// onPointerDown/Up). preventDefault gasi syntezy clicka.
-									onKeyDown={(event) => {
-										if (event.key !== "Enter" && event.key !== " ") return;
-										event.preventDefault();
-										react(type, event.currentTarget.getBoundingClientRect());
-										closeAfterBurst();
-									}}
-									className={`relative z-10 rounded-full p-1 outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-										type === active ? "ring-2 ring-green-500" : ""
-									}`}
-									initial={reduced ? false : { scale: 0.4, opacity: 0 }}
-									animate={{ scale: 1, opacity: 1 }}
-									transition={{
-										type: "spring",
-										stiffness: 800,
-										damping: 25,
-										delay: reduced ? 0 : 0.04 + i * 0.035,
-									}}
-									whileHover={reduced ? undefined : { scale: 1.28, y: -4 }}
-									whileTap={{ scale: 0.92 }}
-								>
-									<AppleEmoji name={type} size={s.emoji} />
-								</motion.button>
-							))}
-						</div>
-
-						<span
-							className={cn(
-								"absolute size-3 -translate-x-1/2 rounded-full bg-muted",
-								top ? "-bottom-1" : "-top-1",
-							)}
-							style={{ left: placement.tailX }}
-						/>
-						<span
-							className={cn(
-								"absolute size-1.5 -translate-x-1/2 rounded-full bg-muted",
-								top ? "-bottom-4" : "-top-4",
-							)}
-							style={{ left: placement.tailX + 6 }}
-						/>
-					</motion.div>
-				)}
-			</AnimatePresence>
+			<PillLayer>{pill}</PillLayer>
 
 			{!hideTrigger && (
 				<button

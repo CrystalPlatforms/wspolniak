@@ -28,8 +28,8 @@ function createWrapper() {
 }
 
 const sampleTiles = [
-	{ id: "album-new", title: "Wakacje", photoCount: 3, coverImageId: "cf-1" },
-	{ id: "album-old", title: "Święta", photoCount: 1, coverImageId: "cf-9" },
+	{ id: "album-new", title: "Wakacje", photoCount: 3, videoCount: 0, coverImageId: "cf-1" },
+	{ id: "album-old", title: "Święta", photoCount: 1, videoCount: 0, coverImageId: "cf-9" },
 ];
 
 /** Mock fetch: GET /api/app/albums → lista; POST /api/app/albums → tworzony album. */
@@ -114,5 +114,37 @@ describe("AlbumsList", () => {
 			expect(screen.getByText(/nie masz jeszcze albumów/i)).not.toBeNull();
 		});
 		expect(screen.getByRole("button", { name: /nowy album/i })).not.toBeNull();
+	});
+});
+
+// #172: kafelki pokazują „X zdjęć · Y wideo"; część z wideo znika przy 0.
+describe("AlbumsList — liczniki per kind (#172)", () => {
+	it("shows photo and video counts on the tile", async () => {
+		vi.stubGlobal(
+			"fetch",
+			mockAlbumsApi([
+				{ id: "a1", title: "Miks", photoCount: 3, videoCount: 1, coverImageId: "cf-1" },
+			]),
+		);
+		render(<AlbumsList />, { wrapper: createWrapper() });
+
+		await waitFor(() => {
+			expect(screen.getByText(/3 zdjęć · 1 wideo/)).not.toBeNull();
+		});
+	});
+
+	it("hides the video part when the album has no videos", async () => {
+		vi.stubGlobal(
+			"fetch",
+			mockAlbumsApi([
+				{ id: "a2", title: "Tylko zdjęcia", photoCount: 2, videoCount: 0, coverImageId: "cf-2" },
+			]),
+		);
+		render(<AlbumsList />, { wrapper: createWrapper() });
+
+		await waitFor(() => {
+			expect(screen.getByText(/2 zdjęć/)).not.toBeNull();
+		});
+		expect(screen.queryByText(/wideo/)).toBeNull();
 	});
 });

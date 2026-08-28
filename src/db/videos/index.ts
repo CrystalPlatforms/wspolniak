@@ -16,6 +16,7 @@ export {
 	deleteVideo,
 	getVideoById,
 	listPaginatedVideos,
+	listVideosByIds,
 	listVideosByPostIds,
 	setPostVideos,
 	utcDayStart,

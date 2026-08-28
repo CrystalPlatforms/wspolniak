@@ -1,6 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { ChevronLeft, ChevronRight, Download, Maximize, X, ZoomIn, ZoomOut } from "lucide-react";
+import {
+	ChevronLeft,
+	ChevronRight,
+	Download,
+	Images,
+	Maximize,
+	X,
+	ZoomIn,
+	ZoomOut,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { AddToAlbumButton } from "@/components/app/add-to-album-button";
 import { Loader } from "@/components/ui/loader";
 import { downloadImage } from "@/lib/download-image";
 import { clampOffset, MAX_ZOOM, MIN_ZOOM, usePinchZoom } from "./use-pinch-zoom";
@@ -9,6 +20,8 @@ interface LightboxImage {
 	id: string;
 	src: string;
 	alt: string;
+	/** Obecne -> przycisk "Dodaj do albumu" przy obrazie (#171, mount w PostView). */
+	cfImageId?: string;
 }
 
 interface ImageLightboxProps {
@@ -16,12 +29,88 @@ interface ImageLightboxProps {
 	initialIndex?: number;
 	open: boolean;
 	onClose: () => void;
+	/**
+	 * Wlacza "Dodaj do albumu" dla obrazow z cfImageId (#171). Domylnie off -
+	 * wlacza tylko PostView; lightbox albumu i feedu nie pozycza.
+	 */
+	canAddToAlbum?: boolean;
 }
 
 const SWIPE_THRESHOLD = 50;
 const ZOOM_STEP = 1;
 
-export function ImageLightbox({ images, initialIndex = 0, open, onClose }: ImageLightboxProps) {
+interface LightboxTopControlsProps {
+	image: LightboxImage;
+	downloading: boolean;
+	downloadProgress: number;
+	showAddToAlbum: boolean;
+	onDownload: () => void;
+	onClose: () => void;
+}
+
+/** Górny pasek lightboxa: "Dodaj do albumu" (#171), "Pobierz" i zamknięcie. */
+function LightboxTopControls({
+	image,
+	downloading,
+	downloadProgress,
+	showAddToAlbum,
+	onDownload,
+	onClose,
+}: LightboxTopControlsProps) {
+	return (
+		<div className="fixed right-2 top-2 flex gap-2 p-2 sm:right-4 sm:top-4">
+			{showAddToAlbum && (
+				<AddToAlbumButton
+					kind="post_photo"
+					itemRef={image.cfImageId ?? ""}
+					ariaLabel="Dodaj zdjęcie do albumu"
+					className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-3 text-white backdrop-blur-sm transition-colors hover:bg-white/20 sm:px-3 sm:py-2"
+				>
+					<Images className="h-8 w-8 sm:h-5 sm:w-5" />
+					<span className="text-base font-medium sm:text-sm">Dodaj do albumu</span>
+				</AddToAlbumButton>
+			)}
+			<button
+				type="button"
+				disabled={downloading}
+				onClick={onDownload}
+				className="relative flex items-center gap-2 overflow-hidden rounded-full bg-white/10 px-4 py-3 text-white backdrop-blur-sm transition-colors hover:bg-white/20 disabled:cursor-wait sm:px-3 sm:py-2"
+				aria-label="Pobierz zdjęcie"
+			>
+				{downloading && (
+					<div
+						className="absolute inset-y-0 left-0 bg-white/20 transition-all duration-200"
+						style={{ width: `${downloadProgress}%` }}
+					/>
+				)}
+				{downloading ? (
+					<Loader className="relative" />
+				) : (
+					<Download className="relative h-8 w-8 sm:h-5 sm:w-5" />
+				)}
+				<span className="relative text-base font-medium sm:text-sm">
+					{downloading ? `${downloadProgress}%` : "Pobierz"}
+				</span>
+			</button>
+			<button
+				type="button"
+				onClick={onClose}
+				className="rounded-full bg-white/10 p-3 text-white backdrop-blur-sm transition-colors hover:bg-white/20 sm:p-2"
+				aria-label="Zamknij"
+			>
+				<X className="h-8 w-8 sm:h-6 sm:w-6" />
+			</button>
+		</div>
+	);
+}
+
+export function ImageLightbox({
+	images,
+	initialIndex = 0,
+	open,
+	onClose,
+	canAddToAlbum = false,
+}: ImageLightboxProps) {
 	const [visible, setVisible] = useState(false);
 	const [animatingOut, setAnimatingOut] = useState(false);
 	const [currentIndex, setCurrentIndex] = useState(initialIndex);
@@ -219,13 +308,17 @@ export function ImageLightbox({ images, initialIndex = 0, open, onClose }: Image
 
 	const isOpen = open && !animatingOut;
 	const clamped = zoom > MIN_ZOOM ? clampToFrame(offset, zoom) : { x: 0, y: 0 };
+	// Jedna flaga zamiast warunku w JSX (limit zlozonosci biome).
+	const showAddToAlbum = canAddToAlbum && typeof image.cfImageId === "string";
 
 	const slideClass =
 		slideDirection === "right"
 			? "animate-in slide-in-from-right duration-200"
 			: "animate-in slide-in-from-left duration-200";
 
-	return (
+	// Portal do body — fixed overlay musi uciec przed sticky/overflow kontekstami
+	// strony posta (naprawa: sekcja komentarzy przebijala lightbox).
+	return createPortal(
 		<div
 			role="dialog"
 			aria-modal="true"
@@ -274,45 +367,20 @@ export function ImageLightbox({ images, initialIndex = 0, open, onClose }: Image
 				/>
 			</div>
 
-			<div className="fixed right-2 top-2 flex gap-2 p-2 sm:right-4 sm:top-4">
-				<button
-					type="button"
-					disabled={downloading}
-					onClick={(e) => {
-						e.stopPropagation();
-						setDownloading(true);
-						setDownloadProgress(0);
-						downloadImage(image.src, `wspolniak-${image.id}.jpg`, (loaded, total) => {
-							setDownloadProgress(Math.round((loaded / total) * 100));
-						}).finally(() => setDownloading(false));
-					}}
-					className="relative flex items-center gap-2 overflow-hidden rounded-full bg-white/10 px-4 py-3 text-white backdrop-blur-sm transition-colors hover:bg-white/20 disabled:cursor-wait sm:px-3 sm:py-2"
-					aria-label="Pobierz zdjęcie"
-				>
-					{downloading && (
-						<div
-							className="absolute inset-y-0 left-0 bg-white/20 transition-all duration-200"
-							style={{ width: `${downloadProgress}%` }}
-						/>
-					)}
-					{downloading ? (
-						<Loader className="relative" />
-					) : (
-						<Download className="relative h-8 w-8 sm:h-5 sm:w-5" />
-					)}
-					<span className="relative text-base font-medium sm:text-sm">
-						{downloading ? `${downloadProgress}%` : "Pobierz"}
-					</span>
-				</button>
-				<button
-					type="button"
-					onClick={handleClose}
-					className="rounded-full bg-white/10 p-3 text-white backdrop-blur-sm transition-colors hover:bg-white/20 sm:p-2"
-					aria-label="Zamknij"
-				>
-					<X className="h-8 w-8 sm:h-6 sm:w-6" />
-				</button>
-			</div>
+			<LightboxTopControls
+				image={image}
+				downloading={downloading}
+				downloadProgress={downloadProgress}
+				showAddToAlbum={showAddToAlbum}
+				onDownload={() => {
+					setDownloading(true);
+					setDownloadProgress(0);
+					downloadImage(image.src, `wspolniak-${image.id}.jpg`, (loaded, total) => {
+						setDownloadProgress(Math.round((loaded / total) * 100));
+					}).finally(() => setDownloading(false));
+				}}
+				onClose={handleClose}
+			/>
 
 			{images.length > 1 && (
 				<>
@@ -376,6 +444,7 @@ export function ImageLightbox({ images, initialIndex = 0, open, onClose }: Image
 					<Maximize className="h-8 w-8 sm:h-5 sm:w-5" />
 				</button>
 			</div>
-		</div>
+		</div>,
+		document.body,
 	);
 }
