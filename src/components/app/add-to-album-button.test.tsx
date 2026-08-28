@@ -17,6 +17,14 @@ vi.mock("sonner", () => ({
 	toast: { success: vi.fn(), error: vi.fn() },
 }));
 
+// F7 #176: bramka flagi albums czyta useAppBootstrap — mock na poziomie pliku.
+// `?? { featureFlags: undefined }`: afterEach robi restoreAllMocks, co czyści
+// mockReturnValue — fallback chroni testy spoza describe flagi.
+const mockUseAppBootstrap = vi.fn();
+vi.mock("@/core/app-bootstrap", () => ({
+	useAppBootstrap: () => mockUseAppBootstrap() ?? { featureFlags: undefined },
+}));
+
 const mockToast = vi.mocked(toast);
 
 function createWrapper() {
@@ -178,5 +186,42 @@ describe("AddToAlbumButton", () => {
 		await waitFor(() => {
 			expect(mockToast.error).toHaveBeenCalledWith("Nie udało się dodać do albumu");
 		});
+	});
+});
+
+// F7 #176: master switch „Albumy" — przy fladze OFF przycisk „Dodaj do albumu"
+// znika z każdego mount-pointu (lightbox, post-view, wideo), bo bramka siedzi
+// w samym AddToAlbumButton. URL /app/albums zostaje bez guarda (decyzja PRD).
+describe("AddToAlbumButton — flaga albums (F7 #176)", () => {
+	function renderButton() {
+		const Wrapper = createWrapper();
+		render(
+			<Wrapper>
+				<AddToAlbumButton kind="post_photo" itemRef="cf-1" ariaLabel="Dodaj Wakacje do albumu">
+					<span>Dodaj do albumu</span>
+				</AddToAlbumButton>
+			</Wrapper>,
+		);
+	}
+
+	it("renders the trigger when the albums flag is on", () => {
+		mockUseAppBootstrap.mockReturnValue({ featureFlags: { albums: true } });
+		renderButton();
+
+		expect(screen.getByRole("button", { name: "Dodaj Wakacje do albumu" })).toBeTruthy();
+	});
+
+	it("renders nothing when the albums flag is off", () => {
+		mockUseAppBootstrap.mockReturnValue({ featureFlags: { albums: false } });
+		renderButton();
+
+		expect(screen.queryByRole("button", { name: "Dodaj Wakacje do albumu" })).toBeNull();
+	});
+
+	it("renders when flags are not loaded yet (undefined featureFlags)", () => {
+		mockUseAppBootstrap.mockReturnValue({ featureFlags: undefined });
+		renderButton();
+
+		expect(screen.getByRole("button", { name: "Dodaj Wakacje do albumu" })).toBeTruthy();
 	});
 });

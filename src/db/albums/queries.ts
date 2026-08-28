@@ -125,6 +125,17 @@ export async function listAddableAlbums(user: {
 
 	return rows;
 }
+
+/** createdAt najnowszego albumu (kropka „new" w nawigacji, #176). null = brak albumów. */
+export async function getNewestAlbumCreatedAt(): Promise<Date | null> {
+	const rows = await getDb()
+		.select({ createdAt: albums.createdAt })
+		.from(albums)
+		.orderBy(desc(albums.createdAt))
+		.limit(1);
+	return rows[0]?.createdAt ?? null;
+}
+
 /**
  * Kafelki albumów newest-first (created_at DESC): okładka = ręcznie wybrana
  * (#173) albo — gdy brak wyboru — pierwsze zdjęcie w kolejności dodawania
@@ -181,7 +192,13 @@ export async function listAlbums(): Promise<AlbumTile[]> {
 /** Element albumu wzbogacony o metadane wideo (dla kind = "video", #172). */
 export interface AlbumItemWithVideo extends AlbumItem {
 	/** null dla zdjęć oraz wideo już nieobecnych w bibliotece (render pomija). */
-	video: { id: string; title: string; thumbnailUrl: string } | null;
+	video: {
+		id: string;
+		title: string;
+		thumbnailUrl: string;
+		/** #175 — plik wideo linków buduje z niego URL youtube.com/watch?v=… */
+		youtubeVideoId: string;
+	} | null;
 }
 
 /**
@@ -216,7 +233,14 @@ export async function getAlbumById(
 				item.kind === "video"
 					? (() => {
 							const row = videoRows.get(item.ref);
-							return row ? { id: row.id, title: row.title, thumbnailUrl: row.thumbnailUrl } : null;
+							return row
+								? {
+										id: row.id,
+										title: row.title,
+										thumbnailUrl: row.thumbnailUrl,
+										youtubeVideoId: row.youtubeVideoId,
+									}
+								: null;
 						})()
 					: null,
 		})),

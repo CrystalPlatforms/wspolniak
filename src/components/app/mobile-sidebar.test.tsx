@@ -30,7 +30,9 @@ describe("MobileSidebar — Biblioteka nav link (#129)", () => {
 	it("renders a Biblioteka nav link to /app/lib", async () => {
 		setPathname("/app");
 		render(
-			<MobileSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+			<MobileSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+			/>,
 		);
 		await openMenu();
 
@@ -41,7 +43,9 @@ describe("MobileSidebar — Biblioteka nav link (#129)", () => {
 	it("highlights the Biblioteka link when on /app/lib", async () => {
 		setPathname("/app/lib");
 		render(
-			<MobileSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+			<MobileSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+			/>,
 		);
 		await openMenu();
 
@@ -52,7 +56,9 @@ describe("MobileSidebar — Biblioteka nav link (#129)", () => {
 	it("fills the bookmark icon white when Biblioteka is active", async () => {
 		setPathname("/app/lib");
 		render(
-			<MobileSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+			<MobileSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+			/>,
 		);
 		await openMenu();
 
@@ -63,7 +69,9 @@ describe("MobileSidebar — Biblioteka nav link (#129)", () => {
 	it("hides the Biblioteka nav link when library disabled", async () => {
 		setPathname("/app");
 		render(
-			<MobileSidebar featureFlags={{ video: true, markdown: true, library: false, chat: true }} />,
+			<MobileSidebar
+				featureFlags={{ video: true, markdown: true, library: false, chat: true, albums: true }}
+			/>,
 		);
 		await openMenu();
 
@@ -78,7 +86,9 @@ describe("MobileSidebar — Chat nav link (F8 #159)", () => {
 	it("renders a Chat nav link to /app/chat", async () => {
 		setPathname("/app");
 		render(
-			<MobileSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+			<MobileSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+			/>,
 		);
 		await openMenu();
 
@@ -89,7 +99,9 @@ describe("MobileSidebar — Chat nav link (F8 #159)", () => {
 	it("hides the Chat nav link when chat disabled", async () => {
 		setPathname("/app");
 		render(
-			<MobileSidebar featureFlags={{ video: true, markdown: true, library: true, chat: false }} />,
+			<MobileSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: false, albums: true }}
+			/>,
 		);
 		await openMenu();
 
@@ -99,7 +111,9 @@ describe("MobileSidebar — Chat nav link (F8 #159)", () => {
 	it("fills the message icon when Chat is active", async () => {
 		setPathname("/app/chat");
 		render(
-			<MobileSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+			<MobileSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+			/>,
 		);
 		await openMenu();
 
@@ -114,7 +128,9 @@ describe("MobileSidebar — Albumy nav link (#170)", () => {
 	it("renders an Albumy nav link to /app/albums", async () => {
 		setPathname("/app");
 		render(
-			<MobileSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+			<MobileSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+			/>,
 		);
 		await openMenu();
 
@@ -125,7 +141,9 @@ describe("MobileSidebar — Albumy nav link (#170)", () => {
 	it("leaves the Albumy icon unfilled when /app/albums is active (#170 reviza)", async () => {
 		setPathname("/app/albums");
 		render(
-			<MobileSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+			<MobileSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+			/>,
 		);
 		await openMenu();
 
@@ -140,10 +158,61 @@ describe("MobileSidebar — Ustawienia moved to feed header (reviza usera)", () 
 	it("does not render a Ustawienia nav link anymore", async () => {
 		setPathname("/app");
 		render(
-			<MobileSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+			<MobileSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+			/>,
 		);
 		await openMenu();
 
 		expect(screen.queryByRole("link", { name: /^ustawienia$/i })).toBeNull();
+	});
+});
+
+// F7 #176: flaga albums chowa pozycję „Albumy" też w drawerze mobilnym;
+// kropka „new” renderuje się obok etykiety gdy useAlbumsNewDot() = true.
+const mockUseAlbumsNewDot = vi.fn();
+vi.mock("@/core/albums-seen", () => ({
+	useAlbumsNewDot: () => mockUseAlbumsNewDot() ?? false,
+}));
+
+describe("MobileSidebar — flaga albums i kropka „new” (#176)", () => {
+	it("hides the Albumy nav item when the albums flag is off", async () => {
+		setPathname("/app");
+		render(
+			<MobileSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: false }}
+			/>,
+		);
+		await openMenu();
+
+		expect(screen.queryByRole("link", { name: /^albumy/i })).toBeNull();
+	});
+
+	it("renders the new-albums dot next to the Albumy label", async () => {
+		mockUseAlbumsNewDot.mockReturnValue(true);
+		setPathname("/app");
+		render(
+			<MobileSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+			/>,
+		);
+		await openMenu();
+
+		const link = screen.getByRole("link", { name: /albumy/i });
+		expect(link.querySelector("span[aria-hidden='true']")).not.toBeNull();
+	});
+
+	it("renders no dot when there are no new albums", async () => {
+		mockUseAlbumsNewDot.mockReturnValue(false);
+		setPathname("/app");
+		render(
+			<MobileSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+			/>,
+		);
+		await openMenu();
+
+		const link = screen.getByRole("link", { name: /albumy/i });
+		expect(link.querySelector("span[aria-hidden='true']")).toBeNull();
 	});
 });

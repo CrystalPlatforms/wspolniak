@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { MoreVerticalIcon, PencilIcon, TrashIcon } from "lucide-react";
+import { Download, Images, MoreVerticalIcon, PencilIcon, TrashIcon } from "lucide-react";
 import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
@@ -31,8 +32,20 @@ interface AlbumActionsMenuProps {
 	albumTitle: string;
 	/** Klasy pozycjonujące trigger: kafelek listy vs nagłówek widoku. */
 	triggerClassName?: string;
+	/** Klasa ikony ⋯ — nagłówek albumu powiększa do size-6 (revizja usera). */
+	iconClassName?: string;
 	/** Wyrównanie menu — kafelek: "start", nagłówek: "end" (domyślne). */
 	align?: "start" | "end";
+	/**
+	 * Pozycje zarządzania (zmiana nazwy, usunięcie) — tylko twórca/admin (#173).
+	 * Default true zachowuje zachowanie kafelka listy (ten i tak renderuje menu
+	 * wyłącznie dla zarządzających).
+	 */
+	canManage?: boolean;
+	/** Akcje treści w menu (revizja usera #175): przyciski nagłówka się nie mieściły. */
+	onAddPhotos?: () => void;
+	zipUrl?: string | null;
+	videosUrl?: string | null;
 	/** Parent odświeża widoki po zmianie nazwy / usunięciu albumu. */
 	onRenamed?: (title: string) => void;
 	onDeleted?: () => void;
@@ -63,16 +76,24 @@ async function deleteAlbumApi(albumId: string) {
 }
 
 /**
- * Menu „⋯" albumu (#173): zmiana nazwy + usunięcie albumu. Jeden komponent
- * dla kafelka listy (trigger na okładce) i nagłówka widoku albumu (obok
- * „Dodaj zdjęcia"). Dialogi (nazwa, potwierdzenie usunięcia) w środku —
- * parent dostaje tylko callbacki onRenamed/onDeleted.
+ * Menu „⋯" albumu (#173): zmiana nazwy + usunięcie albumu. Od revizji usera
+ * (#175) w nagłówku widoku albumu menu jest dla WSZYSTKICH i zawiera też akcje
+ * treści: „Dodaj zdjęcia", „Pobierz zdjęcia (ZIP)", „Pobierz wideo" — przyciski
+ * nagłówka się nie mieściły; pozycje zarządzania zostają pod canManage. Jeden
+ * komponent dla kafelka listy (trigger na okładce) i nagłówka widoku. Dialogi
+ * (nazwa, potwierdzenie usunięcia) w środku — parent dostaje tylko callbacki
+ * onRenamed/onDeleted.
  */
 export function AlbumActionsMenu({
 	albumId,
 	albumTitle,
 	triggerClassName,
+	iconClassName,
 	align = "end",
+	canManage = true,
+	onAddPhotos,
+	zipUrl,
+	videosUrl,
 	onRenamed,
 	onDeleted,
 }: AlbumActionsMenuProps) {
@@ -110,30 +131,57 @@ export function AlbumActionsMenu({
 						className={triggerClassName ?? "size-8"}
 						aria-label="Opcje albumu"
 					>
-						<MoreVerticalIcon className="size-4" />
+						<MoreVerticalIcon className={iconClassName ?? "size-4"} />
 					</Button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align={align} className="min-w-44">
-					<DropdownMenuItem
-						onSelect={() => {
-							setRenameTitle(albumTitle);
-							renameMutation.reset();
-							setRenameOpen(true);
-						}}
-					>
-						<PencilIcon />
-						Zmień nazwę
-					</DropdownMenuItem>
-					<DropdownMenuItem
-						variant="destructive"
-						onSelect={() => {
-							deleteMutation.reset();
-							setDeleteOpen(true);
-						}}
-					>
-						<TrashIcon />
-						Usuń album
-					</DropdownMenuItem>
+					{onAddPhotos && (
+						<DropdownMenuItem onSelect={onAddPhotos}>
+							<Images />
+							Dodaj zdjęcia
+						</DropdownMenuItem>
+					)}
+					{zipUrl && (
+						<DropdownMenuItem asChild>
+							<a href={zipUrl} download>
+								<Download />
+								Pobierz zdjęcia (ZIP)
+							</a>
+						</DropdownMenuItem>
+					)}
+					{videosUrl && (
+						<DropdownMenuItem asChild>
+							<a href={videosUrl} download>
+								<Download />
+								Pobierz wideo
+							</a>
+						</DropdownMenuItem>
+					)}
+					{canManage && (onAddPhotos || zipUrl || videosUrl) && <DropdownMenuSeparator />}
+					{canManage && (
+						<>
+							<DropdownMenuItem
+								onSelect={() => {
+									setRenameTitle(albumTitle);
+									renameMutation.reset();
+									setRenameOpen(true);
+								}}
+							>
+								<PencilIcon />
+								Zmień nazwę
+							</DropdownMenuItem>
+							<DropdownMenuItem
+								variant="destructive"
+								onSelect={() => {
+									deleteMutation.reset();
+									setDeleteOpen(true);
+								}}
+							>
+								<TrashIcon />
+								Usuń album
+							</DropdownMenuItem>
+						</>
+					)}
 				</DropdownMenuContent>
 			</DropdownMenu>
 

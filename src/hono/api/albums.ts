@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { downloadZip } from "client-zip";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
+import { albumDownloadNames, buildAlbumVideosHtml } from "@/core/album-downloads";
 import { canManageAlbum } from "@/core/authorization";
 import { AppError } from "@/core/errors";
 import type { AlbumItem } from "@/db/albums";
@@ -10,6 +12,7 @@ import {
 	createAlbumSchema,
 	deleteAlbum,
 	getAlbumById,
+	getNewestAlbumCreatedAt,
 	listAddableAlbums,
 	listAlbums,
 	removeAlbumItem,
@@ -19,7 +22,7 @@ import {
 } from "@/db/albums";
 import { createHono } from "@/hono/factory";
 import { authMiddleware } from "@/hono/middleware/auth";
-import { deleteCfImages } from "@/images/client";
+import { deleteCfImages, getImageUrl } from "@/images/client";
 
 const albumsEndpoint = createHono();
 
@@ -70,6 +73,13 @@ albumsEndpoint.get("/", async (c) => {
 		data: tiles,
 		meta: { imageAccountHash: c.env.CLOUDFLARE_IMAGES_ACCOUNT_HASH },
 	});
+});
+
+// GET /albums/newest — createdAt najnowszego albumu; kropka „new" przy pozycji
+// nawigacji (#176). Zarejestrowane PRZED /:id — statyczny segment ma pierwszeństwo.
+albumsEndpoint.get("/newest", async (c) => {
+	const newest = await getNewestAlbumCreatedAt();
+	return c.json({ data: { createdAt: newest?.toISOString() ?? null } });
 });
 
 // GET /albums/:id — szczegóły albumu + elementy w kolejności dodawania.
@@ -215,6 +225,74 @@ albumsEndpoint.delete("/:id/items/:itemId", async (c) => {
 	}
 
 	return c.json({ data: { id: removed.id } });
+});
+
+// Content-Disposition z polskimi znakami w nazwie: fallback ASCII (zna-
+// ki spoza 20–7E i cudzysłowy → „_") + RFC 5987 filename* (UTF-8).
+function contentDispositionAttachment(filename: string): string {
+	const ascii = filename.replace(/[^\x20-\x7E]/g, "_").replace(/["\\]/g, "_");
+	return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+}
+
+// GET /albums/:id/photos.zip — streaming ZIP zdjęć (#175): największy wariant
+// JPEG („public") z Cloudflare Images, fetchowany LAZILY — zdjęcie leci z CF
+// dopiero, gdy writer ZIP-a do niego dochodzi (stała pamięć w Workerze).
+// client-zip pakuje metodą store: JPEG jest już skompresowany, CPU ≈ 0.
+albumsEndpoint.get("/:id/photos.zip", async (c) => {
+	const detail = await getAlbumById(c.req.param("id"));
+	if (!detail) {
+		return c.json({ error: "Not found" }, 404);
+	}
+
+	const photos = detail.items.filter((item) => item.kind !== "video");
+	if (photos.length === 0) {
+		return c.json({ error: "Ten album nie ma zdjęć do pobrania" }, 404);
+	}
+
+	const accountHash = c.env.CLOUDFLARE_IMAGES_ACCOUNT_HASH;
+	async function* zipEntries() {
+		for (const [index, photo] of photos.entries()) {
+			const url = getImageUrl({ accountHash, cfImageId: photo.ref, variant: "public" });
+			const res = await fetch(url);
+			// Zdjęcie zniknęło z CF między odczytem a pobraniem → pomiń, nie psuj ZIP-a.
+			if (!res.ok || !res.body) continue;
+			yield { name: `zdjecie-${String(index + 1).padStart(3, "0")}.jpg`, input: res.body };
+		}
+	}
+
+	const zip = downloadZip(zipEntries());
+	return new Response(zip.body, {
+		headers: {
+			"Content-Type": "application/zip",
+			"Content-Disposition": contentDispositionAttachment(albumDownloadNames(detail.title).zip),
+		},
+	});
+});
+
+// GET /albums/:id/videos.html — plik HTML z linkami YouTube (#175). Wideo
+// usunięte z biblioteki (video === null) pomijamy; pusty zbiór → 404
+// (przycisk i tak jest wtedy schowany w UI).
+albumsEndpoint.get("/:id/videos.html", async (c) => {
+	const detail = await getAlbumById(c.req.param("id"));
+	if (!detail) {
+		return c.json({ error: "Not found" }, 404);
+	}
+
+	const videos = detail.items.flatMap((item) =>
+		item.video ? [{ title: item.video.title, youtubeVideoId: item.video.youtubeVideoId }] : [],
+	);
+	if (videos.length === 0) {
+		return c.json({ error: "Ten album nie ma wideo do pobrania" }, 404);
+	}
+
+	return new Response(buildAlbumVideosHtml(detail.title, videos), {
+		headers: {
+			"Content-Type": "text/html; charset=utf-8",
+			"Content-Disposition": contentDispositionAttachment(
+				albumDownloadNames(detail.title).videosHtml,
+			),
+		},
+	});
 });
 
 export default albumsEndpoint;

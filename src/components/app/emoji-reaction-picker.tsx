@@ -66,7 +66,18 @@ function SmilePlusIcon({ size }: { size: number }) {
 	);
 }
 
-function getPlacement(trigger: DOMRect, width: number, height: number, align: Align): Placement {
+/** Prostokąt kotwicy pilli — DOMRect spełnia ten kształt (kafel/trigger),
+ *  a tryb „Zareaguj" w czacie (#161) podaje zmierzony wcześniej rect dymka. */
+export interface RectLike {
+	left: number;
+	top: number;
+	right: number;
+	bottom: number;
+	width: number;
+	height: number;
+}
+
+function getPlacement(trigger: RectLike, width: number, height: number, align: Align): Placement {
 	const anchored =
 		align === "left"
 			? trigger.left
@@ -108,6 +119,11 @@ export interface EmojiReactionPickerProps {
 	onOpenChange?: (open: boolean) => void;
 	/** Ukryj wbudowany trigger — używane z trybem kontrolowanym (samo otwarcie pilli). */
 	hideTrigger?: boolean;
+	/**
+	 * Kotwica pozycji pilli, gdy trigger nie istnieje (hideTrigger): rect dymka
+	 * wiadomości we współrzędnych viewportu. Bez niej pill nie ma punktu odniesienia.
+	 */
+	anchorRect?: RectLike | null;
 }
 
 /**
@@ -127,6 +143,7 @@ export function EmojiReactionPicker({
 	open: controlledOpen,
 	onOpenChange,
 	hideTrigger = false,
+	anchorRect = null,
 }: EmojiReactionPickerProps) {
 	const s = SIZES[size];
 	const reduced = useReducedMotion();
@@ -196,16 +213,18 @@ export function EmojiReactionPicker({
 	}, [closeWhenSettled, particles.length, close]);
 
 	// Ref callback zamiast efektu — pomiar nie kaskaduje dodatkowego renderu.
+	// Bez wbudowanego triggera (hideTrigger) kotwicą jest przekazany anchorRect.
 	const placeBar = useCallback(
 		(node: HTMLDivElement | null) => {
 			barRef.current = node;
-			const trigger = triggerRef.current;
+			const triggerNode = triggerRef.current;
+			const trigger: RectLike | null = triggerNode
+				? triggerNode.getBoundingClientRect()
+				: anchorRect;
 			if (!node || !trigger) return;
-			setPlacement(
-				getPlacement(trigger.getBoundingClientRect(), node.offsetWidth, node.offsetHeight, align),
-			);
+			setPlacement(getPlacement(trigger, node.offsetWidth, node.offsetHeight, align));
 		},
-		[align],
+		[align, anchorRect],
 	);
 
 	useEffect(() => {

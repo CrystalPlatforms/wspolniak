@@ -46,7 +46,7 @@ function makeMaintenance(overrides: Partial<MaintenanceConfig> = {}): Maintenanc
 }
 
 function makeFlags(overrides: Partial<FeatureFlags> = {}): FeatureFlags {
-	return { video: true, markdown: true, library: true, chat: true, ...overrides };
+	return { video: true, markdown: true, library: true, chat: true, albums: true, ...overrides };
 }
 
 /** Wypełnia query cache danymi bootstrapu; `stale` cofa dataUpdatedAt poza staleTime. */

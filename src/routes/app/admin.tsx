@@ -193,7 +193,13 @@ function AdminPage() {
 			const res = await fetch("/api/admin/features");
 			if (!res.ok) throw new Error("Nie udało się pobrać ustawień funkcji");
 			const json = (await res.json()) as {
-				data: { video: boolean; markdown: boolean; library: boolean; chat: boolean };
+				data: {
+					video: boolean;
+					markdown: boolean;
+					library: boolean;
+					chat: boolean;
+					albums: boolean;
+				};
 			};
 			return json.data;
 		},
@@ -205,6 +211,7 @@ function AdminPage() {
 			markdown?: boolean;
 			library?: boolean;
 			chat?: boolean;
+			albums?: boolean;
 		}) => {
 			const res = await fetch("/api/admin/features", {
 				method: "PUT",

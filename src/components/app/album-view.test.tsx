@@ -4,6 +4,7 @@
 // istniejący ImageLightbox (zoom + swipe) od tego zdjęcia.
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { afterEach, vi } from "vitest";
 import { AlbumView } from "./album-view";
@@ -66,6 +67,12 @@ function createWrapper() {
 	return function Wrapper({ children }: { children: ReactNode }) {
 		return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 	};
+}
+
+/** Otwiera menu „⋯" (Opcje albumu) — Radix renderuje pozycje dopiero po otwarciu. */
+async function openActionsMenu() {
+	const user = userEvent.setup();
+	await user.click(screen.getByRole("button", { name: "Opcje albumu" }));
 }
 
 afterEach(() => {
@@ -179,15 +186,18 @@ describe("AlbumView — Dodaj zdjęcia i wideo (#171/#172)", () => {
 		video: { id: "yt-1", title: "Fiesta", thumbnailUrl: "https://img.example/yt-1" },
 	};
 
-	it("renders the Dodaj zdjęcia action in the header (#171)", async () => {
+	it("renders the Dodaj zdjęcia action inside the header menu (#171, revizja #175)", async () => {
 		vi.stubGlobal("fetch", mockAlbumApi());
 		render(<AlbumView albumId="album-1" currentUserId="u1" currentUserRole="member" />, {
 			wrapper: createWrapper(),
 		});
 
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: /Dodaj zdjęcia/i })).not.toBeNull();
+			expect(screen.getByRole("button", { name: "Opcje albumu" })).not.toBeNull();
 		});
+		await openActionsMenu();
+
+		expect(screen.getByRole("menuitem", { name: /Dodaj zdjęcia/i })).not.toBeNull();
 	});
 
 	it("renders a video tile with play linking to the video page; lightbox is photos only (#172)", async () => {
@@ -247,5 +257,102 @@ describe("AlbumView — pusty album po kaskadzie (#174)", () => {
 		await waitFor(() => {
 			expect(screen.getByText("Ten album jest pusty.")).not.toBeNull();
 		});
+	});
+});
+
+// F6 #175: akcje pobierania — „Pobierz zdjęcia (ZIP)" i „Pobierz wideo".
+// Przycisk chowa się, gdy nie ma czego pobrać (0 zdjęć → brak ZIP;
+// brak wideo z metadanymi → brak „Pobierz wideo").
+describe("AlbumView — akcje pobierania w menu (F6 #175, revizja usera)", () => {
+	it("shows the download items in the menu when the album has photos", async () => {
+		vi.stubGlobal("fetch", mockAlbumApi());
+		const Wrapper = createWrapper();
+		render(
+			<Wrapper>
+				<AlbumView albumId="album-1" currentUserId="u1" currentUserRole="member" />
+			</Wrapper>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: "Opcje albumu" })).toBeTruthy();
+		});
+		await openActionsMenu();
+
+		const zipItem = screen.getByRole("menuitem", { name: /pobierz zdjęcia/i });
+		expect(zipItem.getAttribute("href")).toContain("/photos.zip");
+	});
+
+	it("hides the videos item when the album has no videos", async () => {
+		vi.stubGlobal("fetch", mockAlbumApi());
+		const Wrapper = createWrapper();
+		render(
+			<Wrapper>
+				<AlbumView albumId="album-1" currentUserId="u1" currentUserRole="member" />
+			</Wrapper>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: "Opcje albumu" })).toBeTruthy();
+		});
+		await openActionsMenu();
+
+		expect(screen.getByRole("menuitem", { name: /pobierz zdjęcia/i })).toBeTruthy();
+		expect(screen.queryByRole("menuitem", { name: /pobierz wideo/i })).toBeNull();
+	});
+
+	it("hides both download items when the album is empty", async () => {
+		vi.stubGlobal("fetch", mockAlbumApi({ ...sampleDetail, items: [] }));
+		const Wrapper = createWrapper();
+		render(
+			<Wrapper>
+				<AlbumView albumId="album-1" currentUserId="u1" currentUserRole="member" />
+			</Wrapper>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByText("Ten album jest pusty.")).not.toBeNull();
+		});
+		await openActionsMenu();
+
+		expect(screen.queryByRole("menuitem", { name: /pobierz zdjęcia/i })).toBeNull();
+		expect(screen.queryByRole("menuitem", { name: /pobierz wideo/i })).toBeNull();
+		// Akcja dodawania zostaje w menu również dla pustego albumu.
+		expect(screen.getByRole("menuitem", { name: /dodaj zdjęcia/i })).toBeTruthy();
+	});
+
+	it("shows the videos item when the album has a video", async () => {
+		const withVideo = {
+			...sampleDetail,
+			items: [
+				{
+					id: "v-item",
+					albumId: "album-1",
+					kind: "video",
+					ref: "v1",
+					createdAt: "2026-08-27T10:00:00.003Z",
+					video: {
+						id: "v1",
+						title: "Fiesta",
+						thumbnailUrl: "https://img/1",
+						youtubeVideoId: "abc",
+					},
+				},
+			],
+		};
+		vi.stubGlobal("fetch", mockAlbumApi(withVideo));
+		const Wrapper = createWrapper();
+		render(
+			<Wrapper>
+				<AlbumView albumId="album-1" currentUserId="u1" currentUserRole="member" />
+			</Wrapper>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByRole("button", { name: "Opcje albumu" })).toBeTruthy();
+		});
+		await openActionsMenu();
+
+		expect(screen.getByRole("menuitem", { name: /pobierz wideo/i })).toBeTruthy();
+		expect(screen.queryByRole("menuitem", { name: /pobierz zdjęcia/i })).toBeNull();
 	});
 });

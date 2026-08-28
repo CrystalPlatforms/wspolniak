@@ -91,3 +91,29 @@ if (typeof window !== "undefined") {
 			dispatchEvent: () => false,
 		}) as MediaQueryList;
 }
+
+/**
+ * `window.localStorage` bywa niedostępny w tym środowisku testowym (Node 22+
+ * wystawia własny eksperymentalny localStorage bez `--localstorage-file` i
+ * przysłania jsdomowy). Kropka „nowe albumy" (#176) trzyma timestamp „widzianych"
+ * w localStorage — bez stuba każde dotknięcie rzuca lub cicho nic nie zapisuje.
+ * In-memory mapa: API zgodne z Storage; test czyści ją przez clear() w afterEach.
+ */
+if (typeof window !== "undefined" && typeof window.localStorage === "undefined") {
+	const store = new Map<string, string>();
+	const storageStub: Storage = {
+		getItem: (key: string): string | null => (store.has(key) ? (store.get(key) as string) : null),
+		setItem: (key: string, value: string): void => void store.set(key, String(value)),
+		removeItem: (key: string): void => void store.delete(key),
+		clear: (): void => void store.clear(),
+		key: (index: number): string | null => Array.from(store.keys())[index] ?? null,
+		length: 0,
+	};
+	Object.defineProperty(window, "localStorage", {
+		get: () => {
+			(storageStub as { length: number }).length = store.size;
+			return storageStub;
+		},
+		configurable: true,
+	});
+}

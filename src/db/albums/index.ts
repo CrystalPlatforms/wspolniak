@@ -12,6 +12,7 @@ export {
 	deleteAlbum,
 	deleteAlbumItemsByRefs,
 	getAlbumById,
+	getNewestAlbumCreatedAt,
 	listAddableAlbums,
 	listAlbums,
 	removeAlbumItem,

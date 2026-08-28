@@ -63,6 +63,7 @@ describe("POST /api/setup", () => {
 			markdownEnabled: true,
 			libraryEnabled: true,
 			chatEnabled: true,
+			albumsEnabled: true,
 			youtubeChannelId: null,
 			youtubeChannelTitle: null,
 			youtubeRefreshToken: null,

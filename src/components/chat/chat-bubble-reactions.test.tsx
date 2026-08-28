@@ -6,10 +6,10 @@ import { ChatBubbleReactions, maxVisibleReactions } from "./chat-bubble-reaction
 import { CHAT_REACTIONS_KEY, type ChatReactionItem, useChatReactions } from "./chat-reactions";
 
 /**
- * Założenia (rewizja HITL #161): małe emoji reakcji na dymku czatu — tylko
- * te dane przez INNYCH (moja ma zielony ring w pickerze), typy bez duplikatów
- * w kolejności konfigu, w rzędzie od rogu dymka; liczba zależna od szerokości
- * dymka (nigdy nie wystają — overflow-hidden + cap).
+ * Założenia (revizja usera 2026-08-28, #161): małe emoji reakcji na dymku czatu —
+ * WSZYSTKIE (także własne: reakcja ma być od razu widoczna na wiadomości),
+ * typy bez duplikatów w kolejności konfigu, w rzędzie od rogu dymka; liczba
+ * zależna od szerokości dymka (overflow-hidden + cap).
  * jsdom: clientWidth = 0 → cap = 1 (pierwsza emoji z rzędu).
  */
 
@@ -24,20 +24,20 @@ function createClient(seed: ChatReactionItem[] = []) {
 }
 
 // Harness — komponent czyta reakcje przez hook jak prawdziwy dymek.
-function Probe({ currentUserId }: { currentUserId: string }) {
+function Probe() {
 	const reactions = useChatReactions("m1");
 	return (
 		<div>
 			<span data-probe-count>{reactions.length}</span>
-			<ChatBubbleReactions messageId="m1" currentUserId={currentUserId} />
+			<ChatBubbleReactions messageId="m1" />
 		</div>
 	);
 }
 
-function renderProbe(client: QueryClient, currentUserId = "u1") {
+function renderProbe(client: QueryClient) {
 	return render(
 		<QueryClientProvider client={client}>
-			<Probe currentUserId={currentUserId} />
+			<Probe />
 		</QueryClientProvider>,
 	);
 }
@@ -54,15 +54,21 @@ describe("maxVisibleReactions", () => {
 });
 
 describe("ChatBubbleReactions", () => {
-	it("renders nothing when only my own reaction exists", () => {
+	// Revizja usera: reakcja ma być widoczna od razu — także własna (wcześniej
+	// dymek pokazywał tylko cudze i solo-test wyglądał jak bug).
+	it("shows my own reaction on the bubble immediately", () => {
 		const client = createClient([reactionItem("u1", "heart", "Tomek")]);
 		const { container } = renderProbe(client);
-		expect(container.querySelector("[data-chat-bubble-reactions]")).toBeNull();
+		const row = container.querySelector("[data-chat-bubble-reactions]");
+		expect(row).not.toBeNull();
+		const imgs = row?.querySelectorAll("img") ?? [];
+		expect(imgs.length).toBe(1);
+		expect(imgs[0]?.getAttribute("src")).toBe("/emoji/heart.png");
 	});
 
-	it("shows others' distinct reaction emojis from the corner (capped by width)", () => {
+	it("shows all distinct reaction emojis (capped by bubble width)", () => {
 		const client = createClient([
-			reactionItem("u1", "heart", "Tomek"), // moja — NIE na dymku
+			reactionItem("u1", "heart", "Tomek"), // moja — też na dymku
 			reactionItem("u2", "flame", "Kasia"),
 			reactionItem("u3", "wow", "Ala"),
 			reactionItem("u4", "sad", "Ola"),
@@ -72,10 +78,10 @@ describe("ChatBubbleReactions", () => {
 		const row = container.querySelector("[data-chat-bubble-reactions]");
 		expect(row).not.toBeNull();
 		const imgs = row?.querySelectorAll("img") ?? [];
-		// jsdom: clientWidth = 0 → cap 1 → pierwsza z kolejności (flame;
-		// heart pominięte — moje). overflow-hidden gwarantuje brak wystawania.
+		// jsdom: clientWidth = 0 → cap 1 → pierwsza z kolejności konfigu (heart).
+		// overflow-hidden gwarantuje brak wystawania poza dymek.
 		expect(imgs.length).toBe(1);
-		expect(imgs[0]?.getAttribute("src")).toBe("/emoji/flame.png");
+		expect(imgs[0]?.getAttribute("src")).toBe("/emoji/heart.png");
 	});
 
 	it("renders in-flow inside the bubble row (self-end), never overlapping text", () => {

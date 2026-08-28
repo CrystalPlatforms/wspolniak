@@ -166,9 +166,16 @@ adminEndpoint.put("/features", async (c) => {
 		markdown?: unknown;
 		library?: unknown;
 		chat?: unknown;
+		albums?: unknown;
 	}>();
 
-	const update: { video?: boolean; markdown?: boolean; library?: boolean; chat?: boolean } = {};
+	const update: {
+		video?: boolean;
+		markdown?: boolean;
+		library?: boolean;
+		chat?: boolean;
+		albums?: boolean;
+	} = {};
 	if (body.video !== undefined) {
 		if (typeof body.video !== "boolean") {
 			return c.json({ error: "video must be a boolean" }, 400);
@@ -192,6 +199,12 @@ adminEndpoint.put("/features", async (c) => {
 			return c.json({ error: "chat must be a boolean" }, 400);
 		}
 		update.chat = body.chat;
+	}
+	if (body.albums !== undefined) {
+		if (typeof body.albums !== "boolean") {
+			return c.json({ error: "albums must be a boolean" }, 400);
+		}
+		update.albums = body.albums;
 	}
 
 	await updateFeatureFlags(update);

@@ -386,6 +386,7 @@ describe("getAlbumById — wideo (#172)", () => {
 			id: "yt-1",
 			title: "Fiesta",
 			thumbnailUrl: "https://img.example/yt-1",
+			youtubeVideoId: "abc123",
 		});
 		// Wideo usunięte z biblioteki (brak rekordu) — video: null, render pomija.
 		expect(detail?.items[2]?.video).toBeNull();

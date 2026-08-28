@@ -128,6 +128,7 @@ export interface FeatureFlags {
 	markdown: boolean;
 	library: boolean;
 	chat: boolean;
+	albums: boolean;
 }
 
 export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
@@ -135,6 +136,7 @@ export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
 	markdown: true,
 	library: true,
 	chat: true,
+	albums: true,
 };
 
 const FEATURE_FLAGS_CACHE_TTL_MS = 60_000;
@@ -154,6 +156,7 @@ export async function getFeatureFlags(): Promise<FeatureFlags> {
 			markdownEnabled: instanceConfig.markdownEnabled,
 			libraryEnabled: instanceConfig.libraryEnabled,
 			chatEnabled: instanceConfig.chatEnabled,
+			albumsEnabled: instanceConfig.albumsEnabled,
 		})
 		.from(instanceConfig)
 		.limit(1);
@@ -163,6 +166,7 @@ export async function getFeatureFlags(): Promise<FeatureFlags> {
 		markdown: row?.markdownEnabled ?? DEFAULT_FEATURE_FLAGS.markdown,
 		library: row?.libraryEnabled ?? DEFAULT_FEATURE_FLAGS.library,
 		chat: row?.chatEnabled ?? DEFAULT_FEATURE_FLAGS.chat,
+		albums: row?.albumsEnabled ?? DEFAULT_FEATURE_FLAGS.albums,
 	};
 	featureFlagsCache = { data: flags, expiresAt: Date.now() + FEATURE_FLAGS_CACHE_TTL_MS };
 	return flags;
@@ -173,6 +177,7 @@ export interface FeatureFlagsUpdate {
 	markdown?: boolean;
 	library?: boolean;
 	chat?: boolean;
+	albums?: boolean;
 }
 
 export async function updateFeatureFlags(input: FeatureFlagsUpdate): Promise<void> {
@@ -183,6 +188,7 @@ export async function updateFeatureFlags(input: FeatureFlagsUpdate): Promise<voi
 	if (input.markdown !== undefined) set.markdownEnabled = input.markdown;
 	if (input.library !== undefined) set.libraryEnabled = input.library;
 	if (input.chat !== undefined) set.chatEnabled = input.chat;
+	if (input.albums !== undefined) set.albumsEnabled = input.albums;
 
 	if (Object.keys(set).length > 0) {
 		await getDb().update(instanceConfig).set(set).where(eq(instanceConfig.id, id));

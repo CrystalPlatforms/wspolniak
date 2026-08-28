@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { useEffect } from "react";
+import { markAlbumsSeen } from "@/core/albums-seen";
 
 /**
  * Layout trasy `/app/albums` — renderuje wyłącznie `<Outlet>` dla dzieci:
@@ -12,5 +14,8 @@ export const Route = createFileRoute("/app/albums")({
 });
 
 function AlbumsLayout() {
+	useEffect(() => {
+		markAlbumsSeen();
+	}, []);
 	return <Outlet />;
 }

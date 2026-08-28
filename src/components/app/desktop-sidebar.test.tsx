@@ -24,7 +24,9 @@ describe("DesktopSidebar — Wideo feature flag", () => {
 	it("renders Wideo nav link and Dodaj wideo button when video enabled", () => {
 		setPathname("/app");
 		render(
-			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+			<DesktopSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+			/>,
 		);
 
 		expect(screen.queryByRole("link", { name: /^wideo$/i })).not.toBeNull();
@@ -34,7 +36,9 @@ describe("DesktopSidebar — Wideo feature flag", () => {
 	it("hides Wideo nav link and Dodaj wideo button when video disabled", () => {
 		setPathname("/app");
 		render(
-			<DesktopSidebar featureFlags={{ video: false, markdown: true, library: true, chat: true }} />,
+			<DesktopSidebar
+				featureFlags={{ video: false, markdown: true, library: true, chat: true, albums: true }}
+			/>,
 		);
 
 		expect(screen.queryByRole("link", { name: /^wideo$/i })).toBeNull();
@@ -46,7 +50,9 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 	it("renders a Biblioteka nav link to /app/lib", () => {
 		setPathname("/app");
 		render(
-			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+			<DesktopSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+			/>,
 		);
 
 		const link = screen.getByRole("link", { name: /^biblioteka$/i });
@@ -56,7 +62,9 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 	it("highlights the Biblioteka link when on /app/lib", () => {
 		setPathname("/app/lib");
 		render(
-			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+			<DesktopSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+			/>,
 		);
 
 		const link = screen.getByRole("link", { name: /^biblioteka$/i });
@@ -66,7 +74,9 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 	it("fills the bookmark icon white when Biblioteka is active", () => {
 		setPathname("/app/lib");
 		render(
-			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+			<DesktopSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+			/>,
 		);
 
 		const link = screen.getByRole("link", { name: /^biblioteka$/i });
@@ -77,7 +87,9 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 	it("leaves the bookmark icon unfilled when Biblioteka is not active", () => {
 		setPathname("/app");
 		render(
-			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+			<DesktopSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+			/>,
 		);
 
 		const link = screen.getByRole("link", { name: /^biblioteka$/i });
@@ -87,7 +99,9 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 	it("fills the Wideo icon when active", () => {
 		setPathname("/app/video");
 		render(
-			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+			<DesktopSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+			/>,
 		);
 
 		const link = screen.getByRole("link", { name: /^wideo$/i });
@@ -102,7 +116,7 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 		render(
 			<DesktopSidebar
 				role={adminRole}
-				featureFlags={{ video: true, markdown: true, library: true, chat: true }}
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
 			/>,
 		);
 
@@ -116,7 +130,7 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 		render(
 			<DesktopSidebar
 				role={memberRole}
-				featureFlags={{ video: true, markdown: true, library: true, chat: true }}
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
 			/>,
 		);
 
@@ -126,7 +140,9 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 	it("hides the Biblioteka nav link when library disabled", () => {
 		setPathname("/app");
 		render(
-			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: false, chat: true }} />,
+			<DesktopSidebar
+				featureFlags={{ video: true, markdown: true, library: false, chat: true, albums: true }}
+			/>,
 		);
 
 		expect(screen.queryByRole("link", { name: /^biblioteka$/i })).toBeNull();
@@ -140,7 +156,9 @@ describe("DesktopSidebar — Chat nav link (F8 #159)", () => {
 	it("renders a Chat nav link to /app/chat after Biblioteka", () => {
 		setPathname("/app");
 		render(
-			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+			<DesktopSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+			/>,
 		);
 
 		const link = screen.getByRole("link", { name: /^chat$/i });
@@ -150,7 +168,9 @@ describe("DesktopSidebar — Chat nav link (F8 #159)", () => {
 	it("hides the Chat nav link when chat disabled", () => {
 		setPathname("/app");
 		render(
-			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: false }} />,
+			<DesktopSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: false, albums: true }}
+			/>,
 		);
 
 		expect(screen.queryByRole("link", { name: /^chat$/i })).toBeNull();
@@ -159,7 +179,9 @@ describe("DesktopSidebar — Chat nav link (F8 #159)", () => {
 	it("fills the message icon when Chat is active", () => {
 		setPathname("/app/chat");
 		render(
-			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+			<DesktopSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+			/>,
 		);
 
 		const link = screen.getByRole("link", { name: /^chat$/i });
@@ -169,7 +191,9 @@ describe("DesktopSidebar — Chat nav link (F8 #159)", () => {
 	it("leaves the message icon unfilled when Chat is not active", () => {
 		setPathname("/app");
 		render(
-			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+			<DesktopSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+			/>,
 		);
 
 		const link = screen.getByRole("link", { name: /^chat$/i });
@@ -184,7 +208,9 @@ describe("DesktopSidebar — Albumy nav link (#170)", () => {
 	it("renders an Albumy nav link to /app/albums", () => {
 		setPathname("/app");
 		render(
-			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+			<DesktopSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+			/>,
 		);
 
 		const link = screen.getByRole("link", { name: /^albumy$/i });
@@ -194,7 +220,9 @@ describe("DesktopSidebar — Albumy nav link (#170)", () => {
 	it("highlights the Albumy link but leaves the icon unfilled when active (#170 reviza)", () => {
 		setPathname("/app/albums");
 		render(
-			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+			<DesktopSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+			/>,
 		);
 
 		const link = screen.getByRole("link", { name: /^albumy$/i });
@@ -206,7 +234,9 @@ describe("DesktopSidebar — Albumy nav link (#170)", () => {
 	it("leaves the Albumy icon unfilled when not active", () => {
 		setPathname("/app");
 		render(
-			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+			<DesktopSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+			/>,
 		);
 
 		const link = screen.getByRole("link", { name: /^albumy$/i });
@@ -220,9 +250,57 @@ describe("DesktopSidebar — Ustawienia moved to feed header (reviza usera)", ()
 	it("does not render a Ustawienia nav link anymore", () => {
 		setPathname("/app");
 		render(
-			<DesktopSidebar featureFlags={{ video: true, markdown: true, library: true, chat: true }} />,
+			<DesktopSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+			/>,
 		);
 
 		expect(screen.queryByRole("link", { name: /^ustawienia$/i })).toBeNull();
+	});
+});
+
+// F7 #176: flaga albums chowa pozycję „Albumy"; kropka „new" renderuje się
+// obok etykiety, gdy useAlbumsNewDot() zwraca true (mock modułu albums-seen).
+const mockUseAlbumsNewDot = vi.fn();
+vi.mock("@/core/albums-seen", () => ({
+	useAlbumsNewDot: () => mockUseAlbumsNewDot() ?? false,
+}));
+
+describe("DesktopSidebar — flaga albums i kropka „new” (#176)", () => {
+	it("hides the Albumy nav item when the albums flag is off", () => {
+		setPathname("/app");
+		render(
+			<DesktopSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: false }}
+			/>,
+		);
+
+		expect(screen.queryByRole("link", { name: /^albumy/i })).toBeNull();
+	});
+
+	it("renders the new-albums dot next to the Albumy label", () => {
+		mockUseAlbumsNewDot.mockReturnValue(true);
+		setPathname("/app");
+		render(
+			<DesktopSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+			/>,
+		);
+
+		const link = screen.getByRole("link", { name: /albumy/i });
+		expect(link.querySelector("span[aria-hidden='true']")).not.toBeNull();
+	});
+
+	it("renders no dot when there are no new albums", () => {
+		mockUseAlbumsNewDot.mockReturnValue(false);
+		setPathname("/app");
+		render(
+			<DesktopSidebar
+				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+			/>,
+		);
+
+		const link = screen.getByRole("link", { name: /albumy/i });
+		expect(link.querySelector("span[aria-hidden='true']")).toBeNull();
 	});
 });

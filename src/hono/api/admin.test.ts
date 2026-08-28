@@ -612,6 +612,7 @@ describe("GET /api/admin/features", () => {
 			markdown: false,
 			library: true,
 			chat: true,
+			albums: true,
 		});
 
 		const api = createApi();
@@ -625,7 +626,13 @@ describe("GET /api/admin/features", () => {
 		const body = (await res.json()) as {
 			data: { video: boolean; markdown: boolean; library: boolean };
 		};
-		expect(body.data).toEqual({ video: true, markdown: false, library: true, chat: true });
+		expect(body.data).toEqual({
+			video: true,
+			markdown: false,
+			library: true,
+			chat: true,
+			albums: true,
+		});
 	});
 });
 
@@ -636,6 +643,7 @@ describe("PUT /api/admin/features", () => {
 			markdown: false,
 			library: false,
 			chat: false,
+			albums: true,
 		});
 
 		const api = createApi();
@@ -644,7 +652,13 @@ describe("PUT /api/admin/features", () => {
 			{
 				method: "PUT",
 				headers: { ...adminHeaders(), "Content-Type": "application/json" },
-				body: JSON.stringify({ video: false, markdown: false, library: false, chat: false }),
+				body: JSON.stringify({
+					video: false,
+					markdown: false,
+					library: false,
+					chat: false,
+					albums: true,
+				}),
 			},
 			{ SESSION_SECRET: "secret" },
 		);
@@ -655,6 +669,7 @@ describe("PUT /api/admin/features", () => {
 			markdown: false,
 			library: false,
 			chat: false,
+			albums: true,
 		});
 	});
 
@@ -664,6 +679,7 @@ describe("PUT /api/admin/features", () => {
 			markdown: true,
 			library: true,
 			chat: true,
+			albums: true,
 		});
 
 		const api = createApi();
@@ -879,5 +895,48 @@ describe("share-code (#166)", () => {
 		expect(res.status).toBe(400);
 		const body = (await res.json()) as { error: string };
 		expect(body.error).toContain("8-20");
+	});
+});
+
+// F7 #176: flaga albums w GET/PUT /api/admin/features.
+describe("feature flags — albums (#176)", () => {
+	it("forwards an albums-only PUT to updateFeatureFlags", async () => {
+		mockGetFeatureFlags.mockResolvedValue({
+			video: true,
+			markdown: true,
+			library: true,
+			chat: true,
+			albums: true,
+		});
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/admin/features",
+			{
+				method: "PUT",
+				headers: { ...adminHeaders(), "Content-Type": "application/json" },
+				body: JSON.stringify({ albums: false }),
+			},
+			{ SESSION_SECRET: "secret" },
+		);
+
+		expect(res.status).toBe(200);
+		expect(mockUpdateFeatureFlags).toHaveBeenCalledWith({ albums: false });
+	});
+
+	it("rejects non-boolean albums", async () => {
+		const api = createApi();
+		const res = await api.request(
+			"/api/admin/features",
+			{
+				method: "PUT",
+				headers: { ...adminHeaders(), "Content-Type": "application/json" },
+				body: JSON.stringify({ albums: "yes" }),
+			},
+			{ SESSION_SECRET: "secret" },
+		);
+
+		expect(res.status).toBe(400);
+		expect(mockUpdateFeatureFlags).not.toHaveBeenCalled();
 	});
 });

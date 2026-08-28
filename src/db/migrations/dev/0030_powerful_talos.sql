@@ -1,0 +1,1 @@
+ALTER TABLE "instance_config" ADD COLUMN "albums_enabled" boolean DEFAULT true NOT NULL;

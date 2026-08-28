@@ -19,6 +19,7 @@ vi.mock("@/db/albums", async (importOriginal) => {
 		listAddableAlbums: vi.fn(),
 		listAlbums: vi.fn(),
 		getAlbumById: vi.fn(),
+		getNewestAlbumCreatedAt: vi.fn(),
 		renameAlbum: vi.fn(),
 		setAlbumCover: vi.fn(),
 		deleteAlbum: vi.fn(),
@@ -31,6 +32,7 @@ import {
 	createAlbum,
 	deleteAlbum,
 	getAlbumById,
+	getNewestAlbumCreatedAt,
 	listAddableAlbums,
 	listAlbums,
 	removeAlbumItem,
@@ -52,6 +54,7 @@ const mockFindUser = vi.mocked(findActiveUserById);
 const mockCreateAlbum = vi.mocked(createAlbum);
 const mockListAlbums = vi.mocked(listAlbums);
 const mockGetAlbumById = vi.mocked(getAlbumById);
+const mockGetNewestAlbumCreatedAt = vi.mocked(getNewestAlbumCreatedAt);
 const mockAddAlbumItems = vi.mocked(addAlbumItems);
 const mockListAddableAlbums = vi.mocked(listAddableAlbums);
 const mockRenameAlbum = vi.mocked(renameAlbum);
@@ -551,7 +554,12 @@ describe("PATCH /api/app/albums/:id", () => {
 				kind: "video",
 				ref: "yt-1",
 				createdAt: now,
-				video: { id: "yt-1", title: "Fiesta", thumbnailUrl: "https://img/yt-1" },
+				video: {
+					id: "yt-1",
+					title: "Fiesta",
+					thumbnailUrl: "https://img/yt-1",
+					youtubeVideoId: "abc123",
+				},
 			},
 		],
 	};
@@ -752,7 +760,12 @@ describe("DELETE /api/app/albums/:id", () => {
 		albumId: "album-1",
 		ref: "yt-1",
 		createdAt: now,
-		video: { id: "yt-1", title: "Fiesta", thumbnailUrl: "https://img/yt-1" },
+		video: {
+			id: "yt-1",
+			title: "Fiesta",
+			thumbnailUrl: "https://img/yt-1",
+			youtubeVideoId: "abc123",
+		},
 	};
 	const detail = {
 		id: "album-1",
@@ -970,5 +983,201 @@ describe("POST /api/app/albums/:id/items — limit 500 (#173)", () => {
 		expect(res.status).toBe(400);
 		const json = (await res.json()) as { error: string };
 		expect(json.error).toBe("Limit albumu to 500 elementów");
+	});
+});
+
+// Założenia F6 (#175): photos.zip streamuje ZIP (metoda store) z największego
+// wariantu JPEG; jeden wpis per zdjęcie; nagłówek attachment z nazwą albumu.
+describe("GET /api/app/albums/:id/photos.zip (F6 #175)", () => {
+	const zipDetail = {
+		id: "album-1",
+		creatorId: "u1",
+		title: "Wakacje",
+		coverItemId: null,
+		createdAt: now,
+		items: [
+			{
+				id: "item-1",
+				albumId: "album-1",
+				kind: "own_image",
+				ref: "cf-1",
+				createdAt: now,
+				video: null,
+			},
+			{
+				id: "item-2",
+				albumId: "album-1",
+				kind: "post_photo",
+				ref: "cf-2",
+				createdAt: now,
+				video: null,
+			},
+		],
+	};
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		vi.unstubAllGlobals();
+		authedUser();
+	});
+
+	it("streams a valid ZIP with one entry per photo and proper headers", async () => {
+		mockGetAlbumById.mockResolvedValue(zipDetail);
+		const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]);
+		const fetchMock = vi.fn().mockImplementation(async () => new Response(jpeg, { status: 200 }));
+		vi.stubGlobal("fetch", fetchMock);
+
+		const api = createApi();
+		const res = await api.request("/api/app/albums/album-1/photos.zip", authedRequest(), env);
+		expect(res.status).toBe(200);
+		expect(res.headers.get("content-type")).toBe("application/zip");
+		const disposition = res.headers.get("content-disposition") ?? "";
+		expect(disposition).toContain("attachment");
+		expect(disposition).toContain(".zip");
+		expect(disposition).toContain("UTF-8''");
+		const bytes = new Uint8Array(await res.arrayBuffer());
+		// Magic number ZIP (PKx0304) — poprawna struktura archiwum.
+		expect(Array.from(bytes.slice(0, 4))).toEqual([0x50, 0x4b, 0x03, 0x04]);
+		// Jeden wpis per zdjęcie: liczba lokalnych nagłówków (0x50 0x4b 0x03 0x04).
+		let entries = 0;
+		for (let i = 0; i + 3 < bytes.length; i++) {
+			if (
+				bytes[i] === 0x50 &&
+				bytes[i + 1] === 0x4b &&
+				bytes[i + 2] === 0x03 &&
+				bytes[i + 3] === 0x04
+			)
+				entries++;
+		}
+		expect(entries).toBe(2);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+	});
+
+	it("returns 404 when the album does not exist", async () => {
+		mockGetAlbumById.mockResolvedValue(null);
+
+		const api = createApi();
+		const res = await api.request("/api/app/albums/album-9/photos.zip", authedRequest(), env);
+
+		expect(res.status).toBe(404);
+	});
+
+	it("returns 404 when the album has no photos", async () => {
+		mockGetAlbumById.mockResolvedValue({
+			...zipDetail,
+			items: [
+				{ id: "v", albumId: "album-1", kind: "video", ref: "yt-1", createdAt: now, video: null },
+			],
+		});
+
+		const api = createApi();
+		const res = await api.request("/api/app/albums/album-1/photos.zip", authedRequest(), env);
+
+		expect(res.status).toBe(404);
+	});
+});
+
+describe("GET /api/app/albums/:id/videos.html (F6 #175)", () => {
+	const videosDetail = {
+		id: "album-2",
+		creatorId: "u1",
+		title: "Chorwacja",
+		coverItemId: null,
+		createdAt: now,
+		items: [
+			{
+				id: "i1",
+				albumId: "album-2",
+				kind: "video",
+				ref: "v1",
+				createdAt: now,
+				video: {
+					id: "v1",
+					title: "Fiesta",
+					thumbnailUrl: "https://img/1",
+					youtubeVideoId: "abc123",
+				},
+			},
+			{
+				id: "i2",
+				albumId: "album-2",
+				kind: "video",
+				ref: "v2",
+				createdAt: now,
+				video: {
+					id: "v2",
+					title: "Plaza",
+					thumbnailUrl: "https://img/2",
+					youtubeVideoId: "xyz789",
+				},
+			},
+		],
+	};
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		authedUser();
+	});
+
+	it("returns an HTML file with a Polish header and one link per video", async () => {
+		mockGetAlbumById.mockResolvedValue(videosDetail);
+
+		const api = createApi();
+		const res = await api.request("/api/app/albums/album-2/videos.html", authedRequest(), env);
+
+		expect(res.status).toBe(200);
+		expect(res.headers.get("content-type")).toContain("text/html");
+		expect(res.headers.get("content-disposition")).toContain(".html");
+		const html = await res.text();
+		expect(html).toContain('<html lang="pl">');
+		expect(html).toContain("Wideo z albumu „Chorwacja”");
+		expect(html).toContain("https://www.youtube.com/watch?v=abc123");
+		expect(html).toContain("https://www.youtube.com/watch?v=xyz789");
+		expect(html).toContain(">Fiesta</a>");
+	});
+
+	it("returns 404 when the album has no watchable videos", async () => {
+		mockGetAlbumById.mockResolvedValue({
+			...videosDetail,
+			items: [
+				{ id: "i9", albumId: "album-2", kind: "video", ref: "vx", createdAt: now, video: null },
+			],
+		});
+
+		const api = createApi();
+		const res = await api.request("/api/app/albums/album-2/videos.html", authedRequest(), env);
+
+		expect(res.status).toBe(404);
+	});
+});
+
+// F7 #176: GET /albums/newest — createdAt najnowszego albumu dla kropki „new".
+describe("GET /api/app/albums/newest (F7 #176)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		authedUser();
+	});
+
+	it("returns the newest album createdAt", async () => {
+		const stamp = new Date("2026-08-01T10:00:00Z");
+		mockGetNewestAlbumCreatedAt.mockResolvedValue(stamp);
+
+		const api = createApi();
+		const res = await api.request("/api/app/albums/newest", authedRequest(), env);
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { data: { createdAt: string | null } };
+		expect(body.data.createdAt).toBe("2026-08-01T10:00:00.000Z");
+	});
+
+	it("returns null createdAt when there are no albums", async () => {
+		mockGetNewestAlbumCreatedAt.mockResolvedValue(null);
+
+		const api = createApi();
+		const res = await api.request("/api/app/albums/newest", authedRequest(), env);
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { data: { createdAt: string | null } };
+		expect(body.data.createdAt).toBeNull();
 	});
 });

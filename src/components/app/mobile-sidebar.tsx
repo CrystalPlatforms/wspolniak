@@ -16,6 +16,7 @@ import { useState } from "react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { useAlbumsNewDot } from "@/core/albums-seen";
 import { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from "@/db/instance";
 import { cn } from "@/lib/utils";
 
@@ -67,8 +68,12 @@ export function MobileSidebar({ role, featureFlags = DEFAULT_FEATURE_FLAGS }: Mo
 		if (item.to === "/app/video" && !featureFlags.video) return false;
 		if (item.to === "/app/lib" && !featureFlags.library) return false;
 		if (item.to === "/app/chat" && !featureFlags.chat) return false;
+		if (item.to === "/app/albums" && !featureFlags.albums) return false;
 		return true;
 	});
+
+	// Kropka „new" przy „Albumy" (#176): najnowszy album vs timestamp widzianych.
+	const hasNewAlbums = useAlbumsNewDot();
 	const logoSrc =
 		resolvedTheme === "dark" ? "/logo/WspolniakLogoTrans.png" : "/logo/WspolniakLogoTransLIGHT.png";
 
@@ -110,6 +115,9 @@ export function MobileSidebar({ role, featureFlags = DEFAULT_FEATURE_FLAGS }: Mo
 									fill={isActive && item.fillWhenActive ? "currentColor" : "none"}
 								/>
 								<span>{item.label}</span>
+								{item.to === "/app/albums" && hasNewAlbums && (
+									<span aria-hidden="true" className="ml-auto size-2 rounded-full bg-primary" />
+								)}
 							</Link>
 						);
 					})}

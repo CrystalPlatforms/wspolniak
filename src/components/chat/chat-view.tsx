@@ -350,16 +350,12 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 										className={`flex max-w-[85%] cursor-default items-end gap-2 rounded-2xl px-3 py-2 [-webkit-touch-callout:none] select-none ${side === "own" ? "rounded-br-md bg-primary text-primary-foreground" : "rounded-bl-md bg-muted text-foreground"}`}
 									>
 										{/* Małe emoji od innych — od zewnętrznego rogu dymka. */}
-										{side === "other" ? (
-											<ChatBubbleReactions messageId={message.id} currentUserId={currentUserId} />
-										) : null}
+										{side === "other" ? <ChatBubbleReactions messageId={message.id} /> : null}
 										<ChatBubbleText text={message.text} own={side === "own"} />
 										<span className="shrink-0 text-[10px] opacity-60">
 											{formatChatTime(message.createdAt)}
 										</span>
-										{side === "own" ? (
-											<ChatBubbleReactions messageId={message.id} currentUserId={currentUserId} />
-										) : null}
+										{side === "own" ? <ChatBubbleReactions messageId={message.id} /> : null}
 									</div>
 									{/* Reakcje NA dymku (rewizja HITL #161 — zmiana decyzji
 									    z F5); pill „Zareaguj" zakotwiczony w wiadomości. */}

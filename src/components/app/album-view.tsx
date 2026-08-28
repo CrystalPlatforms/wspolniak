@@ -8,7 +8,6 @@ import { AlbumActionsMenu } from "@/components/app/album-actions-menu";
 import { AlbumCreateDialog } from "@/components/app/album-create-dialog";
 import { AlbumItemMenu } from "@/components/app/album-item-menu";
 import { ImageLightbox } from "@/components/app/image-lightbox";
-import { Button } from "@/components/ui/button";
 import { getImageUrl } from "@/images/client";
 
 interface AlbumVideoMetaDto {
@@ -133,24 +132,27 @@ export function AlbumView({ albumId, currentUserId, currentUserRole }: AlbumView
 	const photoIndexById = new Map(lightboxImages.map((img, i) => [img.id, i] as const));
 	const photoTotal = lightboxImages.length;
 	const videoTotal = album.items.length - photoTotal;
+	// #175 — „Pobierz wideo" liczy się po wideo z metadanymi (usunięte z biblioteki
+	// przed kaskadą F5 pomijane — spójnie z endpointem videos.html).
+	const hasDownloadableVideos = album.items.some((item) => item.video);
 
 	return (
 		<div>
 			<div className="mb-6">
-				<div className="flex items-center gap-2">
+				<div className="flex flex-wrap items-center gap-2">
 					<h1 className="text-2xl font-bold text-foreground">{album.title}</h1>
 					<div className="flex-1" />
-					<Button variant="outline" size="sm" onClick={() => setAddOpen(true)}>
-						<Images className="size-4" />
-						Dodaj zdjęcia
-					</Button>
-					{canManage && (
-						<AlbumActionsMenu
-							albumId={albumId}
-							albumTitle={album.title}
-							onDeleted={() => navigate({ to: "/app/albums" })}
-						/>
-					)}
+					<AlbumActionsMenu
+						albumId={albumId}
+						albumTitle={album.title}
+						canManage={canManage}
+						onAddPhotos={() => setAddOpen(true)}
+						zipUrl={photoTotal > 0 ? `/api/app/albums/${albumId}/photos.zip` : null}
+						videosUrl={hasDownloadableVideos ? `/api/app/albums/${albumId}/videos.html` : null}
+						triggerClassName="size-10"
+						iconClassName="size-6"
+						onDeleted={() => navigate({ to: "/app/albums" })}
+					/>
 				</div>
 				<p className="mt-1 text-sm text-muted-foreground">
 					{photoTotal} {photoTotal === 1 ? "zdjęcie" : "zdjęć"}

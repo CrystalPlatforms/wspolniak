@@ -158,11 +158,12 @@ describe("feature flags", () => {
 			markdownEnabled: true,
 			libraryEnabled: true,
 			chatEnabled: true,
+			albumsEnabled: true,
 		});
 
 		const flags = await getFeatureFlags();
 
-		expect(flags).toEqual({ video: true, markdown: true, library: true, chat: true });
+		expect(flags).toEqual({ video: true, markdown: true, library: true, chat: true, albums: true });
 	});
 
 	it("returns a disabled flag when its column is false", async () => {
@@ -171,11 +172,18 @@ describe("feature flags", () => {
 			markdownEnabled: true,
 			libraryEnabled: true,
 			chatEnabled: true,
+			albumsEnabled: true,
 		});
 
 		const flags = await getFeatureFlags();
 
-		expect(flags).toEqual({ video: false, markdown: true, library: true, chat: true });
+		expect(flags).toEqual({
+			video: false,
+			markdown: true,
+			library: true,
+			chat: true,
+			albums: true,
+		});
 	});
 
 	// F8 #159: flaga czatu — domyślnie true, kolumna chat_enabled.
@@ -185,6 +193,7 @@ describe("feature flags", () => {
 			markdownEnabled: true,
 			libraryEnabled: true,
 			chatEnabled: false,
+			albumsEnabled: true,
 		});
 
 		const flags = await getFeatureFlags();
@@ -198,11 +207,12 @@ describe("feature flags", () => {
 			markdownEnabled: null,
 			libraryEnabled: null,
 			chatEnabled: null,
+			albumsEnabled: true,
 		});
 
 		const flags = await getFeatureFlags();
 
-		expect(flags).toEqual({ video: true, markdown: true, library: true, chat: true });
+		expect(flags).toEqual({ video: true, markdown: true, library: true, chat: true, albums: true });
 	});
 
 	it("serves cached flags on second call without hitting DB again", async () => {
@@ -250,13 +260,20 @@ describe("updateFeatureFlags", () => {
 	it("persists both flags when provided", async () => {
 		const { set } = mockUpdateById("inst-1");
 
-		await updateFeatureFlags({ video: false, markdown: false, library: false, chat: false });
+		await updateFeatureFlags({
+			video: false,
+			markdown: false,
+			library: false,
+			chat: false,
+			albums: true,
+		});
 
 		expect(set).toHaveBeenCalledWith({
 			videoEnabled: false,
 			markdownEnabled: false,
 			libraryEnabled: false,
 			chatEnabled: false,
+			albumsEnabled: true,
 		});
 	});
 
@@ -595,5 +612,57 @@ describe("share code", () => {
 
 			await expect(setShareCode("4827")).rejects.toThrow(/no instance_config row/i);
 		});
+	});
+});
+
+// F7 #176: flaga albums — piąty master switch obok wideo/markdown/biblioteki/czatu.
+describe("feature flags — albums (#176)", () => {
+	beforeEach(() => invalidateFeatureFlagsCache());
+
+	function mockSelectRow(row: Record<string, unknown>) {
+		const limit = vi.fn().mockResolvedValue([row]);
+		const from = vi.fn().mockReturnValue({ limit });
+		const select = vi.fn().mockReturnValue({ from });
+		mockGetDb.mockReturnValue({ select } as never);
+	}
+
+	it("albums defaults to enabled when the column is null (no opinion stored yet)", async () => {
+		mockSelectRow({
+			videoEnabled: null,
+			markdownEnabled: null,
+			libraryEnabled: null,
+			chatEnabled: null,
+			albumsEnabled: null,
+		});
+
+		const flags = await getFeatureFlags();
+		expect(flags.albums).toBe(true);
+	});
+
+	it("albums is disabled when its column is false", async () => {
+		mockSelectRow({
+			videoEnabled: true,
+			markdownEnabled: true,
+			libraryEnabled: true,
+			chatEnabled: true,
+			albumsEnabled: false,
+		});
+
+		const flags = await getFeatureFlags();
+		expect(flags.albums).toBe(false);
+	});
+
+	it("albums persists via updateFeatureFlags", async () => {
+		const limit = vi.fn().mockResolvedValue([{ id: "inst-1" }]);
+		const from = vi.fn().mockReturnValue({ limit });
+		const select = vi.fn().mockReturnValue({ from });
+		const where = vi.fn().mockResolvedValue([]);
+		const set = vi.fn().mockReturnValue({ where });
+		const update = vi.fn().mockReturnValue({ set });
+		mockGetDb.mockReturnValue({ select, update } as never);
+
+		await updateFeatureFlags({ albums: false });
+
+		expect(set).toHaveBeenCalledWith({ albumsEnabled: false });
 	});
 });

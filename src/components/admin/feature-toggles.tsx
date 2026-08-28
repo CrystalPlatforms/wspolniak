@@ -12,6 +12,7 @@ interface FeatureTogglesProps {
 		markdown?: boolean;
 		library?: boolean;
 		chat?: boolean;
+		albums?: boolean;
 	}) => void;
 }
 
@@ -25,6 +26,7 @@ export function FeatureToggles({ flags, isSaving, onChange }: FeatureTogglesProp
 	const markdown = flags?.markdown ?? true;
 	const library = flags?.library ?? true;
 	const chat = flags?.chat ?? true;
+	const albums = flags?.albums ?? true;
 
 	return (
 		<div className="rounded-lg border border-border bg-card p-4">
@@ -60,6 +62,13 @@ export function FeatureToggles({ flags, isSaving, onChange }: FeatureTogglesProp
 					checked={chat}
 					disabled={isSaving}
 					onCheckedChange={(v) => onChange({ chat: v })}
+				/>
+				<ToggleRow
+					label="Albumy"
+					description="Sekcja albumów rodzinnych i przycisk „Dodaj do albumu”."
+					checked={albums}
+					disabled={isSaving}
+					onCheckedChange={(v) => onChange({ albums: v })}
 				/>
 			</div>
 		</div>

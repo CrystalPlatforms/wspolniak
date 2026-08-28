@@ -466,7 +466,7 @@
 
 ## Project Metrics
 
-- Current application codebase size: **52,118 lines of code** as measured on 2026-08-28.
+- Current application codebase size: **53,369 lines of code** as measured on 2026-08-28.
 - Scope: `src/` and `scripts/` source files, excluding generated files, SQL migrations, build artifacts, and dependencies.
 - This metric must be recalculated and kept current whenever the codebase changes in a way that materially affects line count.
 

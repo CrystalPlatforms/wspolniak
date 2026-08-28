@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { Copy, CornerUpLeft, Info, Smile, SmilePlus, Trash2 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
-import { EmojiReactionPicker } from "@/components/app/emoji-reaction-picker";
+import { EmojiReactionPicker, type RectLike } from "@/components/app/emoji-reaction-picker";
 import {
 	ChatWhoReactedDialog,
 	useChatReactions,
@@ -79,9 +79,9 @@ export function ChatBubbleMenu({
 	const [infoOpen, setInfoOpen] = useState(false);
 	const [pickerOpen, setPickerOpen] = useState(false);
 	// Pill zakotwiczony w DYMKU wiadomości (rewizja HITL) — nie w pozycji menu.
+	// Picker (hideTrigger) pozycjonuje się sam z rect dymka (anchorRect, viewport).
 	const [pillAnchor, setPillAnchor] = useState<{
-		left: number;
-		top: number;
+		rect: RectLike;
 		align: "left" | "right";
 	} | null>(null);
 	const reactions = useChatReactions(message.id);
@@ -133,15 +133,22 @@ export function ChatBubbleMenu({
 			?.querySelector('[role="button"]');
 		const rect = bubble?.getBoundingClientRect();
 		if (rect) {
+			// Własne wiadomości: pill przy prawej krawędzi dymka, aligned right — jak w feedzie.
 			const own = message.authorId === currentUserId;
-			setPillAnchor({
-				left: own ? rect.right : rect.left,
-				top: rect.top + 4,
-				align: own ? "right" : "left",
-			});
+			setPillAnchor({ rect, align: own ? "right" : "left" });
 		} else {
-			// Bąbelka nie ma w DOM (np. lista odmontowana) — fallback: pozycja menu.
-			setPillAnchor({ left: clamped.x + 16, top: clamped.y + 32, align: "left" });
+			// Bąbelka nie ma w DOM (np. lista odmontowana) — fallback: wirtualny rect przy menu.
+			setPillAnchor({
+				rect: {
+					left: clamped.x + 16,
+					top: clamped.y + 32,
+					right: clamped.x + 48,
+					bottom: clamped.y + 64,
+					width: 32,
+					height: 32,
+				},
+				align: "left",
+			});
 		}
 		setPickerOpen(true);
 	}
@@ -211,16 +218,10 @@ export function ChatBubbleMenu({
 				</div>
 			) : null}
 
-			{/* Pill reakcji (bąbelek jak w feedzie) zakotwiczony w DYMKU wiadomości
-			    (openPicker mierzy bąbelek); po jego zamknięciu kończymy sesję menu. */}
-			<div
-				className="fixed z-50"
-				style={
-					pillAnchor
-						? { left: pillAnchor.left, top: pillAnchor.top }
-						: { left: clamped.x + 16, top: clamped.y + 32 }
-				}
-			>
+			{/* Pill reakcji (bąbelek jak w feedzie) pozycjonuje się sam z rect dymka
+			    (anchorRect — bez tego renderował się na -9999px poza ekranem); po
+			    jego zamknięciu kończymy sesję menu. */}
+			<div>
 				<EmojiReactionPicker
 					open={pickerOpen}
 					onOpenChange={(open) => {
@@ -233,6 +234,7 @@ export function ChatBubbleMenu({
 					active={myReaction}
 					size="sm"
 					align={pillAnchor?.align ?? "left"}
+					anchorRect={pillAnchor?.rect ?? null}
 					hideTrigger
 				/>
 			</div>

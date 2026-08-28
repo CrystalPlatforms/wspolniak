@@ -16,28 +16,26 @@ export function maxVisibleReactions(bubbleWidth: number): number {
 
 interface ChatBubbleReactionsProps {
 	messageId: string;
-	currentUserId: string;
 }
 
 /**
- * Małe emoji reakcji na dymku czatu (rewizja HITL #161): tylko te dane przez
- * INNYCH użytkowników (własna ma zielony ring w pickerze), typy bez duplikatów
- * w kolejności konfigu. Rząd w flow dymka przy samym rogu (self-end, od strony
- * zewnętrznego rogu wiadomości), overflow-hidden + cap z szerokości dymka —
- * emoji nigdy nie wystają poza dymek.
+ * Małe emoji reakcji na dymku czatu (#161, revizja usera 2026-08-28): reakcje
+ * WSZYSTKICH — także własne (reakcja ma być od razu widoczna na wiadomości;
+ * zielony ring dla swojej zostaje w pickerze). Typy bez duplikatów w kolejności
+ * konfigu, rząd w flow dymka przy samym rogu (self-end, od zewnętrznego rogu
+ * wiadomości), overflow-hidden + cap z szerokości dymka — emoji nigdy nie
+ * wystają poza dymek.
  */
-export function ChatBubbleReactions({ messageId, currentUserId }: ChatBubbleReactionsProps) {
+export function ChatBubbleReactions({ messageId }: ChatBubbleReactionsProps) {
 	const reactions = useChatReactions(messageId);
-	// Typy reakcji innych (bez moich), bez duplikatów, w kolejności konfigu.
-	const others = REACTION_ORDER.filter((type) =>
-		reactions.some((item) => item.reaction === type && item.userId !== currentUserId),
-	);
+	// Typy obecne na wiadomości (ktokolwiek), bez duplikatów, kolejność konfigu.
+	const types = REACTION_ORDER.filter((type) => reactions.some((item) => item.reaction === type));
 
 	const rowRef = useRef<HTMLSpanElement>(null);
-	const [max, setMax] = useState(others.length);
+	const [max, setMax] = useState(types.length);
 
 	useEffect(() => {
-		if (others.length === 0) return;
+		if (types.length === 0) return;
 		const row = rowRef.current;
 		const bubble = row?.parentElement;
 		if (!row || !bubble) return;
@@ -46,9 +44,9 @@ export function ChatBubbleReactions({ messageId, currentUserId }: ChatBubbleReac
 		const observer = new ResizeObserver(update);
 		observer.observe(bubble);
 		return () => observer.disconnect();
-	}, [others.length]);
+	}, [types.length]);
 
-	if (others.length === 0) return null;
+	if (types.length === 0) return null;
 
 	return (
 		<span
@@ -58,7 +56,7 @@ export function ChatBubbleReactions({ messageId, currentUserId }: ChatBubbleReac
 			aria-hidden="true"
 			className="flex shrink-0 items-center gap-0.5 self-end overflow-hidden"
 		>
-			{others.slice(0, max).map((type: ReactionType) => (
+			{types.slice(0, max).map((type: ReactionType) => (
 				<AppleEmoji key={type} name={type} size={14} />
 			))}
 		</span>

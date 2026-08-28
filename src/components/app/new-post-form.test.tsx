@@ -57,7 +57,7 @@ describe("NewPostForm", () => {
 			<NewPostForm
 				onSubmit={vi.fn()}
 				isSubmitting={false}
-				featureFlags={{ video: false, markdown: true, library: true, chat: true }}
+				featureFlags={{ video: false, markdown: true, library: true, chat: true, albums: true }}
 			/>,
 		);
 
@@ -69,7 +69,7 @@ describe("NewPostForm", () => {
 			<NewPostForm
 				onSubmit={vi.fn()}
 				isSubmitting={false}
-				featureFlags={{ video: true, markdown: false, library: true, chat: true }}
+				featureFlags={{ video: true, markdown: false, library: true, chat: true, albums: true }}
 			/>,
 		);
 

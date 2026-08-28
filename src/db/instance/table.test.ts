@@ -23,6 +23,7 @@ describe("instance_config table", () => {
 				"maintenanceIcon",
 				"videoEnabled",
 				"chatEnabled",
+				"albumsEnabled",
 				"markdownEnabled",
 				"libraryEnabled",
 				"youtubeChannelId",
@@ -99,6 +100,13 @@ describe("instance_config table", () => {
 		expect(columns.chatEnabled.dataType).toBe("boolean");
 		expect(columns.chatEnabled.notNull).toBe(true);
 		expect(columns.chatEnabled.hasDefault).toBe(true);
+	});
+
+	// F7 #176: master switch albumów — jak pozostałe flagi, domyślnie włączony.
+	it("albums_enabled is boolean not null with default true", () => {
+		expect(columns.albumsEnabled.dataType).toBe("boolean");
+		expect(columns.albumsEnabled.notNull).toBe(true);
+		expect(columns.albumsEnabled.hasDefault).toBe(true);
 	});
 
 	it("created_at is timestamp not null with default", () => {

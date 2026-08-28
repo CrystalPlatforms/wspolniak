@@ -95,6 +95,27 @@ describe("EmojiReactionPicker", () => {
 		expect(onOpenChange).toHaveBeenCalledWith(false);
 	});
 
+	// Regresja: w trybie hideTrigger pill pozycjonował się z nieistniejącego
+	// triggera → placeBar wychodził wcześnie i pill wylatywał na -9999px
+	// (dymek „Zareaguj" w czacie niewidoczny). anchorRect musi być kotwicą.
+	it("positions the pill from anchorRect when the trigger is hidden", () => {
+		render(
+			<EmojiReactionPicker
+				onReact={vi.fn()}
+				open
+				hideTrigger
+				align="left"
+				anchorRect={{ left: 100, top: 200, right: 132, bottom: 232, width: 32, height: 32 }}
+			/>,
+		);
+
+		const pill = screen.getByRole("menu", { name: "Wybierz reakcję" });
+		const positioned = pill.closest(".fixed") as HTMLElement | null;
+		expect(positioned).not.toBeNull();
+		expect(positioned?.style.left).toBe("100px");
+		expect(positioned?.style.top).toBe("184px");
+	});
+
 	it("lists all five reaction types from REACTION_ORDER", async () => {
 		const user = userEvent.setup();
 		render(<EmojiReactionPicker onReact={vi.fn()} />);
