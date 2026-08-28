@@ -98,8 +98,9 @@ function AddToAlbumDialog({ open, onOpenChange, kind, itemRef }: AddToAlbumDialo
 			if (!res.ok) throw new Error("Nie udało się dodać do albumu");
 			return album;
 		},
-		onSuccess: (album) => {
-			toast.success(`Dodano do albumu „${album.title}"`);
+		onSuccess: () => {
+			// Bez toastu potwierdzającego (revizja usera #173): dialog się zamyka,
+			// element od razu widać w albumie — sukces jest oczywisty.
 			// Prefix ["albums"] łapie listę, detail i „addable" — wszystkie widoki.
 			queryClient.invalidateQueries({ queryKey: ["albums"] });
 			onOpenChange(false);

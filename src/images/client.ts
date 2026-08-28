@@ -51,6 +51,39 @@ export async function createDirectUploadUrlBatch(
 	return Promise.all(Array.from({ length: count }, () => createDirectUploadUrl(config)));
 }
 
+/**
+ * Usuwa jedno zdjęcie z Cloudflare Images (#173 — czyszczenie zdjęć własnych
+ * przy usuwaniu albumu). 404 traktujemy jak sukces (obraz już nie istnieje,
+ * np. po retry) — zgodnie ze wzorcem usuwania wideo z YouTube.
+ */
+export async function deleteCfImage(config: DirectUploadConfig, cfImageId: string): Promise<void> {
+	const response = await fetch(
+		`https://api.cloudflare.com/client/v4/accounts/${config.accountId}/images/v1/${cfImageId}`,
+		{
+			method: "DELETE",
+			headers: {
+				Authorization: `Bearer ${config.apiToken}`,
+			},
+		},
+	);
+
+	if (!response.ok && response.status !== 404) {
+		throw new Error(`Cloudflare Images API error: ${response.status}`);
+	}
+}
+
+/**
+ * Usuwa wiele zdjęć równolegle (#173). Pusta lista → bez wywołania API
+ * (mirror createDirectUploadUrlBatch).
+ */
+export async function deleteCfImages(
+	config: DirectUploadConfig,
+	cfImageIds: string[],
+): Promise<void> {
+	if (cfImageIds.length === 0) return;
+	await Promise.all(cfImageIds.map((cfImageId) => deleteCfImage(config, cfImageId)));
+}
+
 interface ImageUrlConfig {
 	accountHash: string;
 	cfImageId: string;

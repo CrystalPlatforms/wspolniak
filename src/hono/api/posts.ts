@@ -3,6 +3,7 @@ import { canDeletePost, canEditPost } from "@/core/authorization";
 import { assembleFeedPage, withPostVideos } from "@/core/feed";
 import { notifyMentions, notifyNewPost } from "@/core/notify";
 import { buildPushDeps } from "@/core/push-deps";
+import { deleteAlbumItemsByRefs } from "@/db/albums";
 import { deleteBookmarksByPost } from "@/db/bookmarks";
 import { createMentions, deleteMentionsByPost } from "@/db/mentions/queries";
 import {
@@ -165,9 +166,17 @@ postsEndpoint.delete("/:id", async (c) => {
 		return c.json({ error: "Forbidden" }, 403);
 	}
 
-	// Soft-delete posta + kaskadowe usunięcie jego zakładek u wszystkich userów (#131).
-	// Niezależne operacje na różnych tabelach → Promise.all (brak sekwencyjnych round-tripów).
-	await Promise.all([softDeletePost(post.id), deleteBookmarksByPost(post.id)]);
+	// Soft-delete posta + kaskadowe usunięcie jego zakładek u wszystkich userów (#131)
+	// oraz elementów pożyczonych do albumów (#174). Niezależne operacje na różnych
+	// tabelach → Promise.all (brak sekwencyjnych round-tripów).
+	await Promise.all([
+		softDeletePost(post.id),
+		deleteBookmarksByPost(post.id),
+		deleteAlbumItemsByRefs({
+			kind: "post_photo",
+			refs: post.images.map((image) => image.cfImageId),
+		}),
+	]);
 	return c.json({ data: { id: post.id } });
 });
 

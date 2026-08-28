@@ -20,6 +20,7 @@ import {
 	verifyState,
 	type YoutubeConfig,
 } from "@/core/youtube";
+import { deleteAlbumItemsByRefs } from "@/db/albums";
 import {
 	clearYoutubeConnection,
 	getYoutubeConnection,
@@ -283,7 +284,11 @@ videoEndpoint.delete("/:id", async (c) => {
 		throw e;
 	}
 
-	await deleteVideo(video.id);
+	await Promise.all([
+		deleteVideo(video.id),
+		// Kaskada F5 (#174): wypożyczone egzemplarze wideo znikają z albumów.
+		deleteAlbumItemsByRefs({ kind: "video", refs: [video.id] }),
+	]);
 	return c.json({ data: { id: video.id } });
 });
 

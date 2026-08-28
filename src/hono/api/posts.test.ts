@@ -31,6 +31,10 @@ vi.mock("@/db/bookmarks", () => ({
 	deleteBookmarksByPost: vi.fn(),
 }));
 
+vi.mock("@/db/albums", () => ({
+	deleteAlbumItemsByRefs: vi.fn(),
+}));
+
 vi.mock("@/db/pinned-posts", () => ({
 	listPinnedPostIds: vi.fn(),
 }));
@@ -45,6 +49,7 @@ vi.mock("@/core/feed", () => ({
 }));
 
 import { assembleFeedPage } from "@/core/feed";
+import { deleteAlbumItemsByRefs } from "@/db/albums";
 import { deleteBookmarksByPost } from "@/db/bookmarks";
 import { findActiveUserById } from "@/db/identity/queries";
 import { verifySessionCookie } from "@/db/identity/session";
@@ -75,6 +80,7 @@ const mockDeletePostImage = vi.mocked(deletePostImage);
 const mockCreateMentions = vi.mocked(createMentions);
 const mockDeleteMentionsByPost = vi.mocked(deleteMentionsByPost);
 const mockDeleteBookmarksByPost = vi.mocked(deleteBookmarksByPost);
+const mockDeleteAlbumItemsByRefs = vi.mocked(deleteAlbumItemsByRefs);
 
 function createApi() {
 	const api = new Hono<{
@@ -921,5 +927,59 @@ describe("DELETE /api/app/posts/:id/images/:imageId", () => {
 		const res = await api.request("/api/app/posts/post-1/images/img-1", { method: "DELETE" }, env);
 
 		expect(res.status).toBe(401);
+	});
+});
+
+// Kaskada F5 (#174): usunięcie posta wyciąga jego zdjęcia (post_photo, ref =
+// cfImageId) ze WSZYSTKICH albumów, w tej samej operacji co soft-delete.
+describe("DELETE /api/app/posts/:id — kaskada albumów (#174)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockVerify.mockResolvedValue({ userId: "u1", name: "Tomek", role: "member" });
+		mockFindUser.mockResolvedValue({
+			id: "u1",
+			name: "Tomek",
+			role: "member",
+			tokenHash: "hash",
+			deletedAt: null,
+			createdAt: new Date(),
+		});
+	});
+
+	it("removes the post's photos from all albums, other items stay", async () => {
+		mockGetPost.mockResolvedValue({
+			...samplePost,
+			images: [
+				{
+					id: "img-1",
+					postId: "post-1",
+					cfImageId: "cf-1",
+					displayOrder: 0,
+					createdAt: new Date(),
+				},
+				{
+					id: "img-2",
+					postId: "post-1",
+					cfImageId: "cf-2",
+					displayOrder: 1,
+					createdAt: new Date(),
+				},
+			],
+		});
+		mockSoftDelete.mockResolvedValue({ ...samplePost, deletedAt: new Date() });
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/posts/post-1",
+			authedRequest("/api/app/posts/post-1", { method: "DELETE" }),
+			env,
+		);
+
+		expect(res.status).toBe(200);
+		expect(mockSoftDelete).toHaveBeenCalledWith("post-1");
+		expect(mockDeleteAlbumItemsByRefs).toHaveBeenCalledWith({
+			kind: "post_photo",
+			refs: ["cf-1", "cf-2"],
+		});
 	});
 });

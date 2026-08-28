@@ -65,7 +65,7 @@ describe("AlbumsList", () => {
 		const Wrapper = createWrapper();
 		render(
 			<Wrapper>
-				<AlbumsList />
+				<AlbumsList currentUserId="u1" currentUserRole="member" />
 			</Wrapper>,
 		);
 
@@ -85,7 +85,7 @@ describe("AlbumsList", () => {
 		const Wrapper = createWrapper();
 		render(
 			<Wrapper>
-				<AlbumsList />
+				<AlbumsList currentUserId="u1" currentUserRole="member" />
 			</Wrapper>,
 		);
 
@@ -106,7 +106,7 @@ describe("AlbumsList", () => {
 		const Wrapper = createWrapper();
 		render(
 			<Wrapper>
-				<AlbumsList />
+				<AlbumsList currentUserId="u1" currentUserRole="member" />
 			</Wrapper>,
 		);
 
@@ -126,7 +126,9 @@ describe("AlbumsList — liczniki per kind (#172)", () => {
 				{ id: "a1", title: "Miks", photoCount: 3, videoCount: 1, coverImageId: "cf-1" },
 			]),
 		);
-		render(<AlbumsList />, { wrapper: createWrapper() });
+		render(<AlbumsList currentUserId="u1" currentUserRole="member" />, {
+			wrapper: createWrapper(),
+		});
 
 		await waitFor(() => {
 			expect(screen.getByText(/3 zdjęć · 1 wideo/)).not.toBeNull();
@@ -140,7 +142,9 @@ describe("AlbumsList — liczniki per kind (#172)", () => {
 				{ id: "a2", title: "Tylko zdjęcia", photoCount: 2, videoCount: 0, coverImageId: "cf-2" },
 			]),
 		);
-		render(<AlbumsList />, { wrapper: createWrapper() });
+		render(<AlbumsList currentUserId="u1" currentUserRole="member" />, {
+			wrapper: createWrapper(),
+		});
 
 		await waitFor(() => {
 			expect(screen.getByText(/2 zdjęć/)).not.toBeNull();

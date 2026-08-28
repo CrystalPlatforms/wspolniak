@@ -34,6 +34,10 @@ vi.mock("@/db/instance", () => ({
 	getYoutubeRefreshToken: vi.fn(),
 }));
 
+vi.mock("@/db/albums", () => ({
+	deleteAlbumItemsByRefs: vi.fn(),
+}));
+
 vi.mock("@/db/videos", () => ({
 	countTodayUTC: vi.fn(),
 	createVideo: vi.fn(),
@@ -78,6 +82,7 @@ import {
 	startResumableUpload,
 	verifyState,
 } from "@/core/youtube";
+import { deleteAlbumItemsByRefs } from "@/db/albums";
 import { findActiveUserById } from "@/db/identity/queries";
 import { verifySessionCookie } from "@/db/identity/session";
 import {
@@ -676,6 +681,7 @@ describe("POST /api/video/confirm", () => {
 
 const mockDeleteYoutube = vi.mocked(deleteYoutubeVideo);
 const mockDeleteRecord = vi.mocked(deleteVideo);
+const mockDeleteAlbumItemsByRefs = vi.mocked(deleteAlbumItemsByRefs);
 const mockGetVideo = vi.mocked(getVideoById);
 
 /** Rekord wideo z autorem — kształt `VideoFeedItem` zwracany przez getVideoById. */
@@ -814,5 +820,31 @@ describe("DELETE /api/video/:id", () => {
 		);
 
 		expect(res.status).toBe(401);
+	});
+});
+
+// Kaskada F5 (#174): usunięcie wideo wyciąga je (kind = "video", ref = id
+// wiersza) ze wszystkich albumów w tej samej operacji co usunięcie rekordu.
+describe("DELETE /api/video/:id — kaskada albumów (#174)", () => {
+	beforeEach(() => {
+		connectedYoutube();
+		mockDeleteYoutube.mockResolvedValue(undefined);
+		mockDeleteRecord.mockResolvedValue(videoRow() as never);
+	});
+
+	it("removes the video from all albums when the video is deleted", async () => {
+		memberSession(); // u2 — autor
+		mockGetVideo.mockResolvedValue(videoRow({ id: "v-1", authorId: "u2" }));
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/video/v-1",
+			{ method: "DELETE", headers: adminHeaders() },
+			ENV,
+		);
+
+		expect(res.status).toBe(200);
+		expect(mockDeleteRecord).toHaveBeenCalledWith("v-1");
+		expect(mockDeleteAlbumItemsByRefs).toHaveBeenCalledWith({ kind: "video", refs: ["v-1"] });
 	});
 });

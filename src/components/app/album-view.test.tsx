@@ -15,12 +15,14 @@ vi.mock("@tanstack/react-router", () => ({
 		</a>
 	),
 	useParams: () => ({ id: "album-1" }),
+	useNavigate: () => vi.fn(),
 }));
 
 const sampleDetail = {
 	id: "album-1",
 	creatorId: "u1",
 	title: "Wakacje",
+	coverItemId: null,
 	createdAt: "2026-08-27T10:00:00.000Z",
 	items: [
 		{
@@ -78,7 +80,7 @@ describe("AlbumView", () => {
 		const Wrapper = createWrapper();
 		render(
 			<Wrapper>
-				<AlbumView albumId="album-1" />
+				<AlbumView albumId="album-1" currentUserId="u1" currentUserRole="member" />
 			</Wrapper>,
 		);
 
@@ -98,7 +100,7 @@ describe("AlbumView", () => {
 		const Wrapper = createWrapper();
 		render(
 			<Wrapper>
-				<AlbumView albumId="album-1" />
+				<AlbumView albumId="album-1" currentUserId="u1" currentUserRole="member" />
 			</Wrapper>,
 		);
 
@@ -132,7 +134,7 @@ describe("AlbumView", () => {
 		const Wrapper = createWrapper();
 		render(
 			<Wrapper>
-				<AlbumView albumId="missing" />
+				<AlbumView albumId="missing" currentUserId="u1" currentUserRole="member" />
 			</Wrapper>,
 		);
 
@@ -179,7 +181,9 @@ describe("AlbumView — Dodaj zdjęcia i wideo (#171/#172)", () => {
 
 	it("renders the Dodaj zdjęcia action in the header (#171)", async () => {
 		vi.stubGlobal("fetch", mockAlbumApi());
-		render(<AlbumView albumId="album-1" />, { wrapper: createWrapper() });
+		render(<AlbumView albumId="album-1" currentUserId="u1" currentUserRole="member" />, {
+			wrapper: createWrapper(),
+		});
 
 		await waitFor(() => {
 			expect(screen.getByRole("button", { name: /Dodaj zdjęcia/i })).not.toBeNull();
@@ -188,7 +192,9 @@ describe("AlbumView — Dodaj zdjęcia i wideo (#171/#172)", () => {
 
 	it("renders a video tile with play linking to the video page; lightbox is photos only (#172)", async () => {
 		vi.stubGlobal("fetch", mockAlbumApi(detailWith([photoItem, videoItem])));
-		render(<AlbumView albumId="album-1" />, { wrapper: createWrapper() });
+		render(<AlbumView albumId="album-1" currentUserId="u1" currentUserRole="member" />, {
+			wrapper: createWrapper(),
+		});
 
 		await waitFor(() => {
 			expect(screen.getByRole("img", { name: "Fiesta" })).not.toBeNull();
@@ -204,7 +210,9 @@ describe("AlbumView — Dodaj zdjęcia i wideo (#171/#172)", () => {
 	it("skips video items whose record vanished from the library (#172)", async () => {
 		const ghost = { ...videoItem, video: null };
 		vi.stubGlobal("fetch", mockAlbumApi(detailWith([photoItem, ghost])));
-		render(<AlbumView albumId="album-1" />, { wrapper: createWrapper() });
+		render(<AlbumView albumId="album-1" currentUserId="u1" currentUserRole="member" />, {
+			wrapper: createWrapper(),
+		});
 
 		await waitFor(() => {
 			expect(screen.getByRole("button", { name: "Otwórz zdjęcie 1" })).not.toBeNull();
@@ -214,10 +222,30 @@ describe("AlbumView — Dodaj zdjęcia i wideo (#171/#172)", () => {
 
 	it("shows per-kind counts; the video part hides at zero (#172)", async () => {
 		vi.stubGlobal("fetch", mockAlbumApi(detailWith([photoItem, videoItem])));
-		render(<AlbumView albumId="album-1" />, { wrapper: createWrapper() });
+		render(<AlbumView albumId="album-1" currentUserId="u1" currentUserRole="member" />, {
+			wrapper: createWrapper(),
+		});
 
 		await waitFor(() => {
 			expect(screen.getByText(/1 zdjęcie · 1 wideo/)).not.toBeNull();
+		});
+	});
+});
+
+// Empty state (#174): album opróżniony kaskadą (np. wszystkie elementy były
+// pożyczone z usuniętego posta) istnieje dalej i renderuje komunikat.
+describe("AlbumView — pusty album po kaskadzie (#174)", () => {
+	it("renders the empty state when the album has no items", async () => {
+		vi.stubGlobal("fetch", mockAlbumApi({ ...sampleDetail, items: [] }));
+		const Wrapper = createWrapper();
+		render(
+			<Wrapper>
+				<AlbumView albumId="album-1" currentUserId="u1" currentUserRole="member" />
+			</Wrapper>,
+		);
+
+		await waitFor(() => {
+			expect(screen.getByText("Ten album jest pusty.")).not.toBeNull();
 		});
 	});
 });

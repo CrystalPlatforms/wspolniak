@@ -19,19 +19,33 @@ vi.mock("@/db/albums", async (importOriginal) => {
 		listAddableAlbums: vi.fn(),
 		listAlbums: vi.fn(),
 		getAlbumById: vi.fn(),
+		renameAlbum: vi.fn(),
+		setAlbumCover: vi.fn(),
+		deleteAlbum: vi.fn(),
+		removeAlbumItem: vi.fn(),
 	};
 });
 
 import {
 	addAlbumItems,
 	createAlbum,
+	deleteAlbum,
 	getAlbumById,
 	listAddableAlbums,
 	listAlbums,
+	removeAlbumItem,
+	renameAlbum,
+	setAlbumCover,
 } from "@/db/albums";
 import { findActiveUserById } from "@/db/identity/queries";
 import { verifySessionCookie } from "@/db/identity/session";
+import { deleteCfImages } from "@/images/client";
 import albumsEndpoint from "./albums";
+
+vi.mock("@/images/client", () => ({
+	deleteCfImages: vi.fn(),
+	getImageUrl: vi.fn(),
+}));
 
 const mockVerify = vi.mocked(verifySessionCookie);
 const mockFindUser = vi.mocked(findActiveUserById);
@@ -40,6 +54,11 @@ const mockListAlbums = vi.mocked(listAlbums);
 const mockGetAlbumById = vi.mocked(getAlbumById);
 const mockAddAlbumItems = vi.mocked(addAlbumItems);
 const mockListAddableAlbums = vi.mocked(listAddableAlbums);
+const mockRenameAlbum = vi.mocked(renameAlbum);
+const mockSetAlbumCover = vi.mocked(setAlbumCover);
+const mockDeleteAlbum = vi.mocked(deleteAlbum);
+const mockRemoveAlbumItem = vi.mocked(removeAlbumItem);
+const mockDeleteCfImages = vi.mocked(deleteCfImages);
 
 function createApi() {
 	const api = new Hono<{
@@ -92,7 +111,13 @@ describe("POST /api/app/albums", () => {
 
 	it("creates an album and returns 201 with tile data", async () => {
 		mockCreateAlbum.mockResolvedValue({
-			album: { id: "album-1", creatorId: "u1", title: "Wakacje", createdAt: now },
+			album: {
+				id: "album-1",
+				creatorId: "u1",
+				title: "Wakacje",
+				coverItemId: null,
+				createdAt: now,
+			},
 			items: [
 				{
 					id: "item-1",
@@ -198,8 +223,22 @@ describe("GET /api/app/albums", () => {
 
 	it("returns tiles newest-first with the image account hash", async () => {
 		mockListAlbums.mockResolvedValue([
-			{ id: "album-new", title: "Nowszy", photoCount: 2, videoCount: 0, coverImageId: "cf-1" },
-			{ id: "album-old", title: "Starszy", photoCount: 1, videoCount: 0, coverImageId: "cf-3" },
+			{
+				id: "album-new",
+				title: "Nowszy",
+				creatorId: "u1",
+				photoCount: 2,
+				videoCount: 0,
+				coverImageId: "cf-1",
+			},
+			{
+				id: "album-old",
+				title: "Starszy",
+				creatorId: "u1",
+				photoCount: 1,
+				videoCount: 0,
+				coverImageId: "cf-3",
+			},
 		]);
 
 		const api = createApi();
@@ -238,6 +277,7 @@ describe("GET /api/app/albums/:id", () => {
 			id: "album-1",
 			creatorId: "u1",
 			title: "Wakacje",
+			coverItemId: null,
 			createdAt: now,
 			items: [
 				{
@@ -348,6 +388,7 @@ describe("POST /api/app/albums/:id/items", () => {
 			id: "album-1",
 			creatorId: "u1",
 			title: "Wakacje",
+			coverItemId: null,
 			createdAt: now,
 			items: [],
 		});
@@ -399,6 +440,7 @@ describe("POST /api/app/albums/:id/items", () => {
 			id: "album-1",
 			creatorId: "u-other",
 			title: "Cudze",
+			coverItemId: null,
 			createdAt: now,
 			items: [],
 		});
@@ -425,6 +467,7 @@ describe("POST /api/app/albums/:id/items", () => {
 			id: "album-1",
 			creatorId: "u-other",
 			title: "Cudze",
+			coverItemId: null,
 			createdAt: now,
 			items: [],
 		});
@@ -454,6 +497,7 @@ describe("POST /api/app/albums/:id/items", () => {
 			id: "album-1",
 			creatorId: "u1",
 			title: "Wakacje",
+			coverItemId: null,
 			createdAt: now,
 			items: [],
 		});
@@ -476,5 +520,455 @@ describe("POST /api/app/albums/:id/items", () => {
 			expect(res.status).toBe(400);
 		}
 		expect(mockAddAlbumItems).not.toHaveBeenCalled();
+	});
+});
+
+// Założenia kontraktu (#173):
+// - PATCH: 404 brak albumu, 403 nie-twórca i nie-admin, 400 złe dane (tytuł
+//   pusty/>100, brak obu pól); okładka musi być ZDJĘCIEM z TEGO albumu.
+// - DELETE /:id: CF Images czyszczone PRZED bazą; response = id + deletedImageIds
+//   (tylko own_image). Pożyczone post_photo/video nigdy nie trafiają do czyszczenia.
+// - DELETE /:id/items/:itemId: usuwa element, źródło (post/wideo) nietknięte.
+describe("PATCH /api/app/albums/:id", () => {
+	const creatorDetail = {
+		id: "album-1",
+		creatorId: "u1",
+		title: "Wakacje",
+		coverItemId: null,
+		createdAt: now,
+		items: [
+			{
+				id: "item-1",
+				albumId: "album-1",
+				kind: "own_image",
+				ref: "cf-1",
+				createdAt: now,
+				video: null,
+			},
+			{
+				id: "item-2",
+				albumId: "album-1",
+				kind: "video",
+				ref: "yt-1",
+				createdAt: now,
+				video: { id: "yt-1", title: "Fiesta", thumbnailUrl: "https://img/yt-1" },
+			},
+		],
+	};
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		authedUser();
+	});
+
+	it("renames the album as the creator and returns 200", async () => {
+		mockGetAlbumById.mockResolvedValue(creatorDetail);
+		mockRenameAlbum.mockResolvedValue({
+			id: "album-1",
+			creatorId: "u1",
+			title: "Chorwacja",
+			coverItemId: null,
+			createdAt: now,
+		});
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/albums/album-1",
+			authedRequest({
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ title: "Chorwacja" }),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(200);
+		expect(mockRenameAlbum).toHaveBeenCalledWith("album-1", "Chorwacja");
+	});
+
+	it("sets the cover to a photo item of this album", async () => {
+		mockGetAlbumById.mockResolvedValue(creatorDetail);
+		mockSetAlbumCover.mockResolvedValue({
+			id: "album-1",
+			creatorId: "u1",
+			title: "Wakacje",
+			coverItemId: "item-1",
+			createdAt: now,
+		});
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/albums/album-1",
+			authedRequest({
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ coverItemId: "item-1" }),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(200);
+		expect(mockSetAlbumCover).toHaveBeenCalledWith("album-1", "item-1");
+	});
+
+	it("rejects a video cover with 400", async () => {
+		mockGetAlbumById.mockResolvedValue(creatorDetail);
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/albums/album-1",
+			authedRequest({
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ coverItemId: "item-2" }),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(400);
+		expect(mockSetAlbumCover).not.toHaveBeenCalled();
+	});
+
+	it("rejects a cover pointing outside the album with 400", async () => {
+		mockGetAlbumById.mockResolvedValue(creatorDetail);
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/albums/album-1",
+			authedRequest({
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ coverItemId: "item-999" }),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(400);
+	});
+
+	it("returns 403 for a non-creator non-admin", async () => {
+		mockGetAlbumById.mockResolvedValue({
+			...creatorDetail,
+			creatorId: "u-other",
+		});
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/albums/album-1",
+			authedRequest({
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ title: "Hakujemy" }),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(403);
+		expect(mockRenameAlbum).not.toHaveBeenCalled();
+	});
+
+	it("lets an admin rename someone else's album", async () => {
+		vi.clearAllMocks();
+		adminUser();
+		mockGetAlbumById.mockResolvedValue({ ...creatorDetail, creatorId: "u-other" });
+		mockRenameAlbum.mockResolvedValue({
+			id: "album-1",
+			creatorId: "u-other",
+			title: "Zmienione przez admina",
+			coverItemId: null,
+			createdAt: now,
+		});
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/albums/album-1",
+			authedRequest({
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ title: "Zmienione przez admina" }),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(200);
+		expect(mockRenameAlbum).toHaveBeenCalledWith("album-1", "Zmienione przez admina");
+	});
+
+	it("returns 404 when the album does not exist", async () => {
+		mockGetAlbumById.mockResolvedValue(null);
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/albums/missing",
+			authedRequest({
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ title: "Cokolwiek" }),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(404);
+	});
+
+	it("returns 400 for an empty body (no title, no cover)", async () => {
+		mockGetAlbumById.mockResolvedValue(creatorDetail);
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/albums/album-1",
+			authedRequest({
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({}),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(400);
+	});
+});
+
+describe("DELETE /api/app/albums/:id", () => {
+	const ownPhoto = {
+		id: "item-1",
+		albumId: "album-1",
+		kind: "own_image",
+		ref: "cf-own-1",
+		createdAt: now,
+		video: null,
+	};
+	const borrowedPhoto = {
+		id: "item-2",
+		albumId: "album-1",
+		kind: "post_photo",
+		ref: "cf-post-1",
+		createdAt: now,
+		video: null,
+	};
+	const borrowedVideo = {
+		id: "item-3",
+		kind: "video",
+		albumId: "album-1",
+		ref: "yt-1",
+		createdAt: now,
+		video: { id: "yt-1", title: "Fiesta", thumbnailUrl: "https://img/yt-1" },
+	};
+	const detail = {
+		id: "album-1",
+		creatorId: "u1",
+		title: "Wakacje",
+		coverItemId: null,
+		createdAt: now,
+		items: [ownPhoto, borrowedPhoto, borrowedVideo],
+	};
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		authedUser();
+	});
+
+	it("deletes own images from CF before the DB and returns their ids", async () => {
+		mockGetAlbumById.mockResolvedValue(detail);
+		mockDeleteAlbum.mockResolvedValue(["cf-own-1"]);
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/albums/album-1",
+			authedRequest({ method: "DELETE" }),
+			env,
+		);
+
+		expect(res.status).toBe(200);
+		// CF najpierw, dopiero potem baza (wzorzec z usuwania wideo: YT → Neon).
+		expect(mockDeleteCfImages).toHaveBeenCalledTimes(1);
+		expect(mockDeleteCfImages.mock.invocationCallOrder[0]).toBeLessThan(
+			mockDeleteAlbum.mock.invocationCallOrder[0],
+		);
+		expect(mockDeleteAlbum).toHaveBeenCalledWith("album-1");
+		const json = (await res.json()) as { data: { id: string; deletedImageIds: string[] } };
+		expect(json.data.deletedImageIds).toEqual(["cf-own-1"]);
+	});
+
+	it("returns 403 for a non-creator non-admin without touching CF or DB", async () => {
+		mockGetAlbumById.mockResolvedValue({ ...detail, creatorId: "u-other" });
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/albums/album-1",
+			authedRequest({ method: "DELETE" }),
+			env,
+		);
+
+		expect(res.status).toBe(403);
+		expect(mockDeleteCfImages).not.toHaveBeenCalled();
+		expect(mockDeleteAlbum).not.toHaveBeenCalled();
+	});
+
+	it("lets an admin delete someone else's album", async () => {
+		vi.clearAllMocks();
+		adminUser();
+		mockGetAlbumById.mockResolvedValue({ ...detail, creatorId: "u-other" });
+		mockDeleteAlbum.mockResolvedValue([]);
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/albums/album-1",
+			authedRequest({ method: "DELETE" }),
+			env,
+		);
+
+		expect(res.status).toBe(200);
+		expect(mockDeleteAlbum).toHaveBeenCalledWith("album-1");
+	});
+
+	it("returns 404 when the album does not exist", async () => {
+		mockGetAlbumById.mockResolvedValue(null);
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/albums/missing",
+			authedRequest({ method: "DELETE" }),
+			env,
+		);
+
+		expect(res.status).toBe(404);
+		expect(mockDeleteAlbum).not.toHaveBeenCalled();
+	});
+});
+
+describe("DELETE /api/app/albums/:id/items/:itemId", () => {
+	const detail = {
+		id: "album-1",
+		creatorId: "u1",
+		title: "Wakacje",
+		coverItemId: null,
+		createdAt: now,
+		items: [
+			{
+				id: "item-1",
+				albumId: "album-1",
+				kind: "post_photo",
+				ref: "cf-post-1",
+				createdAt: now,
+				video: null,
+			},
+		],
+	};
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		authedUser();
+	});
+
+	it("removes a borrowed item; the source post is untouched", async () => {
+		mockGetAlbumById.mockResolvedValue(detail);
+		mockRemoveAlbumItem.mockResolvedValue({
+			id: "item-1",
+			albumId: "album-1",
+			kind: "post_photo",
+			ref: "cf-post-1",
+			createdAt: now,
+		});
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/albums/album-1/items/item-1",
+			authedRequest({ method: "DELETE" }),
+			env,
+		);
+
+		expect(res.status).toBe(200);
+		expect(mockRemoveAlbumItem).toHaveBeenCalledWith("album-1", "item-1");
+	});
+
+	it("returns 403 for a non-creator non-admin", async () => {
+		mockGetAlbumById.mockResolvedValue({ ...detail, creatorId: "u-other" });
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/albums/album-1/items/item-1",
+			authedRequest({ method: "DELETE" }),
+			env,
+		);
+
+		expect(res.status).toBe(403);
+		expect(mockRemoveAlbumItem).not.toHaveBeenCalled();
+	});
+
+	it("lets an admin remove an item from someone else's album", async () => {
+		vi.clearAllMocks();
+		adminUser();
+		mockGetAlbumById.mockResolvedValue({ ...detail, creatorId: "u-other" });
+		mockRemoveAlbumItem.mockResolvedValue({
+			id: "item-1",
+			albumId: "album-1",
+			kind: "post_photo",
+			ref: "cf-post-1",
+			createdAt: now,
+		});
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/albums/album-1/items/item-1",
+			authedRequest({ method: "DELETE" }),
+			env,
+		);
+
+		expect(res.status).toBe(200);
+		expect(mockRemoveAlbumItem).toHaveBeenCalledWith("album-1", "item-1");
+	});
+
+	it("returns 404 when the item is not in the album", async () => {
+		mockGetAlbumById.mockResolvedValue(detail);
+		mockRemoveAlbumItem.mockResolvedValue(null);
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/albums/album-1/items/nope",
+			authedRequest({ method: "DELETE" }),
+			env,
+		);
+
+		expect(res.status).toBe(404);
+		expect(mockRemoveAlbumItem).toHaveBeenCalledWith("album-1", "nope");
+	});
+});
+
+// Cap 500 (#173): domena rzuca AppError → API mapuje na 400 z polskim komunikatem.
+describe("POST /api/app/albums/:id/items — limit 500 (#173)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		authedUser();
+		mockGetAlbumById.mockResolvedValue({
+			id: "album-1",
+			creatorId: "u1",
+			title: "Wakacje",
+			coverItemId: null,
+			createdAt: new Date(),
+			items: [],
+		});
+	});
+
+	it("maps the domain cap error to 400 with the domain message", async () => {
+		const { AppError } = await import("@/core/errors");
+		mockAddAlbumItems.mockRejectedValue(
+			new AppError("Limit albumu to 500 elementów", "VALIDATION", 400),
+		);
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/albums/album-1/items",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ kind: "own_image", refs: ["cf-1"] }),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(400);
+		const json = (await res.json()) as { error: string };
+		expect(json.error).toBe("Limit albumu to 500 elementów");
 	});
 });

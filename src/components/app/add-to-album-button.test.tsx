@@ -120,8 +120,11 @@ describe("AddToAlbumButton", () => {
 		await waitFor(() => screen.getByText("Wakacje"));
 		fireEvent.click(screen.getByText("Wakacje"));
 
+		// Bez toastu sukcesu (revizja usera #173) — czekamy na sam POST.
 		await waitFor(() => {
-			expect(mockToast.success).toHaveBeenCalled();
+			expect(fetchSpy.mock.calls.some(([, init]) => (init as RequestInit)?.method === "POST")).toBe(
+				true,
+			);
 		});
 		const post = fetchSpy.mock.calls.find(([, init]) => (init as RequestInit)?.method === "POST");
 		expect(post).toBeDefined();
@@ -139,8 +142,11 @@ describe("AddToAlbumButton", () => {
 		await waitFor(() => screen.getByText("Wakacje"));
 		fireEvent.click(screen.getByText("Wakacje"));
 
+		// Bez toastu sukcesu (revizja usera #173) — czekamy na sam POST.
 		await waitFor(() => {
-			expect(mockToast.success).toHaveBeenCalled();
+			expect(fetchSpy.mock.calls.some(([, init]) => (init as RequestInit)?.method === "POST")).toBe(
+				true,
+			);
 		});
 		const post = fetchSpy.mock.calls.find(([, init]) => (init as RequestInit)?.method === "POST");
 		const [, init] = post as [string, RequestInit];

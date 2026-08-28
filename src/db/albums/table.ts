@@ -14,6 +14,12 @@ export const albums = pgTable(
 		id: text("id").primaryKey(),
 		creatorId: text("creator_id").notNull(),
 		title: text("title").notNull(),
+		/**
+		 * Ręcznie wybrana okładka (#173) — id wiersza `album_items`. Nullable:
+		 * null = okładka wyliczana jako pierwsze zdjęcie (domyślny z PRD).
+		 * Wskazuje element (nie cfImageId), więc usuń element → czyścimy kolumnę.
+		 */
+		coverItemId: text("cover_item_id"),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 	},
 	(t) => [index("albums_created_at_idx").on(desc(t.createdAt))],

@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
 import { useState } from "react";
+import { AlbumActionsMenu } from "@/components/app/album-actions-menu";
 import { AlbumCreateDialog } from "@/components/app/album-create-dialog";
 import { Button } from "@/components/ui/button";
 import { getImageUrl } from "@/images/client";
@@ -12,6 +14,7 @@ export const ALBUMS_LIST_KEY = ["albums", "list"] as const;
 interface AlbumTileDto {
 	id: string;
 	title: string;
+	creatorId: string;
 	photoCount: number;
 	videoCount: number;
 	coverImageId: string | null;
@@ -28,15 +31,22 @@ async function fetchAlbums(): Promise<AlbumsResponse> {
 	return (await res.json()) as AlbumsResponse;
 }
 
+interface AlbumsListProps {
+	/** Sesja — menu „⋯" widzi tylko twórca albumu albo admin (#173). */
+	currentUserId: string;
+	currentUserRole: string;
+}
+
 /**
  * Sekcja „Albumy" (#170): siatka kafelków (okładka = pierwsze zdjęcie, tytuł,
- * licznik) w kolejności z API (newest-first). „Nowy album" otwiera dialog
- * tworzenia; po sukcesie lista odświeża się i nowy kafelek jest na górze.
+ * licznik) w kolejności z API (newest-first). Od #173 na kafelku twórcy/admina
+ * jest menu „⋯" (zmiana nazwy, usunięcie albumu).
  */
-export function AlbumsList() {
+export function AlbumsList({ currentUserId, currentUserRole }: AlbumsListProps) {
 	const queryClient = useQueryClient();
 	const [createOpen, setCreateOpen] = useState(false);
 	const { data, isPending } = useQuery({ queryKey: ALBUMS_LIST_KEY, queryFn: fetchAlbums });
+	const isAdmin = currentUserRole === "admin";
 
 	const tiles = data?.data ?? [];
 	const imageAccountHash = data?.meta.imageAccountHash ?? "";
@@ -45,7 +55,6 @@ export function AlbumsList() {
 		return (
 			<div className="grid grid-cols-2 gap-3" aria-busy="true">
 				{[0, 1, 2, 3].map((i) => (
-					// biome-ignore lint/suspicious/noArrayIndexKey: statyczne szkielety
 					<div key={i} className="aspect-square animate-pulse rounded-lg bg-muted" />
 				))}
 			</div>
@@ -70,26 +79,37 @@ export function AlbumsList() {
 			) : (
 				<div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
 					{tiles.map((tile) => (
-						<a key={tile.id} href={`/app/albums/${tile.id}`} className="group block">
-							<div className="relative aspect-square overflow-hidden rounded-lg border bg-muted">
-								{tile.coverImageId && (
-									<img
-										src={getImageUrl({
-											accountHash: imageAccountHash,
-											cfImageId: tile.coverImageId,
-											variant: "thumbnail",
-										})}
-										alt={`Okładka ${tile.title}`}
-										className="size-full object-cover transition-transform group-hover:scale-105"
+						<div key={tile.id} className="group relative">
+							<Link to="/app/albums/$id" params={{ id: tile.id }} className="block">
+								<div className="relative aspect-square overflow-hidden rounded-lg border bg-muted">
+									{tile.coverImageId && (
+										<img
+											src={getImageUrl({
+												accountHash: imageAccountHash,
+												cfImageId: tile.coverImageId,
+												variant: "thumbnail",
+											})}
+											alt={`Okładka ${tile.title}`}
+											className="size-full object-cover transition-transform group-hover:scale-105"
+										/>
+									)}
+								</div>
+								<p className="mt-2 truncate text-sm font-medium text-foreground">{tile.title}</p>
+								<p className="text-xs text-muted-foreground">
+									{tile.photoCount} {tile.photoCount === 1 ? "zdjęcie" : "zdjęć"}
+									{tile.videoCount > 0 && ` · ${tile.videoCount} wideo`}
+								</p>
+							</Link>
+							{(tile.creatorId === currentUserId || isAdmin) && (
+								<div className="absolute right-1 top-1">
+									<AlbumActionsMenu
+										albumId={tile.id}
+										albumTitle={tile.title}
+										triggerClassName="size-7 rounded-full bg-background/80 hover:bg-background"
 									/>
-								)}
-							</div>
-							<p className="mt-2 truncate text-sm font-medium text-foreground">{tile.title}</p>
-							<p className="text-xs text-muted-foreground">
-								{tile.photoCount} {tile.photoCount === 1 ? "zdjęcie" : "zdjęć"}
-								{tile.videoCount > 0 && ` · ${tile.videoCount} wideo`}
-							</p>
-						</a>
+								</div>
+							)}
+						</div>
 					))}
 				</div>
 			)}

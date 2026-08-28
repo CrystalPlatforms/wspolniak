@@ -43,3 +43,12 @@ export function canEditComment(actor: Actor, comment: CommentTarget): boolean {
 export function canDeleteComment(actor: Actor, comment: CommentTarget): boolean {
 	return isOwnerOrAdmin(actor, comment.authorId);
 }
+
+export interface AlbumTarget {
+	creatorId: string;
+}
+
+/** #173: wszystkie mutacje albumu — tylko twórca albo admin. */
+export function canManageAlbum(actor: Actor, album: AlbumTarget): boolean {
+	return isOwnerOrAdmin(actor, album.creatorId);
+}

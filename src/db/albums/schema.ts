@@ -33,6 +33,12 @@ export type AlbumItemKind = (typeof ALBUM_ITEM_KINDS)[number];
 /** Batch dołączany jednym requestem — mirror limitu kompozytora posta. */
 export const MAX_ALBUM_ITEMS_PER_REQUEST = 10;
 
+/**
+ * Twardy limit elementów na album (#173, historia 27 z PRD) — egzekwowany
+ * w warstwie domeny (addAlbumItems), nie w UI.
+ */
+export const MAX_ALBUM_ITEMS = 500;
+
 // POST /albums/:id/items — pożyczenie zdjęcia/wideo albo „Dodaj zdjęcia" (#171/#172).
 export const addAlbumItemsSchema = z.object({
 	kind: z.enum(ALBUM_ITEM_KINDS),
@@ -43,3 +49,15 @@ export const addAlbumItemsSchema = z.object({
 });
 
 export type AddAlbumItemsRequest = z.infer<typeof addAlbumItemsSchema>;
+
+// PATCH /albums/:id — zmiana nazwy i/lub okładki (#173); co najmniej jedno pole.
+export const updateAlbumSchema = z
+	.object({
+		title: z.string().trim().min(1, "Tytuł jest wymagany").max(MAX_ALBUM_TITLE_LENGTH).optional(),
+		coverItemId: z.string().min(1).optional(),
+	})
+	.refine((input) => input.title !== undefined || input.coverItemId !== undefined, {
+		message: "Podaj nową nazwę albo okładkę",
+	});
+
+export type UpdateAlbumRequest = z.infer<typeof updateAlbumSchema>;

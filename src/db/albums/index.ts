@@ -9,9 +9,14 @@ export type {
 export {
 	addAlbumItems,
 	createAlbum,
+	deleteAlbum,
+	deleteAlbumItemsByRefs,
 	getAlbumById,
 	listAddableAlbums,
 	listAlbums,
+	removeAlbumItem,
+	renameAlbum,
+	setAlbumCover,
 } from "./queries";
 export {
 	type AddAlbumItemsRequest,
@@ -20,5 +25,8 @@ export {
 	addAlbumItemsSchema,
 	type CreateAlbumRequest,
 	createAlbumSchema,
+	MAX_ALBUM_ITEMS,
+	type UpdateAlbumRequest,
+	updateAlbumSchema,
 } from "./schema";
 export { albumItems, albums } from "./table";

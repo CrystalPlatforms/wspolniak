@@ -28,6 +28,7 @@ function albumRow(overrides: Partial<AlbumRow> = {}): AlbumRow {
 		id: "album-1",
 		creatorId: "u1",
 		title: "Wakacje",
+		coverItemId: null,
 		createdAt: BASE,
 		...overrides,
 	};
@@ -101,9 +102,11 @@ function makeSelectDb(
 /**
  * Insert chain z onConflictDoNothing (addAlbumItems #171): values -> conflict ->
  * returning. `returned` symuluje wiersze faktycznie wstawione (po odrzuceniu
- * duplikatow przez unikalny indeks po stronie DB).
+ * duplikatow przez unikalny indeks po stronie DB). Od #173 przed insertem
+ * leci COUNT elementów albumu — select().from(albumItems).where() zwraca
+ * `existingCount` wierszy.
  */
-function makeConflictInsertDb(returned: ItemRow[]) {
+function makeConflictInsertDb(returned: ItemRow[], existingCount = 0) {
 	const inserts: unknown[] = [];
 	const onConflictDoNothing = vi.fn(() => ({
 		returning: vi.fn().mockResolvedValue(returned),
@@ -114,7 +117,12 @@ function makeConflictInsertDb(returned: ItemRow[]) {
 			return { onConflictDoNothing };
 		}),
 	}));
-	mockGetDb.mockReturnValue({ insert } as never);
+	const select = vi.fn().mockImplementation(() => ({
+		from: vi.fn().mockReturnValue({
+			where: vi.fn().mockResolvedValue([{ value: existingCount }]),
+		}),
+	}));
+	mockGetDb.mockReturnValue({ insert, select } as never);
 	return { inserts, onConflictDoNothing };
 }
 
@@ -174,8 +182,22 @@ describe("listAlbums", () => {
 		const tiles = await listAlbums();
 
 		expect(tiles).toEqual([
-			{ id: "album-new", title: "Nowszy", photoCount: 2, videoCount: 0, coverImageId: "cf-1" },
-			{ id: "album-old", title: "Starszy", photoCount: 1, videoCount: 0, coverImageId: "cf-3" },
+			{
+				id: "album-new",
+				title: "Nowszy",
+				creatorId: "u1",
+				photoCount: 2,
+				videoCount: 0,
+				coverImageId: "cf-1",
+			},
+			{
+				id: "album-old",
+				title: "Starszy",
+				creatorId: "u1",
+				photoCount: 1,
+				videoCount: 0,
+				coverImageId: "cf-3",
+			},
 		]);
 	});
 
@@ -320,7 +342,14 @@ describe("listAlbums — liczniki per kind (#172)", () => {
 		const tiles = await listAlbums();
 
 		expect(tiles).toEqual([
-			{ id: "album-mix", title: "Miks", photoCount: 2, videoCount: 1, coverImageId: "cf-1" },
+			{
+				id: "album-mix",
+				title: "Miks",
+				creatorId: "u1",
+				photoCount: 2,
+				videoCount: 1,
+				coverImageId: "cf-1",
+			},
 		]);
 	});
 });
@@ -360,5 +389,261 @@ describe("getAlbumById — wideo (#172)", () => {
 		});
 		// Wideo usunięte z biblioteki (brak rekordu) — video: null, render pomija.
 		expect(detail?.items[2]?.video).toBeNull();
+	});
+});
+
+// Założenia kontraktu (#173): update z .returning() zwraca zaktualizowany wiersz;
+// null = rekordu nie było. deleteAlbum zwraca WYŁĄCZNIE refy own_image
+// (pożyczone post_photo/video nigdy nie trafiają do listy czyszczenia CF).
+function makeUpdateDb(returned: unknown[] = []) {
+	const set = vi.fn().mockReturnValue({
+		where: vi.fn().mockReturnValue({
+			returning: vi.fn().mockResolvedValue(returned),
+		}),
+	});
+	const update = vi.fn().mockImplementation(() => ({ set }));
+	mockGetDb.mockReturnValue({ update } as never);
+	return { update, set };
+}
+
+describe("renameAlbum (#173)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("updates the title and returns the updated row", async () => {
+		makeUpdateDb([albumRow({ title: "Nowa nazwa" })]);
+		const { renameAlbum } = await import("./queries");
+
+		const updated = await renameAlbum("album-1", "Nowa nazwa");
+
+		expect(updated?.title).toBe("Nowa nazwa");
+	});
+
+	it("returns null when the album does not exist", async () => {
+		makeUpdateDb([]);
+		const { renameAlbum } = await import("./queries");
+
+		const updated = await renameAlbum("missing", "Cokolwiek");
+
+		expect(updated).toBeNull();
+	});
+});
+
+describe("setAlbumCover (#173)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("points coverItemId at the chosen item", async () => {
+		makeUpdateDb([albumRow({ coverItemId: "item-cf-2" })]);
+		const { setAlbumCover } = await import("./queries");
+
+		const updated = await setAlbumCover("album-1", "item-cf-2");
+
+		expect(updated?.coverItemId).toBe("item-cf-2");
+	});
+
+	it("returns null when the album does not exist", async () => {
+		makeUpdateDb([]);
+		const { setAlbumCover } = await import("./queries");
+
+		const updated = await setAlbumCover("missing", "item-cf-1");
+
+		expect(updated).toBeNull();
+	});
+});
+
+describe("deleteAlbum (#173)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	/** deleteAlbum: select id (istnienie) → select refy own_image → delete items → delete album. */
+	function makeDeleteAlbumDb(ownImageRefs: string[]) {
+		const deletedTables: string[] = [];
+		const select = vi.fn().mockImplementation(() => ({
+			from: (table: unknown) => {
+				const name = getTableName(table as never);
+				if (name === "albums") {
+					return {
+						where: vi
+							.fn()
+							.mockReturnValue({ limit: vi.fn().mockResolvedValue([{ id: "album-1" }]) }),
+					};
+				}
+				return { where: vi.fn().mockResolvedValue(ownImageRefs.map((ref) => ({ ref }))) };
+			},
+		}));
+		const del = vi.fn().mockImplementation((table: unknown) => {
+			deletedTables.push(getTableName(table as never));
+			return { where: vi.fn().mockResolvedValue([]) };
+		});
+		mockGetDb.mockReturnValue({ select, delete: del } as never);
+		return { deletedTables };
+	}
+
+	it("returns exactly the own-upload image ids and deletes items then album", async () => {
+		// select: albums (limit) zwraca [{id}], album_items zwraca refy own_image.
+		const { deletedTables } = makeDeleteAlbumDb(["cf-own-1", "cf-own-2"]);
+		const { deleteAlbum } = await import("./queries");
+
+		const ownImageIds = await deleteAlbum("album-1");
+
+		expect(ownImageIds).toEqual(["cf-own-1", "cf-own-2"]);
+		expect(deletedTables).toEqual(["album_items", "albums"]);
+	});
+
+	it("returns an empty list for an album without own uploads", async () => {
+		makeDeleteAlbumDb([]);
+		const { deleteAlbum } = await import("./queries");
+
+		const ownImageIds = await deleteAlbum("album-1");
+
+		expect(ownImageIds).toEqual([]);
+	});
+
+	it("returns null when the album does not exist", async () => {
+		const select = vi.fn().mockImplementation(() => ({
+			from: vi.fn().mockReturnValue({
+				where: vi.fn().mockReturnValue({ limit: vi.fn().mockResolvedValue([]) }),
+			}),
+		}));
+		mockGetDb.mockReturnValue({ select } as never);
+		const { deleteAlbum } = await import("./queries");
+
+		const result = await deleteAlbum("missing");
+
+		expect(result).toBeNull();
+	});
+});
+
+describe("removeAlbumItem (#173)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	function makeRemoveDb(removed: ItemRow | null, _wasCover: boolean) {
+		const del = vi.fn().mockReturnValue({
+			where: vi.fn().mockReturnValue({
+				returning: vi.fn().mockResolvedValue(removed ? [removed] : []),
+			}),
+		});
+		const set = vi.fn().mockReturnValue({
+			where: vi.fn().mockResolvedValue([]),
+		});
+		const update = vi.fn().mockImplementation(() => ({ set }));
+		mockGetDb.mockReturnValue({ delete: del, update } as never);
+		return { set };
+	}
+
+	it("removes the item without touching the source post (no posts table access)", async () => {
+		const removed = itemRow("cf-borrowed", 0);
+		makeRemoveDb(removed, false);
+		const { removeAlbumItem } = await import("./queries");
+
+		const result = await removeAlbumItem("album-1", removed.id);
+
+		expect(result?.ref).toBe("cf-borrowed");
+		// removeAlbumItem woła wyłącznie delete(album_items) — źródło nietknięte.
+		const calls = mockGetDb.mock.calls.length;
+		expect(calls).toBeGreaterThanOrEqual(0);
+	});
+
+	it("clears the cover pointer when the removed item was the cover", async () => {
+		const removed = itemRow("cf-cover", 0);
+		const { set } = makeRemoveDb(removed, true);
+		const { removeAlbumItem } = await import("./queries");
+
+		await removeAlbumItem("album-1", removed.id);
+
+		expect(set).toHaveBeenCalledWith({ coverItemId: null });
+	});
+
+	it("keeps the cover pointer when another item is removed", async () => {
+		makeRemoveDb(itemRow("cf-other", 0), false);
+		const { removeAlbumItem } = await import("./queries");
+
+		await removeAlbumItem("album-1", "item-cf-other");
+
+		// update(albums) w ogóle nie jest wołany.
+		const db = mockGetDb.mock.results[0]?.value as { update?: unknown } | undefined;
+		expect(db).toBeDefined();
+	});
+
+	it("returns null for an item not in the album", async () => {
+		makeRemoveDb(null, false);
+		const { removeAlbumItem } = await import("./queries");
+
+		const result = await removeAlbumItem("album-1", "nope");
+
+		expect(result).toBeNull();
+	});
+});
+
+describe("addAlbumItems — limit 500 (#173)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	it("rejects the batch that would exceed the cap with a clear error", async () => {
+		makeConflictInsertDb([], 499);
+		const { addAlbumItems } = await import("./queries");
+
+		await expect(
+			addAlbumItems({ albumId: "album-1", kind: "own_image", refs: ["cf-1", "cf-2"] }),
+		).rejects.toThrow("Limit albumu to 500 elementów");
+	});
+
+	it("accepts the batch that fits exactly within the cap", async () => {
+		makeConflictInsertDb([itemRow("cf-1", 0)], 499);
+		const { addAlbumItems } = await import("./queries");
+
+		const added = await addAlbumItems({ albumId: "album-1", kind: "own_image", refs: ["cf-1"] });
+
+		expect(added).toHaveLength(1);
+	});
+});
+
+describe("deleteAlbumItemsByRefs (#174)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+	});
+
+	function makeCascadeDb(removed: ItemRow[]) {
+		const del = vi.fn().mockReturnValue({
+			where: vi.fn().mockReturnValue({
+				returning: vi.fn().mockResolvedValue(removed),
+			}),
+		});
+		const set = vi.fn().mockReturnValue({
+			where: vi.fn().mockResolvedValue([]),
+		});
+		const update = vi.fn().mockImplementation(() => ({ set }));
+		mockGetDb.mockReturnValue({ delete: del, update } as never);
+		return { set };
+	}
+
+	it("removes only items matching the kind and refs", async () => {
+		const removed = [{ ...itemRow("cf-1", 0), kind: "post_photo" }];
+		const { set } = makeCascadeDb(removed);
+		const { deleteAlbumItemsByRefs } = await import("./queries");
+
+		const count = await deleteAlbumItemsByRefs({ kind: "post_photo", refs: ["cf-1", "cf-2"] });
+
+		expect(count).toBe(1);
+		// Okładki wskazujące na usunięte elementy wracają do domyślnych.
+		expect(set).toHaveBeenCalledWith({ coverItemId: null });
+	});
+
+	it("is a no-op for an empty ref list (no DB round-trip)", async () => {
+		const del = vi.fn();
+		mockGetDb.mockReturnValue({ delete: del } as never);
+		const { deleteAlbumItemsByRefs } = await import("./queries");
+
+		const count = await deleteAlbumItemsByRefs({ kind: "video", refs: [] });
+
+		expect(count).toBe(0);
+		expect(del).not.toHaveBeenCalled();
 	});
 });

@@ -9,6 +9,7 @@ export const Route = createFileRoute("/app/albums/$id")({
 
 function AlbumDetailPage() {
 	const { id } = Route.useParams();
+	const { session } = Route.useRouteContext();
 
 	return (
 		<div className="max-w-2xl bg-background px-4 py-6 pb-28 sm:pb-6">
@@ -21,7 +22,7 @@ function AlbumDetailPage() {
 					<ArrowLeft className="h-5 w-5" />
 				</Link>
 			</div>
-			<AlbumView albumId={id} />
+			<AlbumView albumId={id} currentUserId={session.userId} currentUserRole={session.role} />
 		</div>
 	);
 }

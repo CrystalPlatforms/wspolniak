@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Images, Play } from "lucide-react";
 import { useState } from "react";
+import { AlbumActionsMenu } from "@/components/app/album-actions-menu";
 import { AlbumCreateDialog } from "@/components/app/album-create-dialog";
+import { AlbumItemMenu } from "@/components/app/album-item-menu";
 import { ImageLightbox } from "@/components/app/image-lightbox";
 import { Button } from "@/components/ui/button";
 import { getImageUrl } from "@/images/client";
@@ -28,6 +30,9 @@ interface AlbumItemDto {
 interface AlbumDetailDto {
 	id: string;
 	title: string;
+	creatorId: string;
+	/** Ręczna okładka (#173) — id elementu; null = pierwsze zdjęcie. */
+	coverItemId: string | null;
 	items: AlbumItemDto[];
 }
 
@@ -44,27 +49,60 @@ async function fetchAlbumDetail(albumId: string): Promise<AlbumsDetailResponse> 
 
 interface AlbumViewProps {
 	albumId: string;
+	/** Sesja — akcje zarządzania tylko dla twórcy/admina (#173). */
+	currentUserId: string;
+	currentUserRole: string;
 }
 
 /**
- * Widok pojedynczego albumu (#170): siatka zdjęć w kolejności dodawania;
- * klik otwiera istniejący ImageLightbox (zoom, swipe) od klikniętego zdjęcia.
- * Ścieżki zdjęć buduje getImageUrl (wariant public) z hashem konta z API.
+ * Widok pojedynczego albumu (#170): siatka elementów w kolejności dodawania;
+ * klik na zdjęcie otwiera istniejący ImageLightbox (zoom, swipe). Od #173
+ * twórca/admin ma menu „⋯" w nagłówku (zmiana nazwy, usunięcie albumu)
+ * oraz menu per element (okładka / usuń z albumu).
  */
-export function AlbumView({ albumId }: AlbumViewProps) {
+export function AlbumView({ albumId, currentUserId, currentUserRole }: AlbumViewProps) {
 	const queryClient = useQueryClient();
+	const navigate = useNavigate();
 	const { data, isPending, isError } = useQuery({
 		queryKey: ["albums", "detail", albumId],
 		queryFn: () => fetchAlbumDetail(albumId),
 	});
 	const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 	const [addOpen, setAddOpen] = useState(false);
+	const isAdmin = currentUserRole === "admin";
+
+	async function setCover(itemId: string) {
+		const res = await fetch(`/api/app/albums/${albumId}`, {
+			method: "PATCH",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({ coverItemId: itemId }),
+		});
+		if (res.status === 400) throw new Error("Okładka musi być zdjęciem z tego albumu");
+		if (res.status === 403) throw new Error("Brak uprawnień do zarządzania tym albumem");
+		if (!res.ok) throw new Error("Nie udało się ustawić okładki");
+	}
+
+	async function removeItem(itemId: string) {
+		const res = await fetch(`/api/app/albums/${albumId}/items/${itemId}`, { method: "DELETE" });
+		if (res.status === 403) throw new Error();
+		if (res.status === 403) throw new Error("Brak uprawnień do zarządzania tym albumem");
+		if (!res.ok) throw new Error("Nie udało się usunąć elementu z albumu");
+	}
+
+	const setCoverMutation = useMutation({
+		mutationFn: (itemId: string) => setCover(itemId),
+		onSuccess: () => queryClient.invalidateQueries({ queryKey: ["albums"] }),
+	});
+
+	const removeItemMutation = useMutation({
+		mutationFn: (itemId: string) => removeItem(itemId),
+		onSuccess: () => queryClient.invalidateQueries({ queryKey: ["albums"] }),
+	});
 
 	if (isPending) {
 		return (
 			<div className="grid grid-cols-3 gap-2" aria-busy="true">
 				{[0, 1, 2].map((i) => (
-					// biome-ignore lint/suspicious/noArrayIndexKey: statyczne szkielety
 					<div key={i} className="aspect-square animate-pulse rounded-lg bg-muted" />
 				))}
 			</div>
@@ -81,6 +119,8 @@ export function AlbumView({ albumId }: AlbumViewProps) {
 
 	const album = data.data;
 	const imageAccountHash = data.meta.imageAccountHash;
+	const canManage = album.creatorId === currentUserId || isAdmin;
+	const hasManualCover = album.coverItemId !== null;
 
 	// Lightbox otwieraja tylko zdjecia (#172); wideo ma wlasny kafelek z linkiem.
 	const lightboxImages = album.items
@@ -104,6 +144,13 @@ export function AlbumView({ albumId }: AlbumViewProps) {
 						<Images className="size-4" />
 						Dodaj zdjęcia
 					</Button>
+					{canManage && (
+						<AlbumActionsMenu
+							albumId={albumId}
+							albumTitle={album.title}
+							onDeleted={() => navigate({ to: "/app/albums" })}
+						/>
+					)}
 				</div>
 				<p className="mt-1 text-sm text-muted-foreground">
 					{photoTotal} {photoTotal === 1 ? "zdjęcie" : "zdjęć"}
@@ -111,52 +158,81 @@ export function AlbumView({ albumId }: AlbumViewProps) {
 				</p>
 			</div>
 
+			{album.items.length === 0 && (
+				<div className="flex flex-col items-center gap-3 py-16 text-center text-muted-foreground">
+					<Images className="size-10" />
+					<p>Ten album jest pusty.</p>
+				</div>
+			)}
+
 			<div className="grid grid-cols-3 gap-2">
 				{album.items.map((item) => {
 					if (item.kind === "video") {
 						// Wideo usuniete z biblioteki przed kaskada F5 — pomiń w siatce.
 						if (!item.video) return null;
 						return (
-							<Link
-								key={item.id}
-								to="/app/video/$id"
-								params={{ id: item.video.id }}
-								className="group relative block aspect-square overflow-hidden rounded-lg border bg-muted"
-								aria-label={`Otwórz wideo ${item.video.title}`}
-							>
-								<img
-									src={item.video.thumbnailUrl}
-									alt={item.video.title}
-									className="size-full object-cover"
-									loading="lazy"
-								/>
-								<span className="absolute inset-0 flex items-center justify-center">
-									<span className="flex size-10 items-center justify-center rounded-lg bg-black">
-										<Play className="size-4 fill-primary text-primary" />
+							<div key={item.id} className="relative">
+								<Link
+									to="/app/video/$id"
+									params={{ id: item.video.id }}
+									className="group relative block aspect-square overflow-hidden rounded-lg border bg-muted"
+									aria-label={`Otwórz wideo ${item.video.title}`}
+								>
+									<img
+										src={item.video.thumbnailUrl}
+										alt={item.video.title}
+										className="size-full object-cover"
+										loading="lazy"
+									/>
+									<span className="absolute inset-0 flex items-center justify-center">
+										<span className="flex size-10 items-center justify-center rounded-lg bg-black">
+											<Play className="size-4 fill-primary text-primary" />
+										</span>
 									</span>
-								</span>
-							</Link>
+								</Link>
+								{canManage && (
+									<div className="absolute right-1 top-1">
+										<AlbumItemMenu
+											kind={item.kind}
+											isCurrentCover={false}
+											onSetCover={() => setCoverMutation.mutate(item.id)}
+											onRemove={() => removeItemMutation.mutate(item.id)}
+										/>
+									</div>
+								)}
+							</div>
 						);
 					}
 					const photoIndex = photoIndexById.get(item.id) ?? 0;
 					return (
-						<button
-							key={item.id}
-							type="button"
-							onClick={() => setLightboxIndex(photoIndex)}
-							className="relative block aspect-square overflow-hidden rounded-lg border bg-muted"
-							aria-label={`Otwórz zdjęcie ${photoIndex + 1}`}
-						>
-							<img
-								src={getImageUrl({
-									accountHash: imageAccountHash,
-									cfImageId: item.ref,
-									variant: "thumbnail",
-								})}
-								alt={`Zdjęcie ${photoIndex + 1}`}
-								className="size-full object-cover"
-							/>
-						</button>
+						<div key={item.id} className="relative">
+							<button
+								type="button"
+								onClick={() => setLightboxIndex(photoIndex)}
+								className="relative block aspect-square overflow-hidden rounded-lg border bg-muted"
+								aria-label={`Otwórz zdjęcie ${photoIndex + 1}`}
+							>
+								<img
+									src={getImageUrl({
+										accountHash: imageAccountHash,
+										cfImageId: item.ref,
+										variant: "thumbnail",
+									})}
+									alt={`Zdjęcie ${photoIndex + 1}`}
+									className="size-full object-cover"
+								/>
+							</button>
+							{canManage && (
+								<div className="absolute right-1 top-1">
+									<AlbumItemMenu
+										kind={item.kind}
+										isCurrentCover={hasManualCover && album.coverItemId === item.id}
+										onSetCover={() => setCoverMutation.mutate(item.id)}
+										onRemove={() => removeItemMutation.mutate(item.id)}
+									/>
+								</div>
+							)}
+						</div>
 					);
 				})}
 			</div>
