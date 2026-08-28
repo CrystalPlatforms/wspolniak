@@ -1,3 +1,10 @@
+# [4.1.0](https://github.com/CrystalPlatforms/wspolniak/compare/v4.0.0...v4.1.0) (2026-08-28)
+
+
+### Features
+
+* **albums:** add F2+F3 — borrow photos and videos into albums ([#171](https://github.com/CrystalPlatforms/wspolniak/issues/171), [#172](https://github.com/CrystalPlatforms/wspolniak/issues/172)) ([b2f5a64](https://github.com/CrystalPlatforms/wspolniak/commit/b2f5a641eb7a3b123db22422b4ff7d8a0305c6d4))
+
 # [4.0.0](https://github.com/CrystalPlatforms/wspolniak/compare/v3.31.0...v4.0.0) (2026-08-27)
 
 
