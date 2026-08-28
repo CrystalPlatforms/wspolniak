@@ -1,3 +1,10 @@
+# [4.2.0](https://github.com/CrystalPlatforms/wspolniak/compare/v4.1.0...v4.2.0) (2026-08-28)
+
+
+### Features
+
+* **albums:** add F4+F5 — management, permissions and cascades ([#173](https://github.com/CrystalPlatforms/wspolniak/issues/173), [#174](https://github.com/CrystalPlatforms/wspolniak/issues/174)) ([9fbf665](https://github.com/CrystalPlatforms/wspolniak/commit/9fbf665e6d7cf5a6b982139f14a5156f9de33f09))
+
 # [4.1.0](https://github.com/CrystalPlatforms/wspolniak/compare/v4.0.0...v4.1.0) (2026-08-28)
 
 
