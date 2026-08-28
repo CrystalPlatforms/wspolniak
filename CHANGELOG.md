@@ -1,3 +1,10 @@
+# [4.3.0](https://github.com/CrystalPlatforms/wspolniak/compare/v4.2.0...v4.3.0) (2026-08-28)
+
+
+### Features
+
+* **albums:** add F6+F7 — downloads, feature flag and new dot ([#175](https://github.com/CrystalPlatforms/wspolniak/issues/175), [#176](https://github.com/CrystalPlatforms/wspolniak/issues/176)) ([ffbca57](https://github.com/CrystalPlatforms/wspolniak/commit/ffbca571943934d7ce0aaf0dcd2fd12b79a04b94))
+
 # [4.2.0](https://github.com/CrystalPlatforms/wspolniak/compare/v4.1.0...v4.2.0) (2026-08-28)
 
 
