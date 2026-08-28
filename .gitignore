@@ -21,3 +21,6 @@ count.txt
 .staging.vars
 .production.vars
 .wrangler/
+
+# local AI demo — never leaves this machine
+ai-demo/
