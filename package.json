@@ -6,7 +6,7 @@
 	"scripts": {
 		"dev": "vite dev --port 3000",
 		"build": "vite build && node scripts/inject-sw-version.mjs",
-		"build:production": "vite build --mode production && node scripts/inject-sw-version.mjs",
+		"build:production": "DEPLOY_ENV=production vite build --mode production && node scripts/inject-sw-version.mjs",
 		"deploy": "pnpm run build && wrangler deploy",
 		"deploy:production": "pnpm run build:production && wrangler deploy --env=''",
 		"serve": "vite preview",
@@ -55,6 +55,7 @@
 		"@tanstack/react-router-devtools": "^1.167.1",
 		"@tanstack/react-router-ssr-query": "^1.167.1",
 		"@tanstack/react-start": "^1.168.37",
+		"border-beam": "^1.3.0",
 		"class-variance-authority": "^0.7.1",
 		"client-zip": "^2.5.0",
 		"clsx": "^2.1.1",

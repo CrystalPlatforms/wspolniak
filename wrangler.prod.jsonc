@@ -1,11 +1,15 @@
 {
+	// Konfiguracja PRODUKCYJNA (wspolniak.com). Osobny plik, bo @cloudflare/vite-plugin
+	// piecze do builda WYŁĄCZNIE konfigurację top-level (bez bloków env). Wybiera ją
+	// vite.config.ts, gdy skrypt build:production ustawi DEPLOY_ENV=production.
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "wspolniak-dev",
+	"name": "wspolniak",
 	"compatibility_date": "2025-09-02",
 	"compatibility_flags": ["nodejs_compat"],
 	"main": "./src/server.ts",
+	"routes": [{ "pattern": "wspolniak.com", "custom_domain": true }],
 	"vars": {
-		"APP_URL": "http://192.168.9.14:3000"
+		"APP_URL": "https://wspolniak.com"
 	},
 	"observability": {
 		"enabled": true,
@@ -28,9 +32,4 @@
 	"triggers": {
 		"crons": ["0 6 * * *", "7 * * * *"]
 	}
-	// Deploy PRODUKCYJNY (wspolniak.com) używa osobnego pliku: wrangler.prod.jsonc.
-	// vite.config.ts wybiera go, gdy build:production ustawi DEPLOY_ENV=production,
-	// bo @cloudflare/vite-plugin piecze do builda wyłącznie konfigurację top-level
-	// (bloki "env" są ignorowane przy deployu — stąd dawniej deploy:production
-	// trafiało zawsze na wspolniak-dev zamiast na wspolniak.com).
 }

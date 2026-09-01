@@ -32,17 +32,20 @@ paths:
 
 ## Vite Plugin Environments (`@cloudflare/vite-plugin`)
 
-- The Vite plugin reads all env blocks from `wrangler.jsonc` and resolves bindings automatically
-- `vite build --mode staging` bakes environment config (routes, bindings, worker name) into the build output
-- `wrangler deploy --env=''` deploys the pre-configured build — the env is already embedded by the plugin
+- The plugin bakes ONE wrangler config into `dist/server/wrangler.json` at build time, and `.wrangler/deploy/config.json` redirects every `wrangler deploy` to that built config
+- By default that is the **top-level (dev)** config — even `wrangler deploy --env production` is silently redirected to the dev worker
+- Production builds must opt in via `DEPLOY_ENV=production` (set by the `build:production` script); `vite.config.ts` then points the plugin's `configPath` at `wrangler.prod.jsonc`
+- Each wrangler file is standalone, one environment per file (no `env:` blocks): `wrangler.jsonc` = dev (`wspolniak-dev`), `wrangler.prod.jsonc` = prod (`wspolniak`, wspolniak.com)
 
 ## Deploy Script Pattern
 
 ```jsonc
-// Vite plugin — env baked into build via --mode
-"build:staging": "vite build --mode staging",
-"deploy:staging": "pnpm run build:staging && wrangler deploy --env=''"
+// package.json
+"build:production": "DEPLOY_ENV=production vite build --mode production && node scripts/inject-sw-version.mjs",
+"deploy:production": "pnpm run build:production && wrangler deploy --env=''"
 ```
+
+Verify before shipping (no upload): `npx wrangler deploy --env='' --dry-run` must print name `wspolniak` and the wspolniak.com route.
 
 ## Debugging "Too Many Redirects"
 

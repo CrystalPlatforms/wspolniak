@@ -25,6 +25,12 @@ export default defineConfig({
 		}),
 		viteReact(),
 		cloudflare({
+			// Deploy produkcyjny (build:production) ustawia DEPLOY_ENV=production, żeby build
+			// "wypiekł" konfigurację workera `wspolniak` (wspolniak.com) do dist/server/wrangler.json.
+			// Bez tego plugin piecze zawsze top-level (dev), a `wrangler deploy --env=''`
+			// czyta właśnie wynik builda — i trafia na wspolniak-dev.
+			configPath:
+				process.env.DEPLOY_ENV === "production" ? "./wrangler.prod.jsonc" : "./wrangler.jsonc",
 			viteEnvironment: {
 				name: "ssr",
 			},
