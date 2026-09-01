@@ -171,6 +171,18 @@ function toPreviewCard(match: AiPostMatch, accountHash: string): PostPreview {
 	};
 }
 
+/**
+ * Twarde triggery: wyraźna prośba szukania w wiadomości usera wymusza
+ * przeszukanie postów bez pytania model o decyzję (model bywa zbyt oszczędny).
+ */
+function explicitSearchRequest(message: string): boolean {
+	return (
+		/\b(poszukaj|szukaj|wyszukaj|przeszukaj|znajdź|znajdz|pokaż|pokaz|zobacz)\b/i.test(message) ||
+		/\bpost(ów|y|a|ach|cie|u)?\b/i.test(message) ||
+		/\bzdjęc/i.test(message)
+	);
+}
+
 /** Prompt fazy myślenia: krótkie rozważenie rozmowy + decyzja o postach. */
 function thinkMessages(conversation: ChatMessage[]): ChatMessage[] {
 	const recent = conversation.slice(-4).map((message) => ({
@@ -229,10 +241,17 @@ async function* thinkPhase(input: {
 	return decision;
 }
 
+interface SearchOutcome {
+	matches: AiPostMatch[];
+	/** true = user chciał szukać, ale budżet 1/min jest wyczerpany. */
+	limited: boolean;
+}
+
 /**
  * Faza 2 — SZUKANIE: znacznik fazy, keyword search z budżetem 1/min per user
- * i karty postów. Bez decyzji SZUKAJ albo po wyczerpaniu budżetu zwraca []
- * (odpowiedź bez postów; prompt każe wtedy mówić wprost o braku wglądu).
+ * i karty postów. Szukanie rusza przy decyzji SZUKAJ ALBO przy twardej prośbie
+ * w wiadomości („poszukaj…"). Wyczerpany budżet NIE udaje „brak wyników" —
+ * zwraca limited=true, żeby odpowiedź uczciwie powiedziała o limicie.
  */
 async function* searchPhase(input: {
 	model: AiModel;
@@ -240,9 +259,14 @@ async function* searchPhase(input: {
 	accountHash: string;
 	lastUserMessage: string;
 	decision: string;
-}): AsyncGenerator<ChatToken, AiPostMatch[]> {
-	if (!input.lastUserMessage || !/\bSZUKAJ\b/i.test(input.decision)) return [];
-	if (!consumeAiPostSearch(input.userId)) return [];
+}): AsyncGenerator<ChatToken, SearchOutcome> {
+	if (!input.lastUserMessage) return { matches: [], limited: false };
+	if (!explicitSearchRequest(input.lastUserMessage) && !/\bSZUKAJ\b/i.test(input.decision)) {
+		return { matches: [], limited: false };
+	}
+	if (!consumeAiPostSearch(input.userId)) {
+		return { matches: [], limited: true };
+	}
 	yield { kind: "searching" };
 	const matches = await searchPostsForAi(input.lastUserMessage, input.model.injectedPostCount);
 	if (matches.length > 0) {
@@ -251,7 +275,7 @@ async function* searchPhase(input: {
 			posts: matches.map((match) => toPreviewCard(match, input.accountHash)),
 		};
 	}
-	return matches;
+	return { matches, limited: false };
 }
 
 /** Faza 3 — ODPOWIEDŹ: strumień treści; myślenie tej fazy zostaje na serwerze. */
@@ -291,7 +315,7 @@ async function* alConversation(input: {
 	lastUserMessage: string;
 }): AsyncGenerator<ChatToken> {
 	const decision = yield* thinkPhase(input);
-	const matches = yield* searchPhase({ ...input, decision });
+	const { matches, limited } = yield* searchPhase({ ...input, decision });
 
 	// System prompt doklejany SERWEROWO — klient nie może go nadpisać.
 	const systemPrompt = buildSystemPrompt(
@@ -301,6 +325,7 @@ async function* alConversation(input: {
 			author: match.authorName,
 			date: match.createdAt.toISOString().slice(0, 10),
 		})),
+		{ searchLimited: limited },
 	);
 	yield* answerPhase({
 		apiKey: input.apiKey,

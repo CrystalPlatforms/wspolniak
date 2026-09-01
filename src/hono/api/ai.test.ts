@@ -516,7 +516,7 @@ describe("POST /api/ai/chat — model i limity (F4 #182)", () => {
 function postChat(
 	api: ReturnType<typeof createApi>,
 	env: Record<string, string>,
-	extra: { model?: string },
+	extra: { model?: string; message?: string },
 ) {
 	return api.request(
 		"/api/ai/chat",
@@ -524,7 +524,7 @@ function postChat(
 			method: "POST",
 			headers: { ...memberHeaders(), "Content-Type": "application/json" },
 			body: JSON.stringify({
-				messages: [{ role: "user", content: "Cześć, co to Wspólniak?" }],
+				messages: [{ role: "user", content: extra.message ?? "Cześć, co to Wspólniak?" }],
 				...extra,
 			}),
 		},
@@ -886,5 +886,61 @@ describe("POST /api/ai/chat — budżet przeszukiwania postów (1/min per user)"
 		expect(b.status).toBe(200);
 		await b.text();
 		expect(mockSearchPosts).toHaveBeenCalledTimes(2); // inny user = własny budżet
+	});
+});
+
+describe("POST /api/ai/chat — twarde triggery i uczciwy limit szukania", () => {
+	const TRIGGER_POST = {
+		id: "p7",
+		description: "Siema wszystkim!\nPierwszy post na próbę",
+		authorName: "Mama",
+		createdAt: new Date("2026-09-01T09:00:00Z"),
+		cfImageId: null,
+	};
+
+	beforeEach(() => {
+		allowAi();
+		resetAiRateLimitsForTests();
+	});
+
+	it("«poszukaj siema» wymusza szukanie nawet przy decyzji BEZPOSTÓW", async () => {
+		mockSearchPosts.mockResolvedValue([TRIGGER_POST]);
+		mockGroqTokens([{ kind: "text", text: "ok" }], "BEZPOSTÓW");
+		const api = createApi();
+		const res = await postChat(api, ENV, {
+			model: "openai/gpt-oss-20b",
+			message: "poszukaj siema",
+		});
+		expect(res.status).toBe(200);
+		const body = await res.text();
+		expect(mockSearchPosts).toHaveBeenCalledTimes(1);
+		const tokens = parseNdjson(body);
+		expect(tokens.some((token) => token.k === "p")).toBe(true);
+	});
+
+	it("wyczerpany budżet szukania → odpowiedź mówi o limicie, nie udaje braku wyników", async () => {
+		mockSearchPosts.mockResolvedValue([TRIGGER_POST]);
+		mockGroqTokens([{ kind: "text", text: "ok" }]);
+		const api = createApi();
+
+		const first = await postChat(api, ENV, {
+			model: "openai/gpt-oss-20b",
+			message: "poszukaj siema",
+		});
+		await first.text();
+		expect(mockSearchPosts).toHaveBeenCalledTimes(1);
+
+		const second = await postChat(api, ENV, {
+			model: "openai/gpt-oss-20b",
+			message: "poszukaj siema",
+		});
+		expect(second.status).toBe(200);
+		const body = await second.text();
+		const call = mockStreamChat.mock.calls.at(-1);
+		if (!call) throw new Error("streamChat nie został wywołany");
+		const system = call[0].messages[0];
+		if (!system) throw new Error("brak system promptu");
+		expect(system.content).toContain("limit szukania");
+		expect(parseNdjson(body).every((token) => token.k !== "p")).toBe(true);
 	});
 });

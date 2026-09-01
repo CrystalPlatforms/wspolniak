@@ -77,7 +77,13 @@ Zasady odpowiedzi:
  * że „nie ma dostępu"); gdy nie — prompt mówi wprost, że w tej rozmowie postów
  * nie widzi. Bez postów prompt jest taki sam dla wszystkich pytań.
  */
-export function buildSystemPrompt(posts: AiPostContext[] = []): string {
+export function buildSystemPrompt(
+	posts: AiPostContext[] = [],
+	options: { searchLimited?: boolean } = {},
+): string {
+	if (options.searchLimited) {
+		return `${AL_PERSONA}\n\n${WSPOLNIAK_KNOWLEDGE}\n\n## Szukanie postów\nLimit przeszukiwania postów na tę minutę jest wyczerpany. Powiedz userowi krótko, że limit szukania jest na razie wykorzystany i może spróbować ponownie za ok. minutę.`;
+	}
 	const postsBlock =
 		posts.length === 0
 			? `\n\n## Posty z feedu\n(brak wstrzykniętych postów) Jeśli user pyta o posty albo zdjęcia, a nie dostałeś żadnych, powiedz krótko, że nie znalazłeś teraz pasujących postów i zaproponuj inne sformułowanie pytania. NIGDY nie mów, że „nie masz wglądu”, „nie możesz przeszukiwać” ani „nie możesz wyświetlać” postów — masz możliwość szukania, tylko teraz nic nie pasowało. Nie zmyślaj treści postów.`
