@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { GROQ_CHAT_URL, streamChat } from "./groq";
+import type { ChatToken } from "./stream-protocol";
 
 /**
  * Założenia kodowane przez te testy (stan przed RED):
@@ -28,9 +29,9 @@ function sseResponse(rawChunks: string[], status = 200): Response {
 	return new Response(stream, { status, headers: { "content-type": "text/event-stream" } });
 }
 
-async function collect(gen: AsyncGenerator<{ kind: string; text: string }>): Promise<string> {
+async function collect(gen: AsyncGenerator<ChatToken>): Promise<string> {
 	let out = "";
-	for await (const token of gen) out += token.text;
+	for await (const token of gen) out += "text" in token ? token.text : "";
 	return out;
 }
 
@@ -162,7 +163,7 @@ describe("streamChat", () => {
 			messages: [{ role: "user", content: "x" }],
 		});
 
-		const seen: { kind: string; text: string }[] = [];
+		const seen: ChatToken[] = [];
 		for await (const token of tokens) seen.push(token);
 		expect(seen).toEqual([
 			{ kind: "reasoning", text: "analizuję" },

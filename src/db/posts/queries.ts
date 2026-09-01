@@ -1,6 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import type { InferSelectModel } from "drizzle-orm";
-import { and, asc, count, desc, eq, gte, inArray, isNull, lt, not, or } from "drizzle-orm";
+import {
+	and,
+	asc,
+	count,
+	desc,
+	eq,
+	gte,
+	ilike,
+	inArray,
+	isNotNull,
+	isNull,
+	lt,
+	not,
+	or,
+} from "drizzle-orm";
 import { users } from "@/db/identity/table";
 import { getDb } from "@/db/setup";
 import { postImages, posts } from "./table";
@@ -298,4 +312,90 @@ export async function listPostsByIds(ids: string[]): Promise<PostWithAuthorAndIm
 		const post = byId.get(id);
 		return post ? [post] : [];
 	});
+}
+
+export interface AiPostMatch {
+	id: string;
+	description: string;
+	authorName: string;
+	createdAt: Date;
+	/** Pierwsze zdjęcie posta wg displayOrder — null = post bez zdjęć. */
+	cfImageId: string | null;
+}
+
+/**
+ * Search-before-answer (F5 #183): keyword search po opisach postów.
+ * Zapytanie usera tnie na słowa (≥3 znaki, max 8), SQL wyłapuje kandydatów
+ * przez ILIKE ANY, JS liczy wynik = liczba unikalnych tokenów w opisie
+ * (remisy: nowszy post wygrywa). Zwraca WYŁĄCZNIE metadane — id, opis,
+ * autor, data, pierwsze zdjęcie; bez komentarzy, czatu i bajtów obrazów.
+ * Rodzinna skala: pula kandydatów przycięta do 300 najnowszych postów.
+ */
+export async function searchPostsForAi(query: string, limit: number): Promise<AiPostMatch[]> {
+	// Stemowanie naiwne: polskie przypadki docięte do prefiksu („wakacjach” →
+	// „wakac”) trafiają w formy bazowe w opisach („wakacje”) i odwrotnie —
+	// bez tego keyword search nie znajduje postów po odmienionych słowach.
+	const tokens = [
+		...new Set(
+			query
+				.toLowerCase()
+				.split(/[^a-ząćęłńóśźż0-9]+/)
+				.filter((token) => token.length >= 3)
+				.map((token) => (token.length > 5 ? token.slice(0, 5) : token))
+				.slice(0, 8),
+		),
+	];
+	if (tokens.length === 0 || limit <= 0) return [];
+
+	const rows = await getDb()
+		.select({
+			id: posts.id,
+			description: posts.description,
+			authorName: users.name,
+			createdAt: posts.createdAt,
+			image: postImages,
+		})
+		.from(posts)
+		.leftJoin(users, eq(posts.authorId, users.id))
+		.leftJoin(postImages, eq(posts.id, postImages.postId))
+		.where(
+			and(
+				isNull(posts.deletedAt),
+				isNotNull(posts.description),
+				or(...tokens.map((token) => ilike(posts.description, `%${token}%`))),
+			),
+		)
+		.orderBy(desc(posts.createdAt), asc(postImages.displayOrder))
+		.limit(300);
+
+	// Agregacja: jeden wiersz na post, pierwsze zdjęcie do kart (F5).
+	const byId = new Map<string, AiPostMatch>();
+	for (const row of rows) {
+		const existing = byId.get(row.id);
+		if (existing) {
+			if (row.image && !existing.cfImageId) existing.cfImageId = row.image.cfImageId;
+			continue;
+		}
+		byId.set(row.id, {
+			id: row.id,
+			description: row.description ?? "",
+			authorName: row.authorName ?? "",
+			createdAt: row.createdAt,
+			cfImageId: row.image?.cfImageId ?? null,
+		});
+	}
+
+	// Wynik = liczba unikalnych tokenów w opisie (remisy: nowszy post).
+	const scored = [...byId.values()].map((post) => ({
+		post,
+		score: tokens.reduce(
+			(total, token) => total + (post.description.toLowerCase().includes(token) ? 1 : 0),
+			0,
+		),
+	}));
+	return scored
+		.filter((entry) => entry.score > 0)
+		.sort((a, b) => b.score - a.score || b.post.createdAt.getTime() - a.post.createdAt.getTime())
+		.slice(0, limit)
+		.map((entry) => entry.post);
 }

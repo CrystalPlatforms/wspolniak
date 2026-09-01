@@ -1,19 +1,25 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import type { ChatToken } from "./stream-protocol";
 import { ThinkParser } from "./think-parser";
 
 /** Pomocnik: pushuje chunki, zbiera tokeny (z flushem), a potem skleja
- *  sąsiednie tokeny tego samego rodzaju — dokładnie to, co robi konsument
+ *  sąsiednie tokeny tego samego rodzaju — dokładnie do konsumenta
  *  (use-ai-chat dokleja kolejne tokeny do jednego pola wiadomości). */
-function run(chunks: string[]): { kind: string; text: string }[] {
+function run(chunks: string[]): ChatToken[] {
 	const parser = new ThinkParser();
-	const raw: { kind: string; text: string }[] = [];
+	const raw: ChatToken[] = [];
 	for (const chunk of chunks) raw.push(...parser.push(chunk));
 	raw.push(...parser.flush());
-	const merged: { kind: string; text: string }[] = [];
+	const merged: ChatToken[] = [];
 	for (const token of raw) {
+		if (token.kind === "posts") continue; // parser myślenia nie produkuje kart
 		const last = merged[merged.length - 1];
-		if (last && last.kind === token.kind) last.text += token.text;
-		else merged.push({ ...token });
+		if (last && last.kind === token.kind && "text" in last && "text" in token) {
+			last.text += token.text;
+		} else {
+			merged.push(token);
+		}
 	}
 	return merged;
 }

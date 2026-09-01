@@ -1,18 +1,35 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from "react";
-import { type ChatToken, decodeTokenLine } from "./stream-protocol";
+import { DEFAULT_MODEL_ID } from "./models";
+import { type ChatToken, decodeTokenLine, type PostPreview } from "./stream-protocol";
 
 export interface UiChatMessage {
 	role: "user" | "assistant";
 	content: string;
 	/** Myślenie modelu reasoningowego — podglądane w bańce, nie leci do API. */
 	reasoning?: string;
+	/** Posty dopasowane przez search-before-answer (F5) — karty pod odpowiedzią. */
+	matchedPosts?: PostPreview[];
 }
 
-/** Wiadomość w formacie API — wyłącznie role + content (reasoning nie wraca). */
+/** Wiadomość w formacie API — wyłącznie role + content (reasoning/posts nie wraca). */
 export interface ApiChatMessage {
 	role: "user" | "assistant";
 	content: string;
+}
+
+/**
+ * Błąd odpowiedzi serwera (4xx/5xx) — komunikat z payloadu jest już po polsku
+ * i przeznaczony do wyświetlenia wprost (bez wrappera „[Błąd: …]").
+ */
+export class ChatRequestError extends Error {
+	constructor(
+		message: string,
+		public readonly status: number,
+	) {
+		super(message);
+		this.name = "ChatRequestError";
+	}
 }
 
 export const STORAGE_KEY = "wspolniak-ai-chat";
@@ -28,6 +45,8 @@ export const MAX_PERSISTED_MESSAGES = 100;
 export function useAiChat() {
 	const [messages, setMessages] = useState<UiChatMessage[]>(loadStoredMessages);
 	const [isStreaming, setIsStreaming] = useState(false);
+	const [modelId, setModelId] = useState(DEFAULT_MODEL_ID);
+	const [isSearching, setIsSearching] = useState(false);
 	const streamIdRef = useRef(0);
 	const abortRef = useRef<AbortController | null>(null);
 
@@ -68,6 +87,7 @@ export function useAiChat() {
 		const history: UiChatMessage[] = [...messages, { role: "user", content: trimmed }];
 		setMessages([...history, { role: "assistant", content: "" }]);
 		setIsStreaming(true);
+		setIsSearching(true);
 
 		try {
 			const controller = new AbortController();
@@ -75,28 +95,51 @@ export function useAiChat() {
 			const response = await fetch("/api/ai/chat", {
 				method: "POST",
 				headers: { "content-type": "application/json" },
-				// Reasoning nie wraca do API — historia niesie tylko role+content.
-				body: JSON.stringify({ messages: toApiMessages(history) }),
+				// Reasoning nie wraca do API — historia niesie tylko role+content,
+				// a model picker (F4) dokleja wybrany model.
+				body: JSON.stringify({ messages: toApiMessages(history), model: modelId }),
 				signal: controller.signal,
 			});
 			if (!response.ok || !response.body) {
 				const error = (await response.json().catch(() => null)) as { error?: string } | null;
-				throw new Error(error?.error ?? `Błąd serwera (${response.status})`);
+				throw new ChatRequestError(
+					error?.error ?? `Błąd serwera (${response.status})`,
+					response.status,
+				);
 			}
 
 			await pumpChatStream(response.body, (token) => {
 				if (streamIdRef.current === streamId) {
+					// Znacznik "searching" włącza fazę szukania (po myśleniu);
+					// treść/myślenie ją zamykają.
+					if (token.kind === "searching") {
+						setIsSearching(true);
+						return;
+					}
+					setIsSearching(false);
 					setMessages((prev) => appendTokenToAssistant(prev, token));
 				}
 			});
 		} catch (error) {
 			finishOnFailure(error, streamId, streamIdRef, setMessages);
 		} finally {
-			if (streamIdRef.current === streamId) setIsStreaming(false);
+			if (streamIdRef.current === streamId) {
+				setIsStreaming(false);
+				setIsSearching(false);
+			}
 		}
 	};
 
-	return { messages, send, stop, isStreaming, clearConversation };
+	return {
+		messages,
+		send,
+		stop,
+		isStreaming,
+		isSearching,
+		clearConversation,
+		modelId,
+		setModelId,
+	};
 }
 
 /** Historia UI → payload API: bezwyjątkowo role+content, reasoning odpada. */
@@ -116,7 +159,11 @@ export function sanitizeStoredMessages(parsed: unknown): UiChatMessage[] {
 			candidate.content.length > 0
 		);
 	});
-	return valid.slice(-MAX_PERSISTED_MESSAGES);
+	const safe = valid.map((entry) => ({
+		...entry,
+		matchedPosts: Array.isArray(entry.matchedPosts) ? entry.matchedPosts : undefined,
+	}));
+	return safe.slice(-MAX_PERSISTED_MESSAGES);
 }
 
 /** Leniwa inicjalizacja stanu z localStorage — uszkodzony JSON = pusta rozmowa. */
@@ -131,33 +178,39 @@ function loadStoredMessages(): UiChatMessage[] {
 	}
 }
 
-/** Updater setMessages: dopisuje token (treść albo myślenie) do ostatniej bańki. */
+/** Updater setMessages: dopisuje token (treść/myślenie/posty) do ostatniej bańki. */
 function appendTokenToAssistant(prev: UiChatMessage[], token: ChatToken): UiChatMessage[] {
+	if (token.kind === "searching") return prev; // znacznik fazy, nie treść bańki
 	const last = prev.at(-1);
 	if (last?.role !== "assistant") return prev;
 	const next = [...prev];
 	next[next.length - 1] =
-		token.kind === "reasoning"
-			? { ...last, reasoning: (last.reasoning ?? "") + token.text }
-			: { ...last, content: last.content + token.text };
+		token.kind === "posts"
+			? { ...last, matchedPosts: token.posts }
+			: token.kind === "reasoning"
+				? { ...last, reasoning: (last.reasoning ?? "") + token.text }
+				: { ...last, content: last.content + token.text };
 	return next;
 }
 
 /** Updater setMessages: usuwa ostatnią bańkę asystenta, gdy zupełnie pusta (abort). */
 function dropEmptyAssistant(prev: UiChatMessage[]): UiChatMessage[] {
 	const last = prev.at(-1);
-	if (last?.role === "assistant" && last.content === "" && !last.reasoning) {
+	if (last?.role === "assistant" && last.content === "" && !last.reasoning && !last.matchedPosts) {
 		return prev.slice(0, -1);
 	}
 	return prev;
 }
 
-/** Updater setMessages: wpisuje komunikat błędu do ostatniej bańki asystenta. */
-function markAssistantError(prev: UiChatMessage[], message: string): UiChatMessage[] {
+/** Updater setMessages: wpisuje komunikat błądu do ostatniej bańki asystenta. */
+function markAssistantError(prev: UiChatMessage[], message: string, raw = false): UiChatMessage[] {
 	const last = prev.at(-1);
 	if (last?.role !== "assistant") return prev;
 	const next = [...prev];
-	next[next.length - 1] = { role: "assistant", content: `[Błąd: ${message}]` };
+	next[next.length - 1] = {
+		role: "assistant",
+		content: raw ? message : `[Błąd: ${message}]`,
+	};
 	return next;
 }
 
@@ -178,7 +231,7 @@ function finishOnFailure(
 	}
 	if (streamIdRef.current !== streamId) return;
 	const message = error instanceof Error ? error.message : "Nieznany błąd";
-	setMessages((prev) => markAssistantError(prev, message));
+	setMessages((prev) => markAssistantError(prev, message, error instanceof ChatRequestError));
 }
 
 /**

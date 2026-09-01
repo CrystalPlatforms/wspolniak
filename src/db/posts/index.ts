@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-export type { Post, PostImage, PostWithAuthorAndImages } from "./queries";
+export type { AiPostMatch, Post, PostImage, PostWithAuthorAndImages } from "./queries";
 export {
 	addPostImages,
 	countUserPostsToday,
@@ -10,5 +10,6 @@ export {
 	listPostsByIds,
 	listRecentPosts,
 	reorderPostImages,
+	searchPostsForAi,
 } from "./queries";
 export { postImages, posts } from "./table";

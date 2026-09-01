@@ -9,6 +9,7 @@
 // - Serwer już rozdziela <think> od treści — klient przepuszcza linie bez
 //   dodatkowego parsowania.
 import { act, renderHook } from "@testing-library/react";
+import { DEFAULT_MODEL_ID } from "./models";
 import {
 	MAX_PERSISTED_MESSAGES,
 	STORAGE_KEY,
@@ -165,14 +166,17 @@ describe("useAiChat — streaming z /api/ai/chat", () => {
 		if (!init) throw new Error("fetch bez init");
 		expect(init.method).toBe("POST");
 		if (typeof init.body !== "string") throw new Error("body nie jest stringiem");
-		const body = JSON.parse(init.body) as { messages: Record<string, string>[] };
-		expect(body).toEqual({ messages: [{ role: "user", content: "cześć" }] });
+		const body = JSON.parse(init.body) as { messages: Record<string, string>[]; model?: string };
+		expect(body).toEqual({
+			messages: [{ role: "user", content: "cześć" }],
+			model: DEFAULT_MODEL_ID,
+		});
 		for (const item of body.messages) {
 			expect(Object.keys(item).sort()).toEqual(["content", "role"]);
 		}
 	});
 
-	it("błąd API ląduje w bańce asystenta jako [Błąd: …]", async () => {
+	it("błąd API (4xx/5xx) ląduje w bańce jako goły polski komunikat serwera (F4)", async () => {
 		vi.stubGlobal(
 			"fetch",
 			vi
@@ -190,7 +194,7 @@ describe("useAiChat — streaming z /api/ai/chat", () => {
 
 		expect(result.current.messages.at(-1)).toEqual({
 			role: "assistant",
-			content: "[Błąd: Brak klucza GROQ]",
+			content: "Brak klucza GROQ",
 		});
 	});
 });

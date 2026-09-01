@@ -34,12 +34,18 @@ interface StreamChatInput {
 	apiKey: string;
 	model: string;
 	messages: ChatMessage[];
+	/**
+	 * Nakład myślenia (parametr reasoning_effort Groqa, modele gpt-oss).
+	 * undefined = nie wysyłamy (Qwen myśli zawsze, nie przyjmuje parametru).
+	 */
+	reasoningEffort?: "low" | "medium" | "high";
 }
 
 export async function* streamChat({
 	apiKey,
 	model,
 	messages,
+	reasoningEffort,
 }: StreamChatInput): AsyncGenerator<ChatToken> {
 	const response = await fetch(GROQ_CHAT_URL, {
 		method: "POST",
@@ -47,7 +53,12 @@ export async function* streamChat({
 			"content-type": "application/json",
 			authorization: `Bearer ${apiKey}`,
 		},
-		body: JSON.stringify({ model, messages, stream: true }),
+		body: JSON.stringify({
+			model,
+			messages,
+			stream: true,
+			...(reasoningEffort ? { reasoning_effort: reasoningEffort } : {}),
+		}),
 	});
 
 	if (!response.ok) {

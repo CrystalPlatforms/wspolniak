@@ -2,9 +2,11 @@
 
 /**
  * Założenia kodowane przez te testy (stan przed RED):
- * - Endpoint: POST /api/ai/chat { messages: [{role: user|assistant, content}] },
- *   max 50 wiadomości, content max 8000. Model wybiera SERWER (AL Max hardcoded,
- *   F2); klient nie wysyła modelu.
+ * - Endpoint: POST /api/ai/chat { messages: [{role: user|assistant, content}],
+ *   model?: string } — max 50 wiadomości, content max 8000. Model wybiera
+ *   KLIENT, serwer waliduje id przeciw AI_MODELS (F4); brak modelu = AL Max,
+ *   obcy id → 400. Rate limit per user+model (3/4/7 na minutę) → 429 z polskim
+ *   komunikatem i resetAt; wiedza o postach wg F5 w system prompcie.
  * - Gating (kolejność z issue #179): brak/nieprawidłowa sesja → 401
  *   (authMiddleware); master flag wyłączony → 403; aiBlocked → 403; brak
  *   opt-in → 403; wszystko OK → strumień NDJSON (200).
@@ -16,8 +18,8 @@
  * - PUT /opt-in: zablokowanemu 403; poprawny boolean zapisuje i zwraca stan.
  * - Mockujemy wyłącznie granice systemu: moduły DB (identity/instance), sesję
  *   JWT i klienta Groq (fetch). Parse NDJSON testujemy realnie.
- * - Świadomie NIE testowane: rate limity (F4), pick modelu (F4), wstrzykiwanie
- *   postów (F5), UI.
+ * - Świadomie NIE testowane: UI (picker, animacja, karty — HITL), timing
+ *   wygasania okna limitu w realnym czasie.
  */
 
 vi.mock("@/db/identity/session", () => ({
@@ -35,17 +37,24 @@ vi.mock("@/db/instance/queries", () => ({
 	getFeatureFlags: vi.fn(),
 }));
 
-vi.mock("@/core/ai/groq", () => ({
-	streamChat: vi.fn(),
+vi.mock("@/core/ai/groq", async (importOriginal) => {
+	const actual = await importOriginal<typeof import("@/core/ai/groq")>();
+	return { ...actual, streamChat: vi.fn() };
+});
+
+vi.mock("@/db/posts", () => ({
+	searchPostsForAi: vi.fn(),
 }));
 
 import { Hono } from "hono";
-import { streamChat } from "@/core/ai/groq";
+import { GroqError, streamChat } from "@/core/ai/groq";
+import { buildSystemPrompt } from "@/core/ai/knowledge";
 import { DEFAULT_MODEL_ID } from "@/core/ai/models";
-import { AL_SYSTEM_PROMPT } from "@/core/ai/persona";
+import { resetAiRateLimitsForTests } from "@/core/ai/rate-limit";
 import { findActiveUserById, getAiAccessState, setUserAiOptIn } from "@/db/identity/queries";
 import { SESSION_COOKIE_NAME, verifySessionCookie } from "@/db/identity/session";
 import { getFeatureFlags } from "@/db/instance/queries";
+import { searchPostsForAi } from "@/db/posts";
 import aiEndpoint from "./ai";
 
 const mockVerifySessionCookie = vi.mocked(verifySessionCookie);
@@ -54,6 +63,7 @@ const mockGetAiAccessState = vi.mocked(getAiAccessState);
 const mockSetUserAiOptIn = vi.mocked(setUserAiOptIn);
 const mockGetFeatureFlags = vi.mocked(getFeatureFlags);
 const mockStreamChat = vi.mocked(streamChat);
+const mockSearchPosts = vi.mocked(searchPostsForAi);
 
 const FLAGS_AI_OFF = {
 	video: true,
@@ -66,11 +76,19 @@ const FLAGS_AI_OFF = {
 
 const FLAGS_AI_ON = { ...FLAGS_AI_OFF, ai: true };
 
-const ENV = { SESSION_SECRET: "secret", GROQ_API_KEY: "gsk_test" };
+const ENV = {
+	SESSION_SECRET: "secret",
+	GROQ_API_KEY: "gsk_test",
+	CLOUDFLARE_IMAGES_ACCOUNT_HASH: "imghash",
+};
 
 function createApi() {
 	const api = new Hono<{
-		Bindings: { SESSION_SECRET: string; GROQ_API_KEY?: string };
+		Bindings: {
+			SESSION_SECRET: string;
+			GROQ_API_KEY?: string;
+			CLOUDFLARE_IMAGES_ACCOUNT_HASH: string;
+		};
 	}>().basePath("/api");
 	api.route("/ai", aiEndpoint);
 	return api;
@@ -80,9 +98,29 @@ function memberHeaders() {
 	return { Cookie: `${SESSION_COOKIE_NAME}=valid-jwt` };
 }
 
-/** Zamienia mock streamChat w generator zwracający zadane tokeny. */
-function mockGroqTokens(tokens: Array<{ kind: "text" | "reasoning"; text: string }>): void {
-	mockStreamChat.mockImplementation(async function* () {
+/** Odblokowuje bramki F1: master ON + user opt-in, nieblokowany. */
+function allowAi() {
+	mockGetFeatureFlags.mockResolvedValue(FLAGS_AI_ON);
+	mockGetAiAccessState.mockResolvedValue({ aiOptIn: true, aiBlocked: false });
+}
+
+/**
+ * Zamienia mock streamChat w generator zwracający zadane tokeny. Router
+ * szukania (mikro-decyzja przed odpowiedzią) rozpoznajemy po markerze
+ * w system prompcie — dostaje `routerResponse` (domyślnie NIE = bez postów).
+ */
+function mockGroqTokens(
+	tokens: Array<{ kind: "text" | "reasoning"; text: string }>,
+	routerResponse = "NIE",
+): void {
+	mockStreamChat.mockImplementation(async function* (input?: {
+		messages?: { content?: string }[];
+	}) {
+		const first = input?.messages?.[0]?.content ?? "";
+		if (first.includes("jednym słowem")) {
+			yield { kind: "text", text: routerResponse };
+			return;
+		}
 		for (const token of tokens) {
 			yield token;
 		}
@@ -126,6 +164,7 @@ beforeEach(() => {
 	});
 	mockGetAiAccessState.mockResolvedValue({ aiOptIn: false, aiBlocked: false });
 	mockGetFeatureFlags.mockResolvedValue(FLAGS_AI_OFF);
+	mockSearchPosts.mockResolvedValue([]);
 });
 
 describe("POST /api/ai/chat — matryca gatingu (#179)", () => {
@@ -188,23 +227,28 @@ describe("POST /api/ai/chat — matryca gatingu (#179)", () => {
 			{ kind: "text", text: "rodzinny serwis." },
 		]);
 		const api = createApi();
-		const res = await requestChat(api, ENV);
+		// jawny AL Max — domyślny (Lite) maskuje reasoning, więc passthrough
+		// myślenia testujemy na modelu „high"
+		const res = await postChat(api, ENV, { model: "openai/gpt-oss-120b" });
 		expect(res.status).toBe(200);
 		expect(res.headers.get("content-type")).toContain("application/x-ndjson");
 		const tokens = parseNdjson(await res.text());
+		// myślenie odpowiedzi zostaje na serwerze (AL myślał na głos w fazie 1)
 		expect(tokens).toEqual([
-			{ k: "r", v: "myślę nad odpowiedzią" },
 			{ k: "t", v: "Wspólniak to " },
 			{ k: "t", v: "rodzinny serwis." },
 		]);
-		expect(mockStreamChat).toHaveBeenCalledOnce();
-		expect(mockStreamChat).toHaveBeenCalledWith({
+		expect(mockStreamChat).toHaveBeenCalledTimes(2); // router + odpowiedź
+		const answerCall = mockStreamChat.mock.calls.at(-1);
+		if (!answerCall) throw new Error("streamChat nie został wywołany");
+		expect(answerCall[0]).toEqual({
 			apiKey: "gsk_test",
-			model: DEFAULT_MODEL_ID,
+			model: "openai/gpt-oss-120b",
 			messages: [
-				{ role: "system", content: AL_SYSTEM_PROMPT },
+				{ role: "system", content: buildSystemPrompt([]) },
 				{ role: "user", content: "Cześć, co to Wspólniak?" },
 			],
+			reasoningEffort: "high",
 		});
 	});
 
@@ -253,18 +297,17 @@ describe("POST /api/ai/chat — klucz i model (F2)", () => {
 		expect(mockStreamChat).not.toHaveBeenCalled();
 	});
 
-	it("przekazuje model domyślny AL Max", async () => {
+	it("przekazuje model domyślny AL Lite (bez modelu w żądaniu)", async () => {
 		mockGetFeatureFlags.mockResolvedValue(FLAGS_AI_ON);
 		mockGetAiAccessState.mockResolvedValue({ aiOptIn: true, aiBlocked: false });
 		mockGroqTokens([{ kind: "text", text: "ok" }]);
 		const api = createApi();
 		const res = await requestChat(api, ENV);
 		expect(res.status).toBe(200);
-		expect(mockStreamChat).toHaveBeenCalledOnce();
-		const call = mockStreamChat.mock.calls[0];
+		const call = mockStreamChat.mock.calls.at(-1);
 		if (!call) throw new Error("streamChat nie został wywołany");
 		expect(call[0].model).toBe(DEFAULT_MODEL_ID);
-		expect(DEFAULT_MODEL_ID).toBe("openai/gpt-oss-120b");
+		expect(DEFAULT_MODEL_ID).toBe("openai/gpt-oss-20b");
 	});
 });
 
@@ -347,5 +390,501 @@ describe("PUT /api/ai/opt-in — przełącznik w Ustawieniach (#179)", () => {
 		);
 		expect(res.status).toBe(400);
 		expect(mockSetUserAiOptIn).not.toHaveBeenCalled();
+	});
+});
+
+describe("POST /api/ai/chat — model i limity (F4 #182)", () => {
+	beforeEach(() => {
+		allowAi();
+		resetAiRateLimitsForTests();
+	});
+
+	it("400 dla obcego id modelu", async () => {
+		mockGroqTokens([{ kind: "text", text: "ok" }]);
+		const api = createApi();
+		const res = await postChat(api, ENV, { model: "obcy/model-id" });
+		expect(res.status).toBe(400);
+		const json = (await res.json()) as { error: string };
+		expect(json.error).toContain("Nieznany model");
+		expect(mockStreamChat).not.toHaveBeenCalled();
+	});
+
+	it("429 dla AL Max po 1 żądaniu (limit 1/min), z polskim komunikatem i resetAt", async () => {
+		mockGroqTokens([{ kind: "text", text: "ok" }]);
+		const api = createApi();
+		for (let i = 0; i < 1; i++) {
+			const ok = await postChat(api, ENV, { model: "openai/gpt-oss-120b" });
+			expect(ok.status).toBe(200);
+			await ok.text();
+		}
+		const callsBefore = mockStreamChat.mock.calls.length;
+		const blocked = await postChat(api, ENV, { model: "openai/gpt-oss-120b" });
+		expect(blocked.status).toBe(429);
+		const json = (await blocked.json()) as { error: string; resetAt: string };
+		expect(json.error).toContain("Limit odpowiedzi");
+		expect(json.error).toContain("AL Max");
+		expect(json.error).not.toMatch(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/u);
+		const hhmm = new Date(json.resetAt).toLocaleTimeString("pl-PL", {
+			timeZone: "Europe/Warsaw",
+			hour: "2-digit",
+			minute: "2-digit",
+		});
+		expect(json.resetAt).toBeTruthy();
+		expect(json.error).toContain(hhmm);
+		expect(mockStreamChat.mock.calls.length).toBe(callsBefore);
+	});
+
+	it("429 dla AL Pro po 2 żądaniach (limit 2/min)", async () => {
+		mockGroqTokens([{ kind: "text", text: "ok" }]);
+		const api = createApi();
+		for (let i = 0; i < 2; i++) {
+			const ok = await postChat(api, ENV, { model: "qwen/qwen3.8-27b" });
+			expect(ok.status).toBe(200);
+		}
+		const blocked = await postChat(api, ENV, { model: "qwen/qwen3.8-27b" });
+		expect(blocked.status).toBe(429);
+	});
+
+	it("429 dla AL Lite po 5 żądaniach (limit 5/min)", async () => {
+		mockGroqTokens([{ kind: "text", text: "ok" }]);
+		const api = createApi();
+		for (let i = 0; i < 5; i++) {
+			const ok = await postChat(api, ENV, { model: "openai/gpt-oss-20b" });
+			expect(ok.status).toBe(200);
+		}
+		const blocked = await postChat(api, ENV, { model: "openai/gpt-oss-20b" });
+		expect(blocked.status).toBe(429);
+	});
+
+	it("limity niezależne per model — wyczerpany AL Max nie blokuje AL Lite", async () => {
+		mockGroqTokens([{ kind: "text", text: "ok" }]);
+		const api = createApi();
+		for (let i = 0; i < 1; i++) {
+			const ok = await postChat(api, ENV, { model: "openai/gpt-oss-120b" });
+			expect(ok.status).toBe(200);
+			await ok.text();
+		}
+		const lite = await postChat(api, ENV, { model: "openai/gpt-oss-20b" });
+		expect(lite.status).toBe(200);
+		await lite.text();
+		expect(mockStreamChat.mock.calls).toHaveLength(4); // 2 żądania × (myślenie + odpowiedź)
+	});
+
+	it("limity niezależne per user — drugi user startuje z pustym oknem", async () => {
+		mockGroqTokens([{ kind: "text", text: "ok" }]);
+		const api = createApi();
+		for (let i = 0; i < 1; i++) {
+			const ok = await postChat(api, ENV, { model: "openai/gpt-oss-120b" });
+			expect(ok.status).toBe(200);
+			await ok.text();
+		}
+		mockVerifySessionCookie.mockResolvedValue({ userId: "u3", name: "Tomek", role: "member" });
+		mockFindUser.mockResolvedValue({
+			id: "u3",
+			name: "Tomek",
+			role: "member",
+			tokenHash: "hash",
+			deletedAt: new Date(),
+			createdAt: new Date(),
+			aiOptIn: true,
+			aiBlocked: false,
+		});
+		const other = await postChat(api, ENV, { model: "openai/gpt-oss-120b" });
+		expect(other.status).toBe(200);
+	});
+
+	it("po wygaśnięciu okna (60 s) limit wraca", async () => {
+		vi.useFakeTimers();
+		try {
+			vi.setSystemTime(new Date("2026-09-01T12:00:00Z"));
+			mockGroqTokens([{ kind: "text", text: "ok" }]);
+			const api = createApi();
+			for (let i = 0; i < 1; i++) {
+				const ok = await postChat(api, ENV, { model: "openai/gpt-oss-120b" });
+				expect(ok.status).toBe(200);
+				await ok.text();
+			}
+			vi.advanceTimersByTime(61_000);
+			const again = await postChat(api, ENV, { model: "openai/gpt-oss-120b" });
+			expect(again.status).toBe(200);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+});
+
+function postChat(
+	api: ReturnType<typeof createApi>,
+	env: Record<string, string>,
+	extra: { model?: string },
+) {
+	return api.request(
+		"/api/ai/chat",
+		{
+			method: "POST",
+			headers: { ...memberHeaders(), "Content-Type": "application/json" },
+			body: JSON.stringify({
+				messages: [{ role: "user", content: "Cześć, co to Wspólniak?" }],
+				...extra,
+			}),
+		},
+		env,
+	);
+}
+
+describe("POST /api/ai/chat — wiedza o postach (F5 #183)", () => {
+	const POST_A = {
+		id: "p1",
+		description: "Wakacje nad Bałtykiem\nDalsze linie opisu też są ważne",
+		authorName: "Mama",
+		createdAt: new Date("2026-08-15T12:00:00Z"),
+		cfImageId: "img-1",
+	};
+
+	beforeEach(() => {
+		allowAi();
+		resetAiRateLimitsForTests();
+	});
+
+	it("searchPostsForAi dostaje limit wg modelu (15/10/3)", async () => {
+		mockGroqTokens([{ kind: "text", text: "ok" }], "SZUKAJ");
+		const api = createApi();
+
+		await (await postChat(api, ENV, { model: "openai/gpt-oss-120b" })).text();
+		expect(mockSearchPosts).toHaveBeenLastCalledWith(expect.any(String), 15);
+		resetAiRateLimitsForTests(); // budżet szukania: 1/min — świeże okno na kolejny model
+
+		await (await postChat(api, ENV, { model: "qwen/qwen3.8-27b" })).text();
+		expect(mockSearchPosts).toHaveBeenLastCalledWith(expect.any(String), 10);
+		resetAiRateLimitsForTests();
+
+		await (await postChat(api, ENV, { model: "openai/gpt-oss-20b" })).text();
+		expect(mockSearchPosts).toHaveBeenCalledWith(expect.any(String), 3);
+	});
+
+	it("payload do Groqa = metadane postów + rozmowa (bez obrazów, komentarzy, czatu)", async () => {
+		mockSearchPosts.mockResolvedValue([POST_A]);
+		mockGroqTokens([{ kind: "text", text: "ok" }], "SZUKAJ");
+		const api = createApi();
+		const res = await postChat(api, ENV, { model: "openai/gpt-oss-120b" });
+		expect(res.status).toBe(200);
+		await res.text(); // wyczerp strumień — pipeline wykonuje się w locie
+
+		const call = mockStreamChat.mock.calls.at(-1);
+		if (!call) throw new Error("streamChat nie został wywołany");
+		const system = call[0].messages[0];
+		if (!system || system.role !== "system") throw new Error("brak system promptu");
+		const userMessage = call[0].messages[1];
+		if (!userMessage) throw new Error("brak wiadomości usera");
+
+		// Metadane (tytuł z pierwszej linii, pełny opis, autor, data) są w prompcie.
+		expect(system.content).toContain("Wakacje nad Bałtykiem");
+		expect(system.content).toContain("Dalsze linie opisu też są ważne");
+		expect(system.content).toContain("Mama");
+		expect(system.content).toContain("2026-08-15");
+
+		// Prywatność: cfImageId i URL obrazów NIE wchodzą do promptu.
+		expect(system.content).not.toContain("img-1");
+		expect(system.content).not.toContain("imagedelivery");
+
+		// Rozmowa idzie 1:1 (role+content), bez dodatkowych pól.
+		expect(call[0].messages).toHaveLength(2);
+		expect(Object.keys(userMessage).sort()).toEqual(["content", "role"]);
+	});
+
+	it("token posts jako pierwszy w strumieniu, z miniaturą CF Images", async () => {
+		mockSearchPosts.mockResolvedValue([POST_A]);
+		mockGroqTokens([{ kind: "text", text: "odpowiedź" }], "SZUKAJ");
+		const api = createApi();
+		const res = await postChat(api, ENV, { model: "openai/gpt-oss-120b" });
+		expect(res.status).toBe(200);
+		const tokens = parseNdjson(await res.text());
+		expect(tokens[0]).toEqual({ k: "s" }); // faza szukania
+		expect(tokens[1]).toEqual({
+			k: "p",
+			posts: [
+				{
+					id: "p1",
+					title: "Wakacje nad Bałtykiem",
+					author: "Mama",
+					date: "2026-08-15",
+					thumbnail: "https://imagedelivery.net/imghash/img-1/thumbnail",
+				},
+			],
+		});
+		expect(tokens[2]).toEqual({ k: "t", v: "odpowiedź" });
+	});
+
+	it("bez dopasowań — brak tokenu posts w strumieniu", async () => {
+		mockGroqTokens([{ kind: "text", text: "ok" }]);
+		const api = createApi();
+		const res = await postChat(api, ENV, { model: "openai/gpt-oss-120b" });
+		const tokens = parseNdjson(await res.text());
+		expect(tokens.every((token) => token.k !== "p")).toBe(true);
+	});
+
+	it("AL Lite: reasoning nigdy nie opuszcza serwera, effort=low", async () => {
+		mockGroqTokens([
+			{ kind: "reasoning", text: "sekretne myśli" },
+			{ kind: "text", text: "odpowiedź Lite" },
+		]);
+		const api = createApi();
+		const res = await postChat(api, ENV, { model: "openai/gpt-oss-20b" });
+		expect(res.status).toBe(200);
+		const tokens = parseNdjson(await res.text());
+		expect(tokens).toEqual([{ k: "t", v: "odpowiedź Lite" }]);
+		const call = mockStreamChat.mock.calls.at(-1);
+		if (!call) throw new Error("streamChat nie został wywołany");
+		expect(call[0].reasoningEffort).toBe("low");
+	});
+
+	it("AL Pro: bez parametru reasoning_effort", async () => {
+		mockGroqTokens([{ kind: "text", text: "ok" }]);
+		const api = createApi();
+		await postChat(api, ENV, { model: "qwen/qwen3.8-27b" });
+		const call = mockStreamChat.mock.calls.at(-1);
+		if (!call) throw new Error("streamChat nie został wywołany");
+		expect(call[0].reasoningEffort).toBeUndefined();
+	});
+});
+
+describe("POST /api/ai/chat — błędy Groqa i budżet tokenów (TPM)", () => {
+	beforeEach(() => {
+		allowAi();
+		resetAiRateLimitsForTests();
+	});
+
+	it("Groq 429 (TPM) → polski komunikat w bąbelku, bez id organizacji i żargonu", async () => {
+		mockStreamChat.mockImplementation(async function* (input?: {
+			messages?: { content?: string }[];
+		}) {
+			const first = input?.messages?.[0]?.content ?? "";
+			if (first.includes("jednym słowem")) {
+				yield { kind: "text", text: "NIE" };
+				return;
+			}
+			yield { kind: "text", text: "częściowa odpowiedź" };
+			throw new GroqError(
+				"Rate limit reached for model openai/gpt-oss-120b in organization org_01abc on tokens per minute (TPM): Limit 8000",
+				429,
+			);
+		});
+		const api = createApi();
+		const res = await postChat(api, ENV, { model: "openai/gpt-oss-120b" });
+		expect(res.status).toBe(200);
+		const body = await res.text();
+		const tokens = parseNdjson(body);
+		expect(tokens).toEqual([
+			{ k: "t", v: "częściowa odpowiedź" },
+			{ k: "t", v: "Osiągnąłeś limit korzystania. Spróbuj ponownie za minutę." },
+		]);
+		expect(body).not.toContain("org_01abc");
+		expect(body).not.toContain("Rate limit reached");
+		expect(body).not.toContain("gpt-oss");
+	});
+
+	it("inny błąd Groqa (np. 503) → generyczny polski komunikat", async () => {
+		mockStreamChat.mockImplementation(async function* (input?: {
+			messages?: { content?: string }[];
+		}) {
+			const first = input?.messages?.[0]?.content ?? "";
+			if (first.includes("jednym słowem")) {
+				yield { kind: "text", text: "NIE" };
+				return;
+			}
+			yield { kind: "text", text: "start" };
+			throw new GroqError("Service unavailable", 503);
+		});
+		const api = createApi();
+		const res = await postChat(api, ENV, { model: "openai/gpt-oss-20b" });
+		const tokens = parseNdjson(await res.text());
+		expect(tokens).toEqual([
+			{ k: "t", v: "start" },
+			{ k: "t", v: "AL ma teraz problemy techniczne. Spróbuj ponownie za chwilę." },
+		]);
+	});
+
+	it("opis wstrzyknięty do promptu jest przycięty do 240 znaków", async () => {
+		const longDescription = `Post o wakacjach. ${"Długi opis z wieloma szczegółami. ".repeat(12)}`;
+		expect(longDescription.length).toBeGreaterThan(240);
+		mockSearchPosts.mockResolvedValue([
+			{
+				id: "p9",
+				description: longDescription,
+				authorName: "Tata",
+				createdAt: new Date("2026-07-01T10:00:00Z"),
+				cfImageId: null,
+			},
+		]);
+		mockGroqTokens([{ kind: "text", text: "ok" }], "SZUKAJ");
+		const api = createApi();
+		const res = await postChat(api, ENV, { model: "openai/gpt-oss-120b" });
+		expect(res.status).toBe(200);
+		await res.text();
+		const call = mockStreamChat.mock.calls.at(-1);
+		if (!call) throw new Error("streamChat nie został wywołany");
+		const system = call[0].messages[0];
+		if (!system) throw new Error("brak system promptu");
+		expect(system.content).toContain("…");
+		expect(system.content).not.toContain(longDescription);
+		// 240 znaków + wielokropek = 241; żaden wiersz postów nie jest dłuższy
+		const postLine = system.content.split("\n").find((line) => line.startsWith("- „"));
+		if (!postLine) throw new Error("brak linii postu w promptcie");
+		expect(postLine.length).toBeLessThan(400);
+	});
+});
+
+describe("POST /api/ai/chat — router wiedzy: AL decyduje o szukaniu postów", () => {
+	const ROUTER_POST = {
+		id: "p1",
+		description: "Wakacje nad Bałtykiem\nDalsze linie opisu też są ważne",
+		authorName: "Mama",
+		createdAt: new Date("2026-08-15T12:00:00Z"),
+		cfImageId: "img-1",
+	};
+
+	beforeEach(() => {
+		allowAi();
+		resetAiRateLimitsForTests();
+	});
+
+	it("router TAK → search rusza, posty w prompcie z deklaracją dostępu, karty w strumieniu", async () => {
+		mockSearchPosts.mockResolvedValue([ROUTER_POST]);
+		mockGroqTokens([{ kind: "text", text: "Na zdjęciach widać…" }], "SZUKAJ");
+		const api = createApi();
+		const res = await postChat(api, ENV, { model: "openai/gpt-oss-120b" });
+		expect(res.status).toBe(200);
+		const body = await res.text();
+
+		expect(mockSearchPosts).toHaveBeenCalledOnce();
+		const call = mockStreamChat.mock.calls.at(-1);
+		if (!call) throw new Error("streamChat nie został wywołany");
+		const system = call[0].messages[0];
+		if (!system) throw new Error("brak system promptu");
+		expect(system.content).toContain("MASZ DOSTĘP");
+		expect(system.content).toContain("Wakacje nad Bałtykiem");
+
+		const tokens = parseNdjson(body);
+		expect(tokens[0]?.k).toBe("s"); // faza szukania
+		expect(tokens[1]?.k).toBe("p");
+	});
+
+	it("router NIE → search nie jest wołany, prompt mówi wprost o braku wglądu", async () => {
+		mockGroqTokens([{ kind: "text", text: "Cześć! Jak leci?" }]);
+		const api = createApi();
+		const res = await postChat(api, ENV, { model: "openai/gpt-oss-120b" });
+		expect(res.status).toBe(200);
+		const body = await res.text();
+
+		expect(mockSearchPosts).not.toHaveBeenCalled();
+		const call = mockStreamChat.mock.calls.at(-1);
+		if (!call) throw new Error("streamChat nie został wywołany");
+		const system = call[0].messages[0];
+		if (!system) throw new Error("brak system promptu");
+		expect(system.content).toContain("nie znalazłeś teraz pasujących postów");
+
+		const tokens = parseNdjson(body);
+		expect(tokens.every((token) => token.k !== "p")).toBe(true);
+	});
+
+	it("błąd routera = fail-open do odpowiedzi bez postów (nie 500)", async () => {
+		mockStreamChat.mockImplementation(async function* (input?: {
+			messages?: { content?: string }[];
+		}) {
+			const first = input?.messages?.[0]?.content ?? "";
+			if (first.includes("jednym słowem")) {
+				throw new GroqError("router down", 503);
+			}
+			yield { kind: "text", text: "odpowiedź mimo awarii routera" };
+		});
+		const api = createApi();
+		const res = await postChat(api, ENV, { model: "openai/gpt-oss-120b" });
+		expect(res.status).toBe(200);
+		expect(mockSearchPosts).not.toHaveBeenCalled();
+		const tokens = parseNdjson(await res.text());
+		expect(tokens).toEqual([{ k: "t", v: "odpowiedź mimo awarii routera" }]);
+	});
+});
+
+describe("POST /api/ai/chat — budżet przeszukiwania postów (1/min per user)", () => {
+	const SEARCH_POST = {
+		id: "p1",
+		description: "Wakacje nad Bałtykiem\nDalsze linie opisu też są ważne",
+		authorName: "Mama",
+		createdAt: new Date("2026-08-15T12:00:00Z"),
+		cfImageId: "img-1",
+	};
+
+	beforeEach(() => {
+		allowAi();
+		resetAiRateLimitsForTests();
+	});
+
+	it("pierwsze szukanie przechodzi, drugie w tej samej minucie jest pomijane", async () => {
+		mockGroqTokens([{ kind: "text", text: "Na zdjęciach widać…" }], "SZUKAJ");
+		mockSearchPosts.mockResolvedValue([SEARCH_POST]);
+		const api = createApi();
+
+		const first = await postChat(api, ENV, { model: "openai/gpt-oss-120b" });
+		expect(first.status).toBe(200);
+		const firstTokens = parseNdjson(await first.text());
+		expect(mockSearchPosts).toHaveBeenCalledTimes(1);
+		expect(firstTokens[0]?.k).toBe("s"); // faza szukania
+		expect(firstTokens[1]?.k).toBe("p");
+
+		// inny model (limit odpowiedzi jest per model, budżet szukania per user)
+		const second = await postChat(api, ENV, { model: "qwen/qwen3.8-27b" });
+		expect(second.status).toBe(200);
+		const secondTokens = parseNdjson(await second.text());
+		expect(mockSearchPosts).toHaveBeenCalledTimes(1); // budżet wyczerpany
+		expect(secondTokens.every((token) => token.k !== "p")).toBe(true);
+	});
+
+	it("po upływie minuty budżet szukania wraca", async () => {
+		vi.useFakeTimers();
+		try {
+			vi.setSystemTime(new Date("2026-09-01T12:00:00Z"));
+			mockGroqTokens([{ kind: "text", text: "ok" }], "SZUKAJ");
+			mockSearchPosts.mockResolvedValue([SEARCH_POST]);
+			const api = createApi();
+
+			const first = await postChat(api, ENV, { model: "openai/gpt-oss-120b" });
+			await first.text();
+			expect(mockSearchPosts).toHaveBeenCalledTimes(1);
+
+			vi.advanceTimersByTime(61_000);
+			const again = await postChat(api, ENV, { model: "openai/gpt-oss-120b" });
+			expect(again.status).toBe(200);
+			await again.text();
+			expect(mockSearchPosts).toHaveBeenCalledTimes(2);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("budżet szukania jest per user", async () => {
+		mockGroqTokens([{ kind: "text", text: "ok" }], "SZUKAJ");
+		mockSearchPosts.mockResolvedValue([SEARCH_POST]);
+		const api = createApi();
+
+		const a = await postChat(api, ENV, { model: "openai/gpt-oss-120b" });
+		await a.text();
+		expect(mockSearchPosts).toHaveBeenCalledTimes(1);
+
+		mockVerifySessionCookie.mockResolvedValue({ userId: "u3", name: "Tomek", role: "member" });
+		mockFindUser.mockResolvedValue({
+			id: "u3",
+			name: "Tomek",
+			role: "member",
+			tokenHash: "hash",
+			deletedAt: new Date(),
+			createdAt: new Date(),
+			aiOptIn: true,
+			aiBlocked: false,
+		});
+		const b = await postChat(api, ENV, { model: "openai/gpt-oss-120b" });
+		expect(b.status).toBe(200);
+		await b.text();
+		expect(mockSearchPosts).toHaveBeenCalledTimes(2); // inny user = własny budżet
 	});
 });

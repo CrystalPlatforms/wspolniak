@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { createFileRoute } from "@tanstack/react-router";
 import { ChevronDown, Download, Pause, RotateCcw, SendHorizontal } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AlLogo } from "@/components/app/ai/al-logo";
 import { JellyOoze } from "@/components/app/ai/jelly-ooze";
+import { ModelPicker } from "@/components/app/ai/model-picker";
+import { PostPreviewCards } from "@/components/app/ai/post-preview-cards";
 import { BeamBorder } from "@/components/app/beam-border";
 import { MarkdownText } from "@/components/app/markdown-text";
 import { Button } from "@/components/ui/button";
@@ -20,15 +22,23 @@ import { useAiChat } from "@/core/ai/use-ai-chat";
 
 // Czat z AL (F3 #181): pusty stan = animowane logo + „Cześć, tu AL" (bez bańki);
 // odpowiedzi streamowane jako Markdown, myślenie modelu w zwijanej sekcji.
-// Konwersacja trzyma się w localStorage (ostatnie 100 wiadomości) — „Nowa
-// rozmowa" czyści ją; input na dole w beamie + eksport .md/.txt/PDF.
+// Konwersacja trzyma się w localStorage (ostatnie 100 wiadomości) — „Wyczyść"
+// ją czyści; input na dole w beamie + eksport .md/.txt/PDF; auto-scroll do dołu.
 export const Route = createFileRoute("/app/ai")({
 	component: AiScreen,
 });
 
 function AiScreen() {
-	const { messages, send, stop, isStreaming, clearConversation } = useAiChat();
+	const { messages, send, stop, isStreaming, isSearching, clearConversation, modelId, setModelId } =
+		useAiChat();
 	const [input, setInput] = useState("");
+	const bottomRef = useRef<HTMLDivElement | null>(null);
+
+	// Auto-scroll: przy każdym nowym tokenie/fazie user widzi najniższy fragment.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: celowy re-run przy każdej zmianie rozmowy/fazy
+	useEffect(() => {
+		bottomRef.current?.scrollIntoView({ block: "end" });
+	}, [messages, isSearching]);
 
 	const submit = () => {
 		if (!input.trim() || isStreaming) return;
@@ -53,6 +63,7 @@ function AiScreen() {
 								streaming={isStreaming && index === messages.length - 1}
 							/>
 						))}
+						<div ref={bottomRef} aria-hidden="true" />
 					</div>
 				</div>
 			)}
@@ -75,6 +86,7 @@ function AiScreen() {
 								className="h-14 w-full resize-none bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
 							/>
 							<div className="mt-2 flex items-center gap-2">
+								<ModelPicker modelId={modelId} onSelect={setModelId} />
 								<DropdownMenu>
 									<DropdownMenuTrigger asChild>
 										<Button
@@ -104,12 +116,12 @@ function AiScreen() {
 									<Button
 										variant="ghost"
 										size="sm"
-										aria-label="Nowa rozmowa"
+										aria-label="Wyczyść rozmowę"
 										onClick={clearConversation}
 										className="shrink-0 gap-1.5"
 									>
 										<RotateCcw className="size-4" />
-										Nowa rozmowa
+										Wyczyść
 									</Button>
 								)}
 								<div className="ml-auto">
@@ -170,6 +182,9 @@ function ChatBubble({ message, streaming }: { message: UiChatMessage; streaming:
 					</>
 				) : (
 					<JellyOoze />
+				)}
+				{message.matchedPosts && message.matchedPosts.length > 0 && (
+					<PostPreviewCards posts={message.matchedPosts} />
 				)}
 			</div>
 		</div>
