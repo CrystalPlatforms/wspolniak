@@ -15,6 +15,7 @@ import { Route as SetupRouteImport } from './routes/setup'
 import { Route as ShareRouteImport } from './routes/share'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppAdminRouteImport } from './routes/app/admin'
+import { Route as AppAiRouteImport } from './routes/app/ai'
 import { Route as AppAlbumsRouteImport } from './routes/app/albums'
 import { Route as AppCalendarRouteImport } from './routes/app/calendar'
 import { Route as AppChatRouteImport } from './routes/app/chat'
@@ -61,6 +62,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
 const AppAdminRoute = AppAdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAiRoute = AppAiRouteImport.update({
+  id: '/ai',
+  path: '/ai',
   getParentRoute: () => AppRoute,
 } as any)
 const AppAlbumsRoute = AppAlbumsRouteImport.update({
@@ -155,6 +161,7 @@ export interface FileRoutesByFullPath {
   '/setup': typeof SetupRoute
   '/share': typeof ShareRoute
   '/app/admin': typeof AppAdminRoute
+  '/app/ai': typeof AppAiRoute
   '/app/albums': typeof AppAlbumsRouteWithChildren
   '/app/calendar': typeof AppCalendarRoute
   '/app/chat': typeof AppChatRoute
@@ -179,6 +186,7 @@ export interface FileRoutesByTo {
   '/setup': typeof SetupRoute
   '/share': typeof ShareRoute
   '/app/admin': typeof AppAdminRoute
+  '/app/ai': typeof AppAiRoute
   '/app/calendar': typeof AppCalendarRoute
   '/app/chat': typeof AppChatRoute
   '/app/lib': typeof AppLibRoute
@@ -203,6 +211,7 @@ export interface FileRoutesById {
   '/setup': typeof SetupRoute
   '/share': typeof ShareRoute
   '/app/admin': typeof AppAdminRoute
+  '/app/ai': typeof AppAiRoute
   '/app/albums': typeof AppAlbumsRouteWithChildren
   '/app/calendar': typeof AppCalendarRoute
   '/app/chat': typeof AppChatRoute
@@ -230,6 +239,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/share'
     | '/app/admin'
+    | '/app/ai'
     | '/app/albums'
     | '/app/calendar'
     | '/app/chat'
@@ -254,6 +264,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/share'
     | '/app/admin'
+    | '/app/ai'
     | '/app/calendar'
     | '/app/chat'
     | '/app/lib'
@@ -277,6 +288,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/share'
     | '/app/admin'
+    | '/app/ai'
     | '/app/albums'
     | '/app/calendar'
     | '/app/chat'
@@ -348,6 +360,13 @@ declare module '@tanstack/react-router' {
       path: '/admin'
       fullPath: '/app/admin'
       preLoaderRoute: typeof AppAdminRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/ai': {
+      id: '/app/ai'
+      path: '/ai'
+      fullPath: '/app/ai'
+      preLoaderRoute: typeof AppAiRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/albums': {
@@ -502,6 +521,7 @@ const AppVideoRouteWithChildren = AppVideoRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRoute
+  AppAiRoute: typeof AppAiRoute
   AppAlbumsRoute: typeof AppAlbumsRouteWithChildren
   AppCalendarRoute: typeof AppCalendarRoute
   AppChatRoute: typeof AppChatRoute
@@ -518,6 +538,7 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRoute,
+  AppAiRoute: AppAiRoute,
   AppAlbumsRoute: AppAlbumsRouteWithChildren,
   AppCalendarRoute: AppCalendarRoute,
   AppChatRoute: AppChatRoute,

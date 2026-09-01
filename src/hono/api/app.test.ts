@@ -53,6 +53,8 @@ describe("GET /api/app/me", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 
 		const api = createApi();
@@ -90,6 +92,8 @@ describe("GET /api/app/users", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -134,6 +138,8 @@ describe("GET /api/app/stats/leaderboard", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -182,6 +188,8 @@ describe("POST /api/app/upload-failures", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 

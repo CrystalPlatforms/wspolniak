@@ -159,11 +159,19 @@ describe("feature flags", () => {
 			libraryEnabled: true,
 			chatEnabled: true,
 			albumsEnabled: true,
+			aiEnabled: true,
 		});
 
 		const flags = await getFeatureFlags();
 
-		expect(flags).toEqual({ video: true, markdown: true, library: true, chat: true, albums: true });
+		expect(flags).toEqual({
+			video: true,
+			markdown: true,
+			library: true,
+			chat: true,
+			albums: true,
+			ai: true,
+		});
 	});
 
 	it("returns a disabled flag when its column is false", async () => {
@@ -173,6 +181,7 @@ describe("feature flags", () => {
 			libraryEnabled: true,
 			chatEnabled: true,
 			albumsEnabled: true,
+			aiEnabled: true,
 		});
 
 		const flags = await getFeatureFlags();
@@ -183,6 +192,7 @@ describe("feature flags", () => {
 			library: true,
 			chat: true,
 			albums: true,
+			ai: true,
 		});
 	});
 
@@ -212,7 +222,30 @@ describe("feature flags", () => {
 
 		const flags = await getFeatureFlags();
 
-		expect(flags).toEqual({ video: true, markdown: true, library: true, chat: true, albums: true });
+		expect(flags).toEqual({
+			video: true,
+			markdown: true,
+			library: true,
+			chat: true,
+			albums: true,
+			ai: false,
+		});
+	});
+
+	// F1 #179: AL — jedyny flag domyślnie WYŁĄCZONY (AI nie działa bez zgody admina).
+	it("defaults the ai flag to disabled when its column is null", async () => {
+		mockSelectRow({
+			videoEnabled: true,
+			markdownEnabled: true,
+			libraryEnabled: true,
+			chatEnabled: true,
+			albumsEnabled: true,
+			aiEnabled: null,
+		});
+
+		const flags = await getFeatureFlags();
+
+		expect(flags.ai).toBe(false);
 	});
 
 	it("serves cached flags on second call without hitting DB again", async () => {

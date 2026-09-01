@@ -110,6 +110,8 @@ describe("POST /api/app/posts", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -279,6 +281,8 @@ describe("GET /api/app/posts", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -302,6 +306,8 @@ describe("GET /api/app/posts/:id", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -354,6 +360,8 @@ describe("GET /api/app/posts (paginated)", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -450,6 +458,8 @@ describe("PATCH /api/app/posts/:id", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -482,6 +492,8 @@ describe("PATCH /api/app/posts/:id", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 		mockGetPost.mockResolvedValue(samplePost);
 		mockUpdateDescription.mockResolvedValue({ ...samplePost, description: "Admin edit" });
@@ -509,6 +521,8 @@ describe("PATCH /api/app/posts/:id", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 		mockGetPost.mockResolvedValue(samplePost);
 
@@ -616,6 +630,8 @@ describe("PATCH /api/app/posts/:id — image operations", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -717,6 +733,8 @@ describe("DELETE /api/app/posts/:id", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -760,6 +778,8 @@ describe("DELETE /api/app/posts/:id", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 		mockGetPost.mockResolvedValue(samplePost);
 		mockSoftDelete.mockResolvedValue({ ...samplePost, deletedAt: now });
@@ -783,6 +803,8 @@ describe("DELETE /api/app/posts/:id", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 		mockGetPost.mockResolvedValue(samplePost);
 
@@ -830,6 +852,8 @@ describe("DELETE /api/app/posts/:id/images/:imageId", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -869,6 +893,8 @@ describe("DELETE /api/app/posts/:id/images/:imageId", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 		mockGetPost.mockResolvedValue(samplePost);
 
@@ -943,6 +969,8 @@ describe("DELETE /api/app/posts/:id — kaskada albumów (#174)", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 

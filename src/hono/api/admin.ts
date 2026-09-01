@@ -6,6 +6,7 @@ import {
 	createMember,
 	listActiveMembers,
 	regenerateMemberToken,
+	setUserAiBlocked,
 	softDeleteMember,
 	updateMemberName,
 } from "@/db/identity/queries";
@@ -52,8 +53,23 @@ adminEndpoint.get("/members", async (c) => {
 		name: m.name,
 		role: m.role,
 		createdAt: m.createdAt,
+		aiBlocked: m.aiBlocked,
 	}));
 	return c.json({ data });
+});
+
+// PUT /members/:id/ai-blocked — przełącznik AI na liście członków (PRD #178).
+// Switch w UI pokazuje „AI włączone" = !blocked; domyślnie każdy ma dostęp.
+adminEndpoint.put("/members/:id/ai-blocked", async (c) => {
+	const userId = c.req.param("id");
+	const body = await c.req.json<{ blocked?: unknown }>();
+
+	if (typeof body.blocked !== "boolean") {
+		return c.json({ error: "blocked must be a boolean" }, 400);
+	}
+
+	await setUserAiBlocked(userId, body.blocked);
+	return c.json({ data: { id: userId, aiBlocked: body.blocked } });
 });
 
 adminEndpoint.post("/members/:id/regenerate", async (c) => {
@@ -161,50 +177,19 @@ adminEndpoint.get("/features", async (c) => {
 });
 
 adminEndpoint.put("/features", async (c) => {
-	const body = await c.req.json<{
-		video?: unknown;
-		markdown?: unknown;
-		library?: unknown;
-		chat?: unknown;
-		albums?: unknown;
-	}>();
+	const body = await c.req.json<Record<string, unknown>>();
 
-	const update: {
-		video?: boolean;
-		markdown?: boolean;
-		library?: boolean;
-		chat?: boolean;
-		albums?: boolean;
-	} = {};
-	if (body.video !== undefined) {
-		if (typeof body.video !== "boolean") {
-			return c.json({ error: "video must be a boolean" }, 400);
+	// F1 #179: `ai` dołącza do istniejących flag — jedna pętla waliduje wszystkie
+	// (boolean-check + komunikat 400 per nazwa pola, jak wcześniej per-flag).
+	const FLAG_KEYS = ["video", "markdown", "library", "chat", "albums", "ai"] as const;
+	const update: Partial<Record<(typeof FLAG_KEYS)[number], boolean>> = {};
+	for (const key of FLAG_KEYS) {
+		const value = body[key];
+		if (value === undefined) continue;
+		if (typeof value !== "boolean") {
+			return c.json({ error: `${key} must be a boolean` }, 400);
 		}
-		update.video = body.video;
-	}
-	if (body.markdown !== undefined) {
-		if (typeof body.markdown !== "boolean") {
-			return c.json({ error: "markdown must be a boolean" }, 400);
-		}
-		update.markdown = body.markdown;
-	}
-	if (body.library !== undefined) {
-		if (typeof body.library !== "boolean") {
-			return c.json({ error: "library must be a boolean" }, 400);
-		}
-		update.library = body.library;
-	}
-	if (body.chat !== undefined) {
-		if (typeof body.chat !== "boolean") {
-			return c.json({ error: "chat must be a boolean" }, 400);
-		}
-		update.chat = body.chat;
-	}
-	if (body.albums !== undefined) {
-		if (typeof body.albums !== "boolean") {
-			return c.json({ error: "albums must be a boolean" }, 400);
-		}
-		update.albums = body.albums;
+		update[key] = value;
 	}
 
 	await updateFeatureFlags(update);

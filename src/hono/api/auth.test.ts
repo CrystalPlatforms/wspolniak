@@ -36,6 +36,8 @@ describe("GET /app/u/:token", () => {
 			tokenHash: "hashed",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 		mockCreateSession.mockResolvedValue("jwt-cookie-value");
 

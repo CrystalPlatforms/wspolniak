@@ -16,7 +16,14 @@ function renderToggles(
 
 describe("FeatureToggles — piąty przełącznik Albumy (F7 #176)", () => {
 	it("renders all five feature switches including Albumy", () => {
-		renderToggles({ video: true, markdown: true, library: true, chat: true, albums: true });
+		renderToggles({
+			video: true,
+			markdown: true,
+			library: true,
+			chat: true,
+			albums: true,
+			ai: false,
+		});
 
 		for (const label of ["Wideo", "Edytor (Markdown)", "Biblioteka", "Chat", "Albumy"]) {
 			expect(screen.getByRole("switch", { name: label })).toBeTruthy();
@@ -34,7 +41,7 @@ describe("FeatureToggles — piąty przełącznik Albumy (F7 #176)", () => {
 	it("reflects albums: false as unchecked and fires onChange({ albums: true }) on toggle", async () => {
 		const onChange = vi.fn();
 		renderToggles(
-			{ video: true, markdown: true, library: true, chat: true, albums: false },
+			{ video: true, markdown: true, library: true, chat: true, albums: false, ai: false },
 			onChange,
 		);
 

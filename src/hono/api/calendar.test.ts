@@ -60,6 +60,8 @@ beforeEach(() => {
 		tokenHash: "hash",
 		deletedAt: null,
 		createdAt: new Date(),
+		aiOptIn: false,
+		aiBlocked: false,
 	});
 });
 
@@ -101,6 +103,8 @@ describe("GET /api/admin/calendar", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 
 		const api = createApi();
@@ -205,6 +209,8 @@ describe("POST /api/admin/calendar", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 
 		const api = createApi();
@@ -299,6 +305,8 @@ describe("PATCH /api/admin/calendar/:id", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 
 		const api = createApi();
@@ -363,6 +371,8 @@ describe("DELETE /api/admin/calendar/:id", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 
 		const api = createApi();

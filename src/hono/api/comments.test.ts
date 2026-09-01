@@ -106,6 +106,8 @@ describe("POST /api/app/posts/:postId/comments", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -213,6 +215,8 @@ describe("GET /api/app/posts/:postId/comments", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -269,6 +273,8 @@ describe("PATCH /api/app/posts/:postId/comments/:commentId", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -301,6 +307,8 @@ describe("PATCH /api/app/posts/:postId/comments/:commentId", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 		mockGetComment.mockResolvedValue(sampleComment);
 		mockUpdateBody.mockResolvedValue({ ...sampleComment, body: "Admin edit" });
@@ -328,6 +336,8 @@ describe("PATCH /api/app/posts/:postId/comments/:commentId", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 		mockGetComment.mockResolvedValue(sampleComment);
 
@@ -392,6 +402,8 @@ describe("DELETE /api/app/posts/:postId/comments/:commentId", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -419,6 +431,8 @@ describe("DELETE /api/app/posts/:postId/comments/:commentId", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 		mockGetComment.mockResolvedValue(sampleComment);
 		mockSoftDelete.mockResolvedValue({ ...sampleComment, deletedAt: now });
@@ -442,6 +456,8 @@ describe("DELETE /api/app/posts/:postId/comments/:commentId", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 		mockGetComment.mockResolvedValue(sampleComment);
 
@@ -493,6 +509,8 @@ describe("POST /api/app/posts/:postId/comments/:commentId/replies", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -674,6 +692,8 @@ describe("POST /api/app/posts/:postId/comments — mentions", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -758,6 +778,8 @@ describe("POST /api/app/posts/:postId/comments/:commentId/replies — mentions",
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 

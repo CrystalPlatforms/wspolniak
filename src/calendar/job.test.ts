@@ -42,6 +42,8 @@ function admin(overrides: Partial<User> = {}): User {
 		tokenHash: "h",
 		deletedAt: null,
 		createdAt: now,
+		aiOptIn: false,
+		aiBlocked: false,
 		...overrides,
 	};
 }

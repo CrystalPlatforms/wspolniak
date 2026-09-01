@@ -1,21 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect, useSearch } from "@tanstack/react-router";
-import {
-	AlertTriangle,
-	ArrowLeft,
-	Check,
-	Copy,
-	Link,
-	Pencil,
-	Plus,
-	Trash2,
-	Waypoints,
-	X,
-} from "lucide-react";
+import { AlertTriangle, ArrowLeft, Check, Copy, Plus, Waypoints } from "lucide-react";
 import { useState } from "react";
 import { FeatureToggles } from "@/components/admin/feature-toggles";
 import { MaintenanceDialog } from "@/components/admin/maintenance-dialog";
+import { MemberRow } from "@/components/admin/member-row";
 import { ShareCodeDialog } from "@/components/admin/share-code-dialog";
 import {
 	type UploadFailureEntry,
@@ -37,6 +27,8 @@ interface Member {
 	name: string;
 	role: string;
 	createdAt: string;
+	// AL (F1 #179) — blokada AI nałożona przez admina na tego członka.
+	aiBlocked: boolean;
 }
 
 interface CreateMemberResponse {
@@ -110,9 +102,8 @@ function AdminPage() {
 			const json = (await res.json()) as { data: { magicLink: string } };
 			return { name, link: json.data.magicLink };
 		},
-		onSuccess: (data) => {
-			setLastMagicLink({ name: data.name, link: data.link });
-		},
+		// Link pokazuje dialog „Info" danego członka — banner nie jest już potrzebny
+		// (przebudowa 2026-09-01: opcje usera przeniesione z listy do dialogu).
 	});
 
 	const renameMutation = useMutation({
@@ -130,6 +121,21 @@ function AdminPage() {
 		onSuccess: async () => {
 			await queryClient.invalidateQueries({ queryKey: ["admin", "members"] });
 			await queryClient.invalidateQueries({ queryKey: feedQueryKey });
+		},
+	});
+
+	// AL (F1 #179) — blokada AI per członek; przełącznik w wierszu MemberRow.
+	const aiBlockedMutation = useMutation({
+		mutationFn: async ({ id, blocked }: { id: string; blocked: boolean }) => {
+			const res = await fetch(`/api/admin/members/${id}/ai-blocked`, {
+				method: "PUT",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ blocked }),
+			});
+			if (!res.ok) throw new Error("Nie udało się zapisać ustawienia AI");
+		},
+		onSuccess: async () => {
+			await queryClient.invalidateQueries({ queryKey: ["admin", "members"] });
 		},
 	});
 
@@ -199,6 +205,7 @@ function AdminPage() {
 					library: boolean;
 					chat: boolean;
 					albums: boolean;
+					ai: boolean;
 				};
 			};
 			return json.data;
@@ -212,6 +219,7 @@ function AdminPage() {
 			library?: boolean;
 			chat?: boolean;
 			albums?: boolean;
+			ai?: boolean;
 		}) => {
 			const res = await fetch("/api/admin/features", {
 				method: "PUT",
@@ -402,9 +410,17 @@ function AdminPage() {
 							member={member}
 							isRegenerating={regenerateMutation.isPending}
 							isDeleting={deleteMutation.isPending}
-							onRegenerate={() => regenerateMutation.mutate({ id: member.id, name: member.name })}
+							isAiSaving={aiBlockedMutation.isPending}
+							onRegenerate={async () => {
+								const result = await regenerateMutation.mutateAsync({
+									id: member.id,
+									name: member.name,
+								});
+								return result.link;
+							}}
 							onDelete={() => deleteMutation.mutate(member.id)}
 							onRename={(id, name) => renameMutation.mutateAsync({ id, name })}
+							onAiBlockedChange={(blocked) => aiBlockedMutation.mutate({ id: member.id, blocked })}
 						/>
 					))}
 				</div>
@@ -436,129 +452,6 @@ function AdminPage() {
 					isLoading={uploadFailuresQuery.isLoading}
 				/>
 			</div>
-		</div>
-	);
-}
-
-interface MemberRowProps {
-	member: Member;
-	isRegenerating: boolean;
-	isDeleting: boolean;
-	onRegenerate: () => void;
-	onDelete: () => void;
-	onRename: (id: string, name: string) => Promise<void>;
-}
-
-function MemberRow({
-	member,
-	isRegenerating,
-	isDeleting,
-	onRegenerate,
-	onDelete,
-	onRename,
-}: MemberRowProps) {
-	const [editing, setEditing] = useState(false);
-	const [draft, setDraft] = useState(member.name);
-	const [error, setError] = useState<string | null>(null);
-	const [saving, setSaving] = useState(false);
-
-	function startEdit() {
-		setDraft(member.name);
-		setError(null);
-		setEditing(true);
-	}
-
-	function cancelEdit() {
-		setEditing(false);
-		setError(null);
-	}
-
-	async function handleSave() {
-		const trimmed = draft.trim();
-		if (!trimmed) {
-			setError("Imię nie może być puste");
-			return;
-		}
-		if (trimmed === member.name) {
-			cancelEdit();
-			return;
-		}
-		setSaving(true);
-		setError(null);
-		try {
-			await onRename(member.id, trimmed);
-			setEditing(false);
-		} catch (e) {
-			setError(e instanceof Error ? e.message : "Nie udało się zmienić imienia");
-		} finally {
-			setSaving(false);
-		}
-	}
-
-	return (
-		<div className="rounded-lg border border-border bg-card p-3">
-			{editing ? (
-				<div className="space-y-2">
-					<div className="flex gap-2">
-						<Input
-							value={draft}
-							onChange={(e) => setDraft(e.target.value)}
-							onKeyDown={(e) => {
-								if (e.key === "Enter") handleSave();
-								if (e.key === "Escape") cancelEdit();
-							}}
-							placeholder="Nowe imię..."
-							className="flex-1"
-							autoFocus
-							maxLength={30}
-							disabled={saving}
-						/>
-						<Button size="sm" onClick={handleSave} disabled={saving} title="Zapisz">
-							{saving ? <Loader loading={saving} /> : <Check className="h-4 w-4" />}
-						</Button>
-						<Button size="sm" variant="ghost" onClick={cancelEdit} disabled={saving} title="Anuluj">
-							<X className="h-4 w-4" />
-						</Button>
-					</div>
-					{error && <Alert variant="destructive">{error}</Alert>}
-				</div>
-			) : (
-				<div className="flex items-center justify-between">
-					<div className="flex items-center gap-1">
-						<span className="font-medium text-foreground">{member.name}</span>
-						<span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-							{member.role}
-						</span>
-					</div>
-					<div className="flex gap-1">
-						<Button size="sm" variant="ghost" onClick={startEdit} title="Zmień imię">
-							<Pencil className="h-4 w-4" />
-						</Button>
-						{/* Regeneracja linku dostępna także dla admina (wniosek usera
-						    2026-08-24); usuwanie — tylko dla członków. */}
-						<Button
-							size="sm"
-							variant="ghost"
-							onClick={onRegenerate}
-							disabled={isRegenerating}
-							title="Nowy link logowania"
-						>
-							<Link className="h-4 w-4" />
-						</Button>
-						{member.role !== "admin" && (
-							<Button
-								size="sm"
-								variant="ghost"
-								onClick={onDelete}
-								disabled={isDeleting}
-								title="Usuń członka"
-							>
-								<Trash2 className="h-4 w-4 text-destructive" />
-							</Button>
-						)}
-					</div>
-				</div>
-			)}
 		</div>
 	);
 }

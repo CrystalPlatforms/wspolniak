@@ -92,6 +92,8 @@ describe("POST /api/app/posts/:postId/reactions", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -182,6 +184,8 @@ describe("GET /api/app/posts/:postId/reactions", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -231,6 +235,8 @@ describe("DELETE /api/app/posts/:postId/reactions", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -296,6 +302,8 @@ describe("GET /api/app/posts/:postId/my-reaction", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -356,6 +364,8 @@ describe("GET /api/app/posts/:postId/reactions/users", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -416,6 +426,8 @@ describe("POST /api/app/posts/:postId/comments/:commentId/reactions", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -484,6 +496,8 @@ describe("DELETE /api/app/posts/:postId/comments/:commentId/reactions", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -518,6 +532,8 @@ describe("GET /api/app/posts/:postId/comments/:commentId/reactions", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -554,6 +570,8 @@ describe("GET /api/app/posts/:postId/comments/:commentId/my-reaction", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -601,6 +619,8 @@ describe("GET /api/app/posts/:postId/comments/:commentId/reactions/users", () =>
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 

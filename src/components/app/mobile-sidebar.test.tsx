@@ -31,7 +31,14 @@ describe("MobileSidebar — Biblioteka nav link (#129)", () => {
 		setPathname("/app");
 		render(
 			<MobileSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 		await openMenu();
@@ -44,7 +51,14 @@ describe("MobileSidebar — Biblioteka nav link (#129)", () => {
 		setPathname("/app/lib");
 		render(
 			<MobileSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 		await openMenu();
@@ -57,7 +71,14 @@ describe("MobileSidebar — Biblioteka nav link (#129)", () => {
 		setPathname("/app/lib");
 		render(
 			<MobileSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 		await openMenu();
@@ -70,7 +91,14 @@ describe("MobileSidebar — Biblioteka nav link (#129)", () => {
 		setPathname("/app");
 		render(
 			<MobileSidebar
-				featureFlags={{ video: true, markdown: true, library: false, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: false,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 		await openMenu();
@@ -87,7 +115,14 @@ describe("MobileSidebar — Chat nav link (F8 #159)", () => {
 		setPathname("/app");
 		render(
 			<MobileSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 		await openMenu();
@@ -100,7 +135,14 @@ describe("MobileSidebar — Chat nav link (F8 #159)", () => {
 		setPathname("/app");
 		render(
 			<MobileSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: false, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: false,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 		await openMenu();
@@ -112,7 +154,14 @@ describe("MobileSidebar — Chat nav link (F8 #159)", () => {
 		setPathname("/app/chat");
 		render(
 			<MobileSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 		await openMenu();
@@ -129,7 +178,14 @@ describe("MobileSidebar — Albumy nav link (#170)", () => {
 		setPathname("/app");
 		render(
 			<MobileSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 		await openMenu();
@@ -142,7 +198,14 @@ describe("MobileSidebar — Albumy nav link (#170)", () => {
 		setPathname("/app/albums");
 		render(
 			<MobileSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 		await openMenu();
@@ -159,7 +222,14 @@ describe("MobileSidebar — Ustawienia moved to feed header (reviza usera)", () 
 		setPathname("/app");
 		render(
 			<MobileSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 		await openMenu();
@@ -180,7 +250,14 @@ describe("MobileSidebar — flaga albums i kropka „new” (#176)", () => {
 		setPathname("/app");
 		render(
 			<MobileSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: false }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: false,
+					ai: false,
+				}}
 			/>,
 		);
 		await openMenu();
@@ -193,7 +270,14 @@ describe("MobileSidebar — flaga albums i kropka „new” (#176)", () => {
 		setPathname("/app");
 		render(
 			<MobileSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 		await openMenu();
@@ -207,7 +291,14 @@ describe("MobileSidebar — flaga albums i kropka „new” (#176)", () => {
 		setPathname("/app");
 		render(
 			<MobileSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 		await openMenu();

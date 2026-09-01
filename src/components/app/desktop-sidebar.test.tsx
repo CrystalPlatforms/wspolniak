@@ -25,7 +25,14 @@ describe("DesktopSidebar — Wideo feature flag", () => {
 		setPathname("/app");
 		render(
 			<DesktopSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 
@@ -37,7 +44,14 @@ describe("DesktopSidebar — Wideo feature flag", () => {
 		setPathname("/app");
 		render(
 			<DesktopSidebar
-				featureFlags={{ video: false, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: false,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 
@@ -51,7 +65,14 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 		setPathname("/app");
 		render(
 			<DesktopSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 
@@ -63,7 +84,14 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 		setPathname("/app/lib");
 		render(
 			<DesktopSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 
@@ -75,7 +103,14 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 		setPathname("/app/lib");
 		render(
 			<DesktopSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 
@@ -88,7 +123,14 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 		setPathname("/app");
 		render(
 			<DesktopSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 
@@ -100,7 +142,14 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 		setPathname("/app/video");
 		render(
 			<DesktopSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 
@@ -116,7 +165,14 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 		render(
 			<DesktopSidebar
 				role={adminRole}
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 
@@ -130,7 +186,14 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 		render(
 			<DesktopSidebar
 				role={memberRole}
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 
@@ -141,7 +204,14 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 		setPathname("/app");
 		render(
 			<DesktopSidebar
-				featureFlags={{ video: true, markdown: true, library: false, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: false,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 
@@ -157,7 +227,14 @@ describe("DesktopSidebar — Chat nav link (F8 #159)", () => {
 		setPathname("/app");
 		render(
 			<DesktopSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 
@@ -169,7 +246,14 @@ describe("DesktopSidebar — Chat nav link (F8 #159)", () => {
 		setPathname("/app");
 		render(
 			<DesktopSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: false, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: false,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 
@@ -180,7 +264,14 @@ describe("DesktopSidebar — Chat nav link (F8 #159)", () => {
 		setPathname("/app/chat");
 		render(
 			<DesktopSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 
@@ -192,7 +283,14 @@ describe("DesktopSidebar — Chat nav link (F8 #159)", () => {
 		setPathname("/app");
 		render(
 			<DesktopSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 
@@ -209,7 +307,14 @@ describe("DesktopSidebar — Albumy nav link (#170)", () => {
 		setPathname("/app");
 		render(
 			<DesktopSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 
@@ -221,7 +326,14 @@ describe("DesktopSidebar — Albumy nav link (#170)", () => {
 		setPathname("/app/albums");
 		render(
 			<DesktopSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 
@@ -235,7 +347,14 @@ describe("DesktopSidebar — Albumy nav link (#170)", () => {
 		setPathname("/app");
 		render(
 			<DesktopSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 
@@ -251,7 +370,14 @@ describe("DesktopSidebar — Ustawienia moved to feed header (reviza usera)", ()
 		setPathname("/app");
 		render(
 			<DesktopSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 
@@ -271,7 +397,14 @@ describe("DesktopSidebar — flaga albums i kropka „new” (#176)", () => {
 		setPathname("/app");
 		render(
 			<DesktopSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: false }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: false,
+					ai: false,
+				}}
 			/>,
 		);
 
@@ -283,7 +416,14 @@ describe("DesktopSidebar — flaga albums i kropka „new” (#176)", () => {
 		setPathname("/app");
 		render(
 			<DesktopSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 
@@ -296,7 +436,14 @@ describe("DesktopSidebar — flaga albums i kropka „new” (#176)", () => {
 		setPathname("/app");
 		render(
 			<DesktopSidebar
-				featureFlags={{ video: true, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 			/>,
 		);
 

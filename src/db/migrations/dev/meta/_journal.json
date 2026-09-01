@@ -218,6 +218,13 @@
       "when": 1787938276745,
       "tag": "0030_powerful_talos",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1788257389943,
+      "tag": "0031_foamy_archangel",
+      "breakpoints": true
     }
   ]
 }

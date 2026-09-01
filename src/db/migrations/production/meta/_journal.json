@@ -92,6 +92,20 @@
       "when": 1787657845653,
       "tag": "0012_familiar_excalibur",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1787988307097,
+      "tag": "0013_unique_xorn",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1788257404045,
+      "tag": "0014_wooden_mariko_yashida",
+      "breakpoints": true
     }
   ]
 }

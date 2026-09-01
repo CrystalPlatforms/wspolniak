@@ -59,6 +59,34 @@ export async function findActiveUserById(id: string): Promise<User | null> {
 	return rows[0] ?? null;
 }
 
+// --- AL (Wspólniak AI) — dostęp per user (PRD #178) ------------------------
+
+export interface AiAccessState {
+	aiOptIn: boolean;
+	aiBlocked: boolean;
+}
+
+/** Stan AI danego usera. Nieistniejący/zablokowany user → domyślne (opt-out). */
+export async function getAiAccessState(userId: string): Promise<AiAccessState> {
+	const rows = await getDb()
+		.select({ aiOptIn: users.aiOptIn, aiBlocked: users.aiBlocked })
+		.from(users)
+		.where(and(eq(users.id, userId), isNull(users.deletedAt)))
+		.limit(1);
+	const row = rows[0];
+	return { aiOptIn: row?.aiOptIn ?? false, aiBlocked: row?.aiBlocked ?? false };
+}
+
+/** Opt-in usera z Ustawień. Blokady admina tu nie ruszamy — to osobny przełącznik. */
+export async function setUserAiOptIn(userId: string, optIn: boolean): Promise<void> {
+	await getDb().update(users).set({ aiOptIn: optIn }).where(eq(users.id, userId));
+}
+
+/** Blokada/odblokowanie AI przez admina na liście członków. */
+export async function setUserAiBlocked(userId: string, blocked: boolean): Promise<void> {
+	await getDb().update(users).set({ aiBlocked: blocked }).where(eq(users.id, userId));
+}
+
 export async function findUserByTokenHash(tokenHash: string): Promise<User | null> {
 	const rows = await getDb()
 		.select()

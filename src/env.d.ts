@@ -14,5 +14,7 @@ declare namespace Cloudflare {
 		// rejects LAN-IP / non-public redirect URIs for Production-status Web clients
 		// (localhost is the only loopback Google allows). Defaults to ${APP_URL}/api/video/oauth/callback.
 		YOUTUBE_REDIRECT_URI?: string;
+		// Wspólniak AI — Groq (F2 #180). Secret in .dev.vars / Cloudflare dashboard; optional so the app can detect "not configured".
+		GROQ_API_KEY?: string;
 	}
 }

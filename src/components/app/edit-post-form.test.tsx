@@ -52,7 +52,14 @@ describe("EditPostForm", () => {
 				description="hello"
 				existingImages={[]}
 				imageAccountHash="hash"
-				featureFlags={{ video: true, markdown: false, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: false,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 				onSubmit={vi.fn()}
 				isSubmitting={false}
 			/>,
@@ -68,7 +75,14 @@ describe("EditPostForm", () => {
 				description="hello"
 				existingImages={[]}
 				imageAccountHash="hash"
-				featureFlags={{ video: false, markdown: true, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: false,
+					markdown: true,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 				onSubmit={vi.fn()}
 				isSubmitting={false}
 			/>,
@@ -86,7 +100,14 @@ describe("EditPostForm", () => {
 				existingImages={[]}
 				imageAccountHash="hash"
 				initialVideoIds={["v2", "v1"]}
-				featureFlags={{ video: true, markdown: false, library: true, chat: true, albums: true }}
+				featureFlags={{
+					video: true,
+					markdown: false,
+					library: true,
+					chat: true,
+					albums: true,
+					ai: false,
+				}}
 				onSubmit={onSubmit}
 				isSubmitting={false}
 			/>,

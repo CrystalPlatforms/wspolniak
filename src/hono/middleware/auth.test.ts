@@ -38,6 +38,8 @@ const dbUser = {
 	tokenHash: "hash",
 	deletedAt: null,
 	createdAt: new Date(),
+	aiOptIn: false,
+	aiBlocked: false,
 };
 
 describe("authMiddleware", () => {

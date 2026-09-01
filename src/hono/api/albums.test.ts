@@ -91,6 +91,8 @@ function authedUser() {
 		tokenHash: "hash",
 		deletedAt: null,
 		createdAt: now,
+		aiOptIn: false,
+		aiBlocked: false,
 	});
 }
 
@@ -103,6 +105,8 @@ function adminUser() {
 		tokenHash: "hash",
 		deletedAt: null,
 		createdAt: now,
+		aiOptIn: false,
+		aiBlocked: false,
 	});
 }
 

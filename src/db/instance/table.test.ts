@@ -24,6 +24,7 @@ describe("instance_config table", () => {
 				"videoEnabled",
 				"chatEnabled",
 				"albumsEnabled",
+				"aiEnabled",
 				"markdownEnabled",
 				"libraryEnabled",
 				"youtubeChannelId",

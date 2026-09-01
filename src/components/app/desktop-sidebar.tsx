@@ -8,7 +8,6 @@ import {
 	Images,
 	MessageSquare,
 	Plus,
-	SlidersHorizontal,
 	Video,
 } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
@@ -42,7 +41,7 @@ const NAV_ITEMS: NavItem[] = [
 	{ to: "/app/albums", icon: Images, label: "Albumy" },
 	// F8 #159: nazwa usera „Chat" (nie „Czat"); wypełniona gdy aktywna.
 	{ to: "/app/chat", icon: MessageSquare, label: "Chat", fillWhenActive: true },
-	{ to: "/app/admin", icon: SlidersHorizontal, label: "Admin", adminOnly: true },
+	// Admin wyjęty z menu (przebudowa 2026-09-01) — wejście tylko z Ustawień.
 	{
 		to: "/app/calendar",
 		icon: Calendar,

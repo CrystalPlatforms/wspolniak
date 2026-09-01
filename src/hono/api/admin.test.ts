@@ -90,6 +90,8 @@ beforeEach(() => {
 		tokenHash: "hash",
 		deletedAt: null,
 		createdAt: new Date(),
+		aiOptIn: false,
+		aiBlocked: false,
 	});
 });
 
@@ -103,6 +105,8 @@ describe("POST /api/admin/members", () => {
 				tokenHash: "hash",
 				deletedAt: null,
 				createdAt: new Date(),
+				aiOptIn: false,
+				aiBlocked: false,
 			},
 			plaintextToken: "raw-token",
 		});
@@ -153,6 +157,8 @@ describe("GET /api/admin/members", () => {
 				tokenHash: "h1",
 				deletedAt: null,
 				createdAt: new Date(),
+				aiOptIn: false,
+				aiBlocked: false,
 			},
 			{
 				id: "u2",
@@ -161,6 +167,8 @@ describe("GET /api/admin/members", () => {
 				tokenHash: "h2",
 				deletedAt: null,
 				createdAt: new Date(),
+				aiOptIn: false,
+				aiBlocked: false,
 			},
 		];
 		mockListActiveMembers.mockResolvedValue(members);
@@ -232,6 +240,8 @@ describe("PATCH /api/admin/members/:id", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -243,6 +253,8 @@ describe("PATCH /api/admin/members/:id", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 
 		const api = createApi();
@@ -319,6 +331,8 @@ describe("PATCH /api/admin/members/:id", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 
 		const api = createApi();
@@ -344,6 +358,8 @@ describe("PATCH /api/admin/members/:id", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 
 		const api = createApi();
@@ -370,6 +386,8 @@ describe("PATCH /api/admin/members/:id", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 
 		const api = createApi();
@@ -398,6 +416,8 @@ describe("admin authorization", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 
 		const api = createApi();
@@ -552,6 +572,8 @@ describe("GET /api/admin/stats", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -592,6 +614,8 @@ describe("GET /api/admin/stats", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 
 		const api = createApi();
@@ -613,6 +637,7 @@ describe("GET /api/admin/features", () => {
 			library: true,
 			chat: true,
 			albums: true,
+			ai: false,
 		});
 
 		const api = createApi();
@@ -632,6 +657,7 @@ describe("GET /api/admin/features", () => {
 			library: true,
 			chat: true,
 			albums: true,
+			ai: false,
 		});
 	});
 });
@@ -644,6 +670,7 @@ describe("PUT /api/admin/features", () => {
 			library: false,
 			chat: false,
 			albums: true,
+			ai: false,
 		});
 
 		const api = createApi();
@@ -680,6 +707,7 @@ describe("PUT /api/admin/features", () => {
 			library: true,
 			chat: true,
 			albums: true,
+			ai: false,
 		});
 
 		const api = createApi();
@@ -774,6 +802,8 @@ describe("GET /api/admin/upload-failures", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 	});
 
@@ -814,6 +844,8 @@ describe("GET /api/admin/upload-failures", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 
 		const api = createApi();
@@ -907,6 +939,7 @@ describe("feature flags — albums (#176)", () => {
 			library: true,
 			chat: true,
 			albums: true,
+			ai: false,
 		});
 
 		const api = createApi();

@@ -132,6 +132,8 @@ function adminSession() {
 		tokenHash: "hash",
 		deletedAt: null,
 		createdAt: new Date(),
+		aiOptIn: false,
+		aiBlocked: false,
 	});
 }
 
@@ -145,6 +147,8 @@ function memberSession() {
 		tokenHash: "hash",
 		deletedAt: null,
 		createdAt: new Date(),
+		aiOptIn: false,
+		aiBlocked: false,
 	});
 }
 

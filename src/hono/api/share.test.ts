@@ -61,6 +61,8 @@ const memberUser = {
 	tokenHash: "h2",
 	deletedAt: null,
 	createdAt: new Date(),
+	aiOptIn: false,
+	aiBlocked: false,
 };
 
 const adminUser = {
@@ -70,6 +72,8 @@ const adminUser = {
 	tokenHash: "h1",
 	deletedAt: null,
 	createdAt: new Date(),
+	aiOptIn: false,
+	aiBlocked: false,
 };
 
 beforeEach(() => {

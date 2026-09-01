@@ -105,6 +105,8 @@ function authedUser() {
 		tokenHash: "hash",
 		deletedAt: null,
 		createdAt: new Date(),
+		aiOptIn: false,
+		aiBlocked: false,
 	});
 }
 
@@ -603,6 +605,8 @@ describe("DELETE /api/chat/messages/:id (F6 #157)", () => {
 			tokenHash: "hash",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 		mockDeleteMessage.mockResolvedValue({ ok: true, data: undefined });
 

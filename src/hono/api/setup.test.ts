@@ -69,6 +69,7 @@ describe("POST /api/setup", () => {
 			youtubeRefreshToken: null,
 			youtubeConnectedAt: null,
 			youtubeConnectedBy: null,
+			aiEnabled: false,
 		});
 		mockCreateUser.mockResolvedValue({
 			id: "user-1",
@@ -77,6 +78,8 @@ describe("POST /api/setup", () => {
 			tokenHash: "hashed-token",
 			deletedAt: null,
 			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
 		});
 
 		const app = createApp();

@@ -1,0 +1,61 @@
+/* BeamBorder = biblioteka `border-beam` (npm), wariant „mono".
+   Barwa zielona i sylwetka „md" dostrajane tutaj nad stylami runtime
+   biblioteki (dokładanymi później w dokumencie — stąd !important).
+   Nadpisania grubości/jasności są scopingowane do .beam-variant-md,
+   żeby zostawić w spokoju dolną linię („line") malowaną przez ::after. */
+
+/* Kolor: grayscale najpierw zeruje WSZYSTKIE barwy, sepia daje jednolitą
+   bazę (hue ~40°), hue-rotate 115° przesuwa na nasz primary (oklch ~155°),
+   saturate(3) mocno nasycia — blade warstwy nie wyglądają szaro.
+   Dotyczy obu wariantów (md + line). */
+[data-beam]::before,
+[data-beam]::after,
+[data-beam] [data-beam-bloom],
+[data-beam-bloom] {
+	filter: grayscale(1) sepia(1) hue-rotate(115deg) saturate(3) brightness(1.02) !important;
+}
+
+/* — sprostowania tylko dla wariantu „md" (pełna obwódka) — */
+
+/* Cieńszy pierścień (grubość = padding pseudoelementu). */
+[data-beam].beam-variant-md::after {
+	padding: 2px !important;
+}
+
+/* Sam pierścień mocniej przyciemniony — poświata (bloom) wokół zostaje. */
+[data-beam].beam-variant-md::after {
+	opacity: 0.4 !important;
+}
+
+/* Inner-glow (::before, biały inset z biblioteki) wyłączony — po filtrach
+   zostawiał blade szarawe prześwity przy krawędzi. Efekt niosą ::after + bloom. */
+[data-beam].beam-variant-md::before {
+	opacity: 0 !important;
+}
+
+/* Pauza: zamiast wyłączać `active` (beam gasł skokowo), zamrażamy animację
+   w obecnej klatce — beam „staje” gdy użytkownik pisze i rusza dalej. */
+[data-beam].beam-paused,
+[data-beam].beam-paused::before,
+[data-beam].beam-paused::after,
+[data-beam].beam-paused [data-beam-bloom] {
+	animation-play-state: paused !important;
+}
+
+/* — „line” (wyszukiwarka): ciaśniejsza poświata — podspodni glow przyciemniamy,
+   bloom ścinamy z -30px do -10px, żeby nie rozlewał się po planszy. */
+[data-beam].beam-variant-line::before {
+	opacity: 0.6 !important;
+}
+
+[data-beam].beam-variant-line [data-beam-bloom] {
+	inset: -10px !important;
+	border-radius: inherit !important;
+}
+
+/* Biblioteka clampuje prop `strength` do 0–1 (Math.min w źródłach), więc
+   pełną moc glow osiągamy nadpisując jej zmienną CSS — !important wygrywa
+   z wartością inline ustawioną przez komponent. */
+[data-beam] {
+	--beam-strength: 100 !important;
+}

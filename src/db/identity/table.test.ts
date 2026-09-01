@@ -11,7 +11,7 @@ describe("users table", () => {
 
 	it("has all expected columns", () => {
 		expect(Object.keys(columns).sort()).toEqual(
-			["id", "name", "role", "tokenHash", "deletedAt", "createdAt"].sort(),
+			["id", "name", "role", "tokenHash", "deletedAt", "createdAt", "aiOptIn", "aiBlocked"].sort(),
 		);
 	});
 
