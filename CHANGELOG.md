@@ -1,3 +1,10 @@
+## [5.2.1](https://github.com/CrystalPlatforms/wspolniak/compare/v5.2.0...v5.2.1) (2026-09-01)
+
+
+### Bug Fixes
+
+* **ai:** hard search triggers, honest search-limit reply, tables banned ([#182](https://github.com/CrystalPlatforms/wspolniak/issues/182), [#183](https://github.com/CrystalPlatforms/wspolniak/issues/183)) ([e760b95](https://github.com/CrystalPlatforms/wspolniak/commit/e760b9556f53108c24784da1c245982187209695))
+
 # [5.2.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.1.0...v5.2.0) (2026-09-01)
 
 
