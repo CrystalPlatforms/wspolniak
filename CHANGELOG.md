@@ -1,3 +1,10 @@
+# [5.2.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.1.0...v5.2.0) (2026-09-01)
+
+
+### Features
+
+* **ai:** F4+F5 — model picker, per-model limits, post knowledge ([#182](https://github.com/CrystalPlatforms/wspolniak/issues/182), [#183](https://github.com/CrystalPlatforms/wspolniak/issues/183)) ([96422f5](https://github.com/CrystalPlatforms/wspolniak/commit/96422f5b2669c5f19811c82bf0461b37e54d5a92))
+
 # [5.1.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.0.0...v5.1.0) (2026-09-01)
 
 
