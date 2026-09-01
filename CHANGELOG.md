@@ -1,3 +1,10 @@
+# [5.1.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.0.0...v5.1.0) (2026-09-01)
+
+
+### Features
+
+* **ai:** AL assistant core — gating, Groq streaming, chat page ([#179](https://github.com/CrystalPlatforms/wspolniak/issues/179), [#180](https://github.com/CrystalPlatforms/wspolniak/issues/180), [#181](https://github.com/CrystalPlatforms/wspolniak/issues/181)) ([d012a4d](https://github.com/CrystalPlatforms/wspolniak/commit/d012a4dbf5f1663c677ac7c7777cb2ef8b761d0f))
+
 # [5.0.0](https://github.com/CrystalPlatforms/wspolniak/compare/v4.3.0...v5.0.0) (2026-08-28)
 
 
