@@ -1,3 +1,10 @@
+# [5.3.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.2.1...v5.3.0) (2026-09-01)
+
+
+### Features
+
+* **ai:** F6 — AL entrances (sidebar, feed header), offline hint ([#184](https://github.com/CrystalPlatforms/wspolniak/issues/184)) ([6bcc67d](https://github.com/CrystalPlatforms/wspolniak/commit/6bcc67d67bc6d9582da856defc5260ec78ce054e))
+
 ## [5.2.1](https://github.com/CrystalPlatforms/wspolniak/compare/v5.2.0...v5.2.1) (2026-09-01)
 
 
