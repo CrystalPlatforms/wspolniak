@@ -19,6 +19,7 @@ import {
 import { exportConversation } from "@/core/ai/export-chat";
 import type { UiChatMessage } from "@/core/ai/use-ai-chat";
 import { useAiChat } from "@/core/ai/use-ai-chat";
+import { useOnlineStatus } from "@/pwa/use-online-status";
 
 // Czat z AL (F3 #181): pusty stan = animowane logo + „Cześć, tu AL" (bez bańki);
 // odpowiedzi streamowane jako Markdown, myślenie modelu w zwijanej sekcji.
@@ -33,6 +34,7 @@ function AiScreen() {
 		useAiChat();
 	const [input, setInput] = useState("");
 	const bottomRef = useRef<HTMLDivElement | null>(null);
+	const online = useOnlineStatus();
 
 	// Auto-scroll: przy każdym nowym tokenie/fazie user widzi najniższy fragment.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: celowy re-run przy każdej zmianie rozmowy/fazy
@@ -41,7 +43,7 @@ function AiScreen() {
 	}, [messages, isSearching]);
 
 	const submit = () => {
-		if (!input.trim() || isStreaming) return;
+		if (!input.trim() || isStreaming || !online) return;
 		void send(input);
 		setInput("");
 	};
@@ -74,6 +76,7 @@ function AiScreen() {
 						<div className="rounded-2xl border border-primary/30 bg-card/80 p-3">
 							<textarea
 								value={input}
+								disabled={!online}
 								onChange={(event) => setInput(event.target.value)}
 								onKeyDown={(event) => {
 									if (event.key === "Enter" && !event.shiftKey) {
@@ -81,9 +84,9 @@ function AiScreen() {
 										submit();
 									}
 								}}
-								placeholder="Napisz do AL…"
+								placeholder={online ? "Napisz do AL…" : "AL działa tylko online"}
 								aria-label="Wiadomość do AL"
-								className="h-14 w-full resize-none bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
+								className="h-14 w-full resize-none bg-transparent text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-60"
 							/>
 							<div className="mt-2 flex items-center gap-2">
 								<ModelPicker modelId={modelId} onSelect={setModelId} />
@@ -138,7 +141,7 @@ function AiScreen() {
 										<button
 											type="button"
 											onClick={submit}
-											disabled={!input.trim()}
+											disabled={!online || !input.trim()}
 											className="flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-opacity disabled:opacity-40"
 										>
 											<SendHorizontal className="size-4" />

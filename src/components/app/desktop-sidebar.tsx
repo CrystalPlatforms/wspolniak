@@ -2,6 +2,7 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import {
 	Bookmark,
+	Bot,
 	Calendar,
 	ChartNoAxesColumn,
 	Home,
@@ -25,11 +26,15 @@ interface NavItem {
 	adminOnly?: boolean;
 	/** Wypełnij ikonę (fill) gdy pozycja jest aktywna — np. zakładka w Bibliotece. */
 	fillWhenActive?: boolean;
+	/** Pozycja czatu AL — renderowana wyłącznie gdy aiEntrance (F6). */
+	aiOnly?: boolean;
 }
 
 interface DesktopSidebarProps {
 	role?: string;
 	featureFlags?: FeatureFlags;
+	/** Skuteczny dostęp do AL (master ∧ ¬blocked ∧ opt-in) — pokazuje „Chat AL”. */
+	aiEntrance?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -41,6 +46,8 @@ const NAV_ITEMS: NavItem[] = [
 	{ to: "/app/albums", icon: Images, label: "Albumy" },
 	// F8 #159: nazwa usera „Chat" (nie „Czat"); wypełniona gdy aktywna.
 	{ to: "/app/chat", icon: MessageSquare, label: "Chat", fillWhenActive: true },
+	// Chat AL (F6 #184): widoczny tylko przy skutecznym dostępie (prop aiEntrance).
+	{ to: "/app/ai", icon: Bot, label: "Chat AL", fillWhenActive: true, aiOnly: true },
 	// Admin wyjęty z menu (przebudowa 2026-09-01) — wejście tylko z Ustawień.
 	{
 		to: "/app/calendar",
@@ -56,11 +63,13 @@ const NAV_ITEMS: NavItem[] = [
 export function DesktopSidebar({
 	role,
 	featureFlags = DEFAULT_FEATURE_FLAGS,
+	aiEntrance = false,
 }: DesktopSidebarProps) {
 	const location = useLocation();
 	const { resolvedTheme } = useTheme();
 
 	const items = NAV_ITEMS.filter((item) => {
+		if (item.aiOnly && !aiEntrance) return false;
 		if (item.to === "/app/video" && !featureFlags.video) return false;
 		if (item.to === "/app/lib" && !featureFlags.library) return false;
 		if (item.to === "/app/chat" && !featureFlags.chat) return false;
@@ -105,10 +114,14 @@ export function DesktopSidebar({
 									: "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
 							)}
 						>
-							<Icon
-								className="size-6 shrink-0"
-								fill={isActive && item.fillWhenActive ? "currentColor" : "none"}
-							/>
+							{item.aiOnly ? (
+								<img src="/AL-logo-static.svg" alt="" className="size-6 shrink-0" />
+							) : (
+								<Icon
+									className="size-6 shrink-0"
+									fill={isActive && item.fillWhenActive ? "currentColor" : "none"}
+								/>
+							)}
 							<span>{item.label}</span>
 							{item.to === "/app/albums" && hasNewAlbums && (
 								<span aria-hidden="true" className="ml-auto size-2 rounded-full bg-primary" />

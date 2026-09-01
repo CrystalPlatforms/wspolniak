@@ -9,11 +9,17 @@ import { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from "@/db/instance";
 import { cn } from "@/lib/utils";
 
 interface MobileNavProps {
+	/** Skuteczny dostęp do AL — pokazuje „Chat AL” w drawerze (F6). */
+	aiEntrance?: boolean;
 	role?: string;
 	featureFlags?: FeatureFlags;
 }
 
-export function MobileNav({ role, featureFlags = DEFAULT_FEATURE_FLAGS }: MobileNavProps) {
+export function MobileNav({
+	role,
+	featureFlags = DEFAULT_FEATURE_FLAGS,
+	aiEntrance = false,
+}: MobileNavProps) {
 	const { pathname } = useLocation();
 	const bootRevealed = useBootReveal();
 	const isHomeActive = pathname === "/app";
@@ -26,7 +32,7 @@ export function MobileNav({ role, featureFlags = DEFAULT_FEATURE_FLAGS }: Mobile
 			)}
 		>
 			<div className="flex items-center justify-around px-2 py-3">
-				<MobileSidebar role={role} featureFlags={featureFlags} />
+				<MobileSidebar role={role} featureFlags={featureFlags} aiEntrance={aiEntrance} />
 
 				<Link
 					to="/app"

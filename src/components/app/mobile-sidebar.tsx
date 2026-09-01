@@ -2,6 +2,7 @@
 import { Link, useLocation } from "@tanstack/react-router";
 import {
 	Bookmark,
+	Bot,
 	Calendar,
 	ChartNoAxesColumn,
 	Home,
@@ -27,6 +28,8 @@ interface NavItem {
 	adminOnly?: boolean;
 	/** Wypełnij ikonę (fill) gdy pozycja jest aktywna — np. zakładka w Bibliotece. */
 	fillWhenActive?: boolean;
+	/** Pozycja czatu AL — renderowana wyłącznie gdy aiEntrance (F6). */
+	aiOnly?: boolean;
 }
 
 // Mirror desktop-sidebar.tsx NAV_ITEMS — jedno źródło prawdy dla nawigacji.
@@ -39,6 +42,8 @@ const NAV_ITEMS: NavItem[] = [
 	{ to: "/app/albums", icon: Images, label: "Albumy" },
 	// F8 #159: nazwa usera „Chat" (nie „Czat"); wypełniona gdy aktywna.
 	{ to: "/app/chat", icon: MessageSquare, label: "Chat", fillWhenActive: true },
+	// Chat AL (F6 #184): widoczny tylko przy skutecznym dostępie (prop aiEntrance).
+	{ to: "/app/ai", icon: Bot, label: "Chat AL", fillWhenActive: true, aiOnly: true },
 	// Admin wyjęty z menu (przebudowa 2026-09-01) — wejście tylko z Ustawień.
 	{
 		to: "/app/calendar",
@@ -54,22 +59,41 @@ const NAV_ITEMS: NavItem[] = [
 interface MobileSidebarProps {
 	role?: string;
 	featureFlags?: FeatureFlags;
+	/** Skuteczny dostęp do AL (master ∧ ¬blocked ∧ opt-in) — pokazuje „Chat AL”. */
+	aiEntrance?: boolean;
+}
+
+/** Widoczność pozycji menu (F6): flagi funkcji, admin, wejście do czatu AL. */
+function isNavItemVisible(
+	item: NavItem,
+	{
+		role,
+		featureFlags,
+		aiEntrance,
+	}: { role?: string; featureFlags: FeatureFlags; aiEntrance: boolean },
+): boolean {
+	if (item.aiOnly && !aiEntrance) return false;
+	if (item.adminOnly && role !== "admin") return false;
+	if (item.to === "/app/video" && !featureFlags.video) return false;
+	if (item.to === "/app/lib" && !featureFlags.library) return false;
+	if (item.to === "/app/chat" && !featureFlags.chat) return false;
+	if (item.to === "/app/albums" && !featureFlags.albums) return false;
+	return true;
 }
 
 // Hamburger (tylko mobile, sm:hidden) otwierający drawer animowany od lewej.
 // Zawiera wszystkie pozycje jak desktop-sidebar + Nowy post.
-export function MobileSidebar({ role, featureFlags = DEFAULT_FEATURE_FLAGS }: MobileSidebarProps) {
+export function MobileSidebar({
+	role,
+	featureFlags = DEFAULT_FEATURE_FLAGS,
+	aiEntrance = false,
+}: MobileSidebarProps) {
 	const [open, setOpen] = useState(false);
 	const { pathname } = useLocation();
 	const { resolvedTheme } = useTheme();
-	const items = NAV_ITEMS.filter((item) => {
-		if (item.adminOnly && role !== "admin") return false;
-		if (item.to === "/app/video" && !featureFlags.video) return false;
-		if (item.to === "/app/lib" && !featureFlags.library) return false;
-		if (item.to === "/app/chat" && !featureFlags.chat) return false;
-		if (item.to === "/app/albums" && !featureFlags.albums) return false;
-		return true;
-	});
+	const items = NAV_ITEMS.filter((item) =>
+		isNavItemVisible(item, { role, featureFlags, aiEntrance }),
+	);
 
 	// Kropka „new" przy „Albumy" (#176): najnowszy album vs timestamp widzianych.
 	const hasNewAlbums = useAlbumsNewDot();
@@ -109,10 +133,14 @@ export function MobileSidebar({ role, featureFlags = DEFAULT_FEATURE_FLAGS }: Mo
 										: "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
 								)}
 							>
-								<Icon
-									className="size-6 shrink-0"
-									fill={isActive && item.fillWhenActive ? "currentColor" : "none"}
-								/>
+								{item.aiOnly ? (
+									<img src="/AL-logo-static.svg" alt="" className="size-6 shrink-0" />
+								) : (
+									<Icon
+										className="size-6 shrink-0"
+										fill={isActive && item.fillWhenActive ? "currentColor" : "none"}
+									/>
+								)}
 								<span>{item.label}</span>
 								{item.to === "/app/albums" && hasNewAlbums && (
 									<span aria-hidden="true" className="ml-auto size-2 rounded-full bg-primary" />

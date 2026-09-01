@@ -6,6 +6,7 @@ import { Feed } from "@/components/app/feed";
 import { type FeedPage, feedQueryKey } from "@/components/app/feed-query";
 import { PullToRefresh } from "@/components/app/pull-to-refresh";
 import { Button } from "@/components/ui/button";
+import { useAiAccess } from "@/core/ai/use-ai-access";
 import { getFeedPage } from "@/core/functions/feed";
 
 type FeedCursor = NonNullable<FeedPage["meta"]["nextCursor"]>;
@@ -36,6 +37,9 @@ function FeedScreen() {
 	const { session, featureFlags } = Route.useRouteContext();
 	const { data, hasNextPage, isFetchingNextPage, fetchNextPage, refetch, isPending } =
 		useInfiniteQuery(feedOptions);
+	// Chat AL (F6 #184): wejście z nagłówka feeda przy skutecznym dostępie.
+	const { data: aiAccess } = useAiAccess();
+	const aiEntrance = aiAccess?.effective === true;
 
 	const allPosts = data?.pages.flatMap((page) => page.data) ?? [];
 	const imageAccountHash = data?.pages[0]?.meta.imageAccountHash ?? "";
@@ -53,6 +57,14 @@ function FeedScreen() {
 				<div className="mb-6 flex items-center gap-2">
 					<h1 className="text-2xl font-bold text-foreground">Witaj {session.name}</h1>
 					<div className="flex-1" />
+					{/* Chat AL (F6 #184): logo obok geara, tylko przy skutecznym dostępie. */}
+					{aiEntrance && (
+						<Link to="/app/ai" aria-label="Chat AL">
+							<Button variant="ghost" size="lg" title="Chat AL">
+								<img src="/AL-logo-static.svg" alt="" className="size-7" />
+							</Button>
+						</Link>
+					)}
 					<Link to="/app/settings">
 						<Button variant="ghost" size="lg" title="Ustawienia">
 							<Cog className="size-6" />
