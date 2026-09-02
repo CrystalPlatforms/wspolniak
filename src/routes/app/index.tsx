@@ -2,8 +2,11 @@
 import { infiniteQueryOptions, useInfiniteQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Cog } from "lucide-react";
+import { useState } from "react";
 import { Feed } from "@/components/app/feed";
 import { type FeedPage, feedQueryKey } from "@/components/app/feed-query";
+import { filterPosts } from "@/components/app/feed-search";
+import { FeedSearchBar } from "@/components/app/feed-search-bar";
 import { PullToRefresh } from "@/components/app/pull-to-refresh";
 import { Button } from "@/components/ui/button";
 import { useAiAccess } from "@/core/ai/use-ai-access";
@@ -40,6 +43,8 @@ function FeedScreen() {
 	// Chat AL (F6 #184): wejście z nagłówka feeda przy skutecznym dostępie.
 	const { data: aiAccess } = useAiAccess();
 	const aiEntrance = aiAccess?.effective === true;
+	// Wyszukiwarka feedu (F7 #185): live-filtr załadowanych postów + wyślij do AL.
+	const [query, setQuery] = useState("");
 
 	const allPosts = data?.pages.flatMap((page) => page.data) ?? [];
 	const imageAccountHash = data?.pages[0]?.meta.imageAccountHash ?? "";
@@ -71,8 +76,11 @@ function FeedScreen() {
 						</Button>
 					</Link>
 				</div>
+				{/* Wyszukiwarka (F7 #185): trzecie wejście do AL — widoczna tylko przy skutecznym dostępie. */}
+				{aiEntrance && <FeedSearchBar query={query} onQueryChange={setQuery} />}
 				<Feed
-					posts={allPosts as never[]}
+					posts={filterPosts(allPosts as never[], query) as never[]}
+					query={query}
 					imageAccountHash={imageAccountHash}
 					currentUserId={session.userId}
 					currentUserRole={session.role}

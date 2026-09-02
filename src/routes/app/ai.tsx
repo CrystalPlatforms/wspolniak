@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { ChevronDown, Download, Pause, RotateCcw, SendHorizontal } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AlLogo } from "@/components/app/ai/al-logo";
@@ -25,7 +25,12 @@ import { useOnlineStatus } from "@/pwa/use-online-status";
 // odpowiedzi streamowane jako Markdown, myślenie modelu w zwijanej sekcji.
 // Konwersacja trzyma się w localStorage (ostatnie 100 wiadomości) — „Wyczyść"
 // ją czyści; input na dole w beamie + eksport .md/.txt/PDF; auto-scroll do dołu.
+// F7 #185: z wyszukiwarki feedu przyjeżdża się z ?q=… — wysyłamy je raz, automatycznie,
+// po czym czyścimy param (refresh nie powtarza wysyłki).
 export const Route = createFileRoute("/app/ai")({
+	validateSearch: (search: Record<string, unknown>): { q?: string } => ({
+		q: typeof search.q === "string" && search.q.trim() ? search.q : undefined,
+	}),
 	component: AiScreen,
 });
 
@@ -35,6 +40,18 @@ function AiScreen() {
 	const [input, setInput] = useState("");
 	const bottomRef = useRef<HTMLDivElement | null>(null);
 	const online = useOnlineStatus();
+	const router = useRouter();
+	const { q } = Route.useSearch();
+	// Wysyłamy ?q= raz: ref chroni przed powtórką, czyszczenie paramu — przed
+	// ponownym wysłaniem po odświeżeniu strony.
+	const autoSentRef = useRef(false);
+
+	useEffect(() => {
+		if (autoSentRef.current || !q) return;
+		autoSentRef.current = true;
+		void send(q);
+		router.navigate({ to: "/app/ai", search: {}, replace: true });
+	}, [q, send, router]);
 
 	// Auto-scroll: przy każdym nowym tokenie/fazie user widzi najniższy fragment.
 	// biome-ignore lint/correctness/useExhaustiveDependencies: celowy re-run przy każdej zmianie rozmowy/fazy
