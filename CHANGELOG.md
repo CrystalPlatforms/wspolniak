@@ -1,3 +1,10 @@
+# [5.4.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.3.0...v5.4.0) (2026-09-02)
+
+
+### Features
+
+* **ai:** F7 — feed search bar (live filter, beam freeze, auto-send) ([#185](https://github.com/CrystalPlatforms/wspolniak/issues/185)) ([4dc25a7](https://github.com/CrystalPlatforms/wspolniak/commit/4dc25a7d2d9936c91d771495ea9f70a18b55f519))
+
 # [5.3.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.2.1...v5.3.0) (2026-09-01)
 
 
