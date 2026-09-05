@@ -1,3 +1,10 @@
+## [5.4.1](https://github.com/CrystalPlatforms/wspolniak/compare/v5.4.0...v5.4.1) (2026-09-05)
+
+
+### Bug Fixes
+
+* **ai:** AL search quality — date-intent ranking, author match, 6/min search budget, feed AL fallback ([3f69bb0](https://github.com/CrystalPlatforms/wspolniak/commit/3f69bb0f96f42e778bf1a00cdd2b483afbd19adb))
+
 # [5.4.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.3.0...v5.4.0) (2026-09-02)
 
 
