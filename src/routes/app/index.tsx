@@ -77,7 +77,13 @@ function FeedScreen() {
 					</Link>
 				</div>
 				{/* Wyszukiwarka (F7 #185): trzecie wejście do AL — widoczna tylko przy skutecznym dostępie. */}
-				{aiEntrance && <FeedSearchBar query={query} onQueryChange={setQuery} />}
+				{aiEntrance && (
+					<FeedSearchBar
+						query={query}
+						onQueryChange={setQuery}
+						noResults={query.trim() !== "" && filterPosts(allPosts as never[], query).length === 0}
+					/>
+				)}
 				<Feed
 					posts={filterPosts(allPosts as never[], query) as never[]}
 					query={query}

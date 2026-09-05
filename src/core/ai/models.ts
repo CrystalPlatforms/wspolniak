@@ -11,7 +11,7 @@
  * na wiadomość) dobrane pod TPM darmowego tieru Groqa, żeby nasze per-user
  * limity odpalały się ZANIM Groq odrzuci żądanie: gpt-oss-120b ma 8000 TPM,
  * a para wywołań z wiedzą+postami to ~5-6k tokenów (stąd Max 1/min). Lite
- * (najtańszy: 3 posty, myślenie zredukowane) dostaje 5/min — domyślny wybór.
+ * (8 postów od 2026-09-05, myślenie zredukowane) dostaje 5/min — domyślny wybór.
  * Prawdziwe nazwy/id modeli NIE są pokazywane w UI — picker mówi tylko AL Max/Pro/Lite.
  */
 
@@ -58,9 +58,10 @@ export const AI_MODELS: AiModel[] = [
 		id: "openai/gpt-oss-20b",
 		uiName: "AL Lite",
 		reasoning: "trimmed",
-		// Lite = model „codzienny": najtańszy profil (mało postów, myślenie
-		// zredukowane) i najszerszy limit, żeby domyślny wybór nie trzaskał 429.
-		injectedPostCount: 3,
+		// Lite = model „codzienny": najtańszy profil i najszerszy limit, żeby
+		// domyślny wybór nie trzaskał 429. 8 postów (było 3): przy 3 AL Regularnie
+		// odpowiadał, że „nic nie znalazł", mimo że szukanie trafiało.
+		injectedPostCount: 8,
 		perMinuteLimit: 5,
 		isDefault: true,
 	},

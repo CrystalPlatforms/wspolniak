@@ -546,20 +546,20 @@ describe("POST /api/ai/chat — wiedza o postach (F5 #183)", () => {
 		resetAiRateLimitsForTests();
 	});
 
-	it("searchPostsForAi dostaje limit wg modelu (15/10/3)", async () => {
+	it("searchPostsForAi dostaje limit wg modelu (15/10/8)", async () => {
 		mockGroqTokens([{ kind: "text", text: "ok" }], "SZUKAJ");
 		const api = createApi();
 
 		await (await postChat(api, ENV, { model: "openai/gpt-oss-120b" })).text();
 		expect(mockSearchPosts).toHaveBeenLastCalledWith(expect.any(String), 15);
-		resetAiRateLimitsForTests(); // budżet szukania: 1/min — świeże okno na kolejny model
+		resetAiRateLimitsForTests(); // budżet szukania: 6/min — świeże okno na kolejny model
 
 		await (await postChat(api, ENV, { model: "qwen/qwen3.8-27b" })).text();
 		expect(mockSearchPosts).toHaveBeenLastCalledWith(expect.any(String), 10);
 		resetAiRateLimitsForTests();
 
 		await (await postChat(api, ENV, { model: "openai/gpt-oss-20b" })).text();
-		expect(mockSearchPosts).toHaveBeenCalledWith(expect.any(String), 3);
+		expect(mockSearchPosts).toHaveBeenCalledWith(expect.any(String), 8);
 	});
 
 	it("payload do Groqa = metadane postów + rozmowa (bez obrazów, komentarzy, czatu)", async () => {
@@ -769,7 +769,7 @@ describe("POST /api/ai/chat — router wiedzy: AL decyduje o szukaniu postów", 
 		expect(tokens[1]?.k).toBe("p");
 	});
 
-	it("router NIE → search nie jest wołany, prompt mówi wprost o braku wglądu", async () => {
+	it("router NIE → search nie jest wołany, prompt mówi wprost, że tym razem nie szukał", async () => {
 		mockGroqTokens([{ kind: "text", text: "Cześć! Jak leci?" }]);
 		const api = createApi();
 		const res = await postChat(api, ENV, { model: "openai/gpt-oss-120b" });
@@ -781,10 +781,26 @@ describe("POST /api/ai/chat — router wiedzy: AL decyduje o szukaniu postów", 
 		if (!call) throw new Error("streamChat nie został wywołany");
 		const system = call[0].messages[0];
 		if (!system) throw new Error("brak system promptu");
-		expect(system.content).toContain("nie znalazłeś teraz pasujących postów");
+		expect(system.content).toContain("posty NIE były przeszukiwane");
+		expect(system.content).not.toContain("nie znalazłeś teraz pasujących postów");
 
 		const tokens = parseNdjson(body);
 		expect(tokens.every((token) => token.k !== "p")).toBe(true);
+	});
+
+	it("SZUKAJ bez trafień → prompt mówi wprost, że szukał i nic nie pasowało", async () => {
+		mockGroqTokens([{ kind: "text", text: "ok" }], "SZUKAJ");
+		mockSearchPosts.mockResolvedValue([]);
+		const api = createApi();
+		const res = await postChat(api, ENV, { model: "openai/gpt-oss-120b" });
+		expect(res.status).toBe(200);
+		await res.text();
+
+		const call = mockStreamChat.mock.calls.at(-1);
+		if (!call) throw new Error("streamChat nie został wywołany");
+		const system = call[0].messages[0];
+		if (!system) throw new Error("brak system promptu");
+		expect(system.content).toContain("Szukałeś, ale nic nie pasowało");
 	});
 
 	it("błąd routera = fail-open do odpowiedzi bez postów (nie 500)", async () => {
@@ -806,7 +822,7 @@ describe("POST /api/ai/chat — router wiedzy: AL decyduje o szukaniu postów", 
 	});
 });
 
-describe("POST /api/ai/chat — budżet przeszukiwania postów (1/min per user)", () => {
+describe("POST /api/ai/chat — budżet przeszukiwania postów (6/min per user)", () => {
 	const SEARCH_POST = {
 		id: "p1",
 		description: "Wakacje nad Bałtykiem\nDalsze linie opisu też są ważne",
@@ -820,24 +836,35 @@ describe("POST /api/ai/chat — budżet przeszukiwania postów (1/min per user)"
 		resetAiRateLimitsForTests();
 	});
 
-	it("pierwsze szukanie przechodzi, drugie w tej samej minucie jest pomijane", async () => {
+	it("sześć szukań przechodzi, siódme w tej samej minucie jest pomijane", async () => {
 		mockGroqTokens([{ kind: "text", text: "Na zdjęciach widać…" }], "SZUKAJ");
 		mockSearchPosts.mockResolvedValue([SEARCH_POST]);
 		const api = createApi();
 
-		const first = await postChat(api, ENV, { model: "openai/gpt-oss-120b" });
-		expect(first.status).toBe(200);
-		const firstTokens = parseNdjson(await first.text());
-		expect(mockSearchPosts).toHaveBeenCalledTimes(1);
-		expect(firstTokens[0]?.k).toBe("s"); // faza szukania
-		expect(firstTokens[1]?.k).toBe("p");
+		// 6 szukań = budżet na minutę. Limity odpowiedzi są per model, więc
+		// rozkładamy wywołania: 1× Max (1/min) + 2× Pro (2/min) + 3× Lite (5/min) —
+		// dopiero siódme (Lite #4) ma spaść na pustym budżecie szukania.
+		const models = [
+			"openai/gpt-oss-120b",
+			"qwen/qwen3.8-27b",
+			"qwen/qwen3.8-27b",
+			"openai/gpt-oss-20b",
+			"openai/gpt-oss-20b",
+			"openai/gpt-oss-20b",
+		] as const;
+		for (const model of models) {
+			const res = await postChat(api, ENV, { model });
+			expect(res.status).toBe(200);
+			const tokens = parseNdjson(await res.text());
+			expect(tokens.some((token) => token.k === "p")).toBe(true);
+		}
+		expect(mockSearchPosts).toHaveBeenCalledTimes(6);
 
-		// inny model (limit odpowiedzi jest per model, budżet szukania per user)
-		const second = await postChat(api, ENV, { model: "qwen/qwen3.8-27b" });
-		expect(second.status).toBe(200);
-		const secondTokens = parseNdjson(await second.text());
-		expect(mockSearchPosts).toHaveBeenCalledTimes(1); // budżet wyczerpany
-		expect(secondTokens.every((token) => token.k !== "p")).toBe(true);
+		const seventh = await postChat(api, ENV, { model: "openai/gpt-oss-20b" });
+		expect(seventh.status).toBe(200);
+		const seventhTokens = parseNdjson(await seventh.text());
+		expect(mockSearchPosts).toHaveBeenCalledTimes(6); // budżet wyczerpany
+		expect(seventhTokens.every((token) => token.k !== "p")).toBe(true);
 	});
 
 	it("po upływie minuty budżet szukania wraca", async () => {
@@ -923,19 +950,29 @@ describe("POST /api/ai/chat — twarde triggery i uczciwy limit szukania", () =>
 		mockGroqTokens([{ kind: "text", text: "ok" }]);
 		const api = createApi();
 
-		const first = await postChat(api, ENV, {
-			model: "openai/gpt-oss-20b",
-			message: "poszukaj siema",
-		});
-		await first.text();
-		expect(mockSearchPosts).toHaveBeenCalledTimes(1);
+		// 6 szukań w minucie (1× Max + 2× Pro + 3× Lite, limity odpowiedzi per
+		// model) — siódme wołanie (Lite #4) trafia już w pusty budżet szukania.
+		const models = [
+			"openai/gpt-oss-120b",
+			"qwen/qwen3.8-27b",
+			"qwen/qwen3.8-27b",
+			"openai/gpt-oss-20b",
+			"openai/gpt-oss-20b",
+			"openai/gpt-oss-20b",
+		] as const;
+		for (const model of models) {
+			const res = await postChat(api, ENV, { model, message: "poszukaj siema" });
+			expect(res.status).toBe(200);
+			await res.text();
+		}
+		expect(mockSearchPosts).toHaveBeenCalledTimes(6);
 
-		const second = await postChat(api, ENV, {
+		const limited = await postChat(api, ENV, {
 			model: "openai/gpt-oss-20b",
 			message: "poszukaj siema",
 		});
-		expect(second.status).toBe(200);
-		const body = await second.text();
+		expect(limited.status).toBe(200);
+		const body = await limited.text();
 		const call = mockStreamChat.mock.calls.at(-1);
 		if (!call) throw new Error("streamChat nie został wywołany");
 		const system = call[0].messages[0];

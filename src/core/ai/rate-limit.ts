@@ -25,7 +25,12 @@ export interface AiRateLimitResult {
 	resetAt?: string;
 }
 
-/** Limit przeszukiwania postów (router TAK) — raz na minutę per user. */
+/**
+ * Limit przeszukiwania postów (router TAK) — 6 na minutę per user. Szukanie to
+ * tanie zapytanie do bazy (bez tokenów Groqa), więc limitem chronimy tylko
+ * przed spamem, nie przed TPM — dawniej 1/min zdążało zepsuć drugie pytanie.
+ */
+const SEARCH_LIMIT_PER_MINUTE = 6;
 const searchWindows = new Map<string, WindowEntry>();
 
 /** Czy user może w tej minucie przeszukać posty; jeżeli tak — zużywa limit. */
@@ -36,7 +41,9 @@ export function consumeAiPostSearch(userId: string): boolean {
 		searchWindows.set(userId, { count: 1, expiresAt: now + WINDOW_MS });
 		return true;
 	}
-	return false;
+	if (entry.count >= SEARCH_LIMIT_PER_MINUTE) return false;
+	entry.count += 1;
+	return true;
 }
 
 /** Rejestruje jedną odpowiedź; blokadę sygnalizuje razem z czasem resetu. */

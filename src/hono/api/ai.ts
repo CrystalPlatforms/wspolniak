@@ -128,7 +128,7 @@ aiEndpoint.post("/chat", async (c) => {
 	}
 
 	// F5 #183 (iteracja: fazy) — AL najpierw MYŚLI na żywo (i sam kończy
-	// decyzją SZUKAJ/BEZPOSTÓW), potem SZUKA (budżet 1/min per user), na końcu
+	// decyzją SZUKAJ/BEZPOSTÓW), potem SZUKA (budżet 6/min per user), na końcu
 	// ODPOWIADA z wiedzą o postach. Kolejność faz widoczna u klienta.
 	const lastUserMessage = [...parsed.data.messages].reverse().find((m) => m.role === "user");
 	const tokens = alConversation({
@@ -204,7 +204,7 @@ function thinkMessages(conversation: ChatMessage[]): ChatMessage[] {
  * klienta: (1) MYŚLENIE — reasoning przelata na żywo (poza AL Lite, u którego
  * nigdy nie wychodzi z serwera), a tekst decyzji (SZUKAJ/BEZPOSTÓW) zbiera
  * się po cichu; (2) SZUKANIE — token "searching", keyword search z budżetem
- * 1/min per user, karty postów; (3) ODPOWIEDŹ — system prompt powiązany z tym,
+ * 6/min per user, karty postów; (3) ODPOWIEDŹ — system prompt powiązany z tym,
  * co AL dostał; myślenie tej fazy zostaje na serwerze (AL już myślał na głos).
  * Awaria myślenia = fail-open bez postów; błąd odpowiedzi = polski komunikat
  * w bąbelku (zob. aiFailureMessage).
@@ -243,12 +243,14 @@ async function* thinkPhase(input: {
 
 interface SearchOutcome {
 	matches: AiPostMatch[];
-	/** true = user chciał szukać, ale budżet 1/min jest wyczerpany. */
+	/** true = user chciał szukać, ale budżet 6/min jest wyczerpany. */
 	limited: boolean;
+	/** true = baza została przeszukana (nawet przy 0 trafień). */
+	searched: boolean;
 }
 
 /**
- * Faza 2 — SZUKANIE: znacznik fazy, keyword search z budżetem 1/min per user
+ * Faza 2 — SZUKANIE: znacznik fazy, keyword search z budżetem 6/min per user
  * i karty postów. Szukanie rusza przy decyzji SZUKAJ ALBO przy twardej prośbie
  * w wiadomości („poszukaj…"). Wyczerpany budżet NIE udaje „brak wyników" —
  * zwraca limited=true, żeby odpowiedź uczciwie powiedziała o limicie.
@@ -260,12 +262,12 @@ async function* searchPhase(input: {
 	lastUserMessage: string;
 	decision: string;
 }): AsyncGenerator<ChatToken, SearchOutcome> {
-	if (!input.lastUserMessage) return { matches: [], limited: false };
+	if (!input.lastUserMessage) return { matches: [], limited: false, searched: false };
 	if (!explicitSearchRequest(input.lastUserMessage) && !/\bSZUKAJ\b/i.test(input.decision)) {
-		return { matches: [], limited: false };
+		return { matches: [], limited: false, searched: false };
 	}
 	if (!consumeAiPostSearch(input.userId)) {
-		return { matches: [], limited: true };
+		return { matches: [], limited: true, searched: false };
 	}
 	yield { kind: "searching" };
 	const matches = await searchPostsForAi(input.lastUserMessage, input.model.injectedPostCount);
@@ -275,7 +277,7 @@ async function* searchPhase(input: {
 			posts: matches.map((match) => toPreviewCard(match, input.accountHash)),
 		};
 	}
-	return { matches, limited: false };
+	return { matches, limited: false, searched: true };
 }
 
 /** Faza 3 — ODPOWIEDŹ: strumień treści; myślenie tej fazy zostaje na serwerze. */
@@ -315,7 +317,7 @@ async function* alConversation(input: {
 	lastUserMessage: string;
 }): AsyncGenerator<ChatToken> {
 	const decision = yield* thinkPhase(input);
-	const { matches, limited } = yield* searchPhase({ ...input, decision });
+	const { matches, limited, searched } = yield* searchPhase({ ...input, decision });
 
 	// System prompt doklejany SERWEROWO — klient nie może go nadpisać.
 	const systemPrompt = buildSystemPrompt(
@@ -325,7 +327,7 @@ async function* alConversation(input: {
 			author: match.authorName,
 			date: match.createdAt.toISOString().slice(0, 10),
 		})),
-		{ searchLimited: limited },
+		{ searchLimited: limited, searched },
 	);
 	yield* answerPhase({
 		apiKey: input.apiKey,

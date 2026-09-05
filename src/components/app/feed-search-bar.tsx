@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 interface FeedSearchBarProps {
 	query: string;
 	onQueryChange: (query: string) => void;
+	/** true = zapytanie niepuste, a live-filtr nie zostawił żadnego posta. */
+	noResults?: boolean;
 }
 
 /**
@@ -15,8 +17,10 @@ interface FeedSearchBarProps {
  * pisania; klik (focus) rozwija pasek i przykleja go do góry ekranu,
  * klik obok zwija. Filtrowanie live robi rodzic przez filterPosts;
  * przycisk wyślij prowadzi na /app/ai i automatycznie wysyła zapytanie.
+ * Gdy filtr nic nie zostawi (noResults), pasek proponuje „Szukaj przez AL" —
+ * pełne szukanie po całej bazie robi czat AL, nie live-filtr załadowanych.
  */
-export function FeedSearchBar({ query, onQueryChange }: FeedSearchBarProps) {
+export function FeedSearchBar({ query, onQueryChange, noResults = false }: FeedSearchBarProps) {
 	const [expanded, setExpanded] = useState(false);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const navigate = useNavigate();
@@ -34,9 +38,15 @@ export function FeedSearchBar({ query, onQueryChange }: FeedSearchBarProps) {
 
 	// Zapytanie jedzie w URL jako search param ?q= — po wylądowaniu na /app/ai
 	// strona je wysyła i czyści param, więc refresh nie powtórzy wysyłki.
+	// Wyjście z paska wyszukiwania to intencja SZUKANIA, więc wysyłamy pełne
+	// polecenie („znajdź” to też twardy trigger serwera), nie gołą frazę.
 	const sendToAl = () => {
-		if (!query.trim()) return;
-		void navigate({ to: "/app/ai", search: { q: query.trim() } });
+		const phrase = query.trim().replaceAll('"', "").replaceAll("`", "");
+		if (!phrase) return;
+		void navigate({
+			to: "/app/ai",
+			search: { q: `Znajdź wszystkie posty zawierające „${phrase}”.` },
+		});
 	};
 
 	return (
@@ -72,6 +82,18 @@ export function FeedSearchBar({ query, onQueryChange }: FeedSearchBarProps) {
 					</button>
 				</div>
 			</BeamBorder>
+			{noResults && query.trim() !== "" && (
+				<div className="mt-2 flex items-center justify-between gap-3 rounded-lg border border-border bg-card px-3 py-2 text-sm">
+					<p className="text-muted-foreground">Nie znaleziono w załadowanych postach.</p>
+					<button
+						type="button"
+						onClick={sendToAl}
+						className="shrink-0 font-medium text-primary underline-offset-2 hover:underline"
+					>
+						Szukaj przez AL
+					</button>
+				</div>
+			)}
 		</div>
 	);
 }
