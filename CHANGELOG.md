@@ -1,3 +1,10 @@
+# [5.5.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.4.1...v5.5.0) (2026-09-07)
+
+
+### Features
+
+* **video:** Video v2 F1+F2 — JSONB videos on posts, library removal, composer-native upload ([#195](https://github.com/CrystalPlatforms/wspolniak/issues/195), [#196](https://github.com/CrystalPlatforms/wspolniak/issues/196)) ([08c3b18](https://github.com/CrystalPlatforms/wspolniak/commit/08c3b18ce711fd5400a96f3ba32e360b124d0b76))
+
 ## [5.4.1](https://github.com/CrystalPlatforms/wspolniak/compare/v5.4.0...v5.4.1) (2026-09-05)
 
 
