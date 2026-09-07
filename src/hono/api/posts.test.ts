@@ -15,7 +15,7 @@ vi.mock("@/db/posts/queries", () => ({
 	listRecentPosts: vi.fn(),
 	getPostById: vi.fn(),
 	countUserPostsToday: vi.fn(),
-	updatePostDescription: vi.fn(),
+	updatePost: vi.fn(),
 	softDeletePost: vi.fn(),
 	addPostImages: vi.fn(),
 	reorderPostImages: vi.fn(),
@@ -39,13 +39,8 @@ vi.mock("@/db/pinned-posts", () => ({
 	listPinnedPostIds: vi.fn(),
 }));
 
-vi.mock("@/db/videos", () => ({
-	setPostVideos: vi.fn(),
-}));
-
 vi.mock("@/core/feed", () => ({
 	assembleFeedPage: vi.fn(),
-	withPostVideos: vi.fn(async (post) => ({ ...post, videos: [] })),
 }));
 
 import { assembleFeedPage } from "@/core/feed";
@@ -62,7 +57,7 @@ import {
 	getPostById,
 	reorderPostImages,
 	softDeletePost,
-	updatePostDescription,
+	updatePost,
 } from "@/db/posts/queries";
 import postsEndpoint from "./posts";
 
@@ -72,7 +67,7 @@ const mockCreatePost = vi.mocked(createPost);
 const mockCountToday = vi.mocked(countUserPostsToday);
 const mockAssembleFeed = vi.mocked(assembleFeedPage);
 const mockGetPost = vi.mocked(getPostById);
-const mockUpdateDescription = vi.mocked(updatePostDescription);
+const mockUpdatePost = vi.mocked(updatePost);
 const mockSoftDelete = vi.mocked(softDeletePost);
 const mockAddPostImages = vi.mocked(addPostImages);
 const mockReorderPostImages = vi.mocked(reorderPostImages);
@@ -126,6 +121,7 @@ describe("POST /api/app/posts", () => {
 				deletedAt: null,
 				createdAt: now,
 				updatedAt: now,
+				videos: [],
 			},
 			images: [
 				{ id: "img-1", postId: "post-1", cfImageId: "cf-aaa", displayOrder: 0, createdAt: now },
@@ -150,7 +146,92 @@ describe("POST /api/app/posts", () => {
 			authorId: "u1",
 			description: "Test",
 			cfImageIds: ["cf-aaa"],
+			videos: [],
 		});
+	});
+
+	it("creates a post with an embedded videos array (Video v2 #194)", async () => {
+		mockCountToday.mockResolvedValue(0);
+		const now = new Date();
+		const videos = [
+			{ youtubeVideoId: "yt-1", title: "Klip", thumbnailUrl: "https://i.ytimg.com/vi/yt-1/hq.jpg" },
+			{
+				youtubeVideoId: "yt-2",
+				title: "Drugi",
+				thumbnailUrl: "https://i.ytimg.com/vi/yt-2/hq.jpg",
+			},
+		];
+		mockCreatePost.mockResolvedValue({
+			post: {
+				id: "post-1",
+				authorId: "u1",
+				description: "Test",
+				deletedAt: null,
+				createdAt: now,
+				updatedAt: now,
+				videos,
+			},
+			images: [],
+		});
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/posts",
+			authedRequest("/api/app/posts", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ description: "Test", videos }),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(201);
+		// Wideo osadzone w poście — bez osobnych tabel i bez setPostVideos.
+		expect(mockCreatePost).toHaveBeenCalledWith(expect.objectContaining({ videos }));
+	});
+
+	it("rejects more than 5 videos with 400 (Video v2 #194)", async () => {
+		mockCountToday.mockResolvedValue(0);
+		const tooMany = Array.from({ length: 6 }, (_, i) => ({
+			youtubeVideoId: `yt-${i + 1}`,
+			title: `Klip ${i + 1}`,
+			thumbnailUrl: `https://i.ytimg.com/vi/yt-${i + 1}/hq.jpg`,
+		}));
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/posts",
+			authedRequest("/api/app/posts", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ description: "Test", videos: tooMany }),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(400);
+		expect(mockCreatePost).not.toHaveBeenCalled();
+	});
+
+	it("rejects a malformed video entry with 400 (Video v2 #194)", async () => {
+		mockCountToday.mockResolvedValue(0);
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/posts",
+			authedRequest("/api/app/posts", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					description: "Test",
+					videos: [{ youtubeVideoId: "", title: "", thumbnailUrl: "not-a-url" }],
+				}),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(400);
+		expect(mockCreatePost).not.toHaveBeenCalled();
 	});
 
 	it("returns 401 without session", async () => {
@@ -243,6 +324,7 @@ describe("POST /api/app/posts", () => {
 				deletedAt: null,
 				createdAt: new Date(),
 				updatedAt: new Date(),
+				videos: [],
 			},
 			images: [],
 		});
@@ -319,6 +401,7 @@ describe("GET /api/app/posts/:id", () => {
 			description: "Test",
 			createdAt: now,
 			updatedAt: now,
+			videos: [],
 			author: { id: "u1", name: "Tomek" },
 			images: [],
 		});
@@ -443,6 +526,7 @@ const samplePost = {
 	deletedAt: null,
 	createdAt: now,
 	updatedAt: now,
+	videos: [],
 	author: { id: "u1", name: "Tomek" },
 	images: [],
 };
@@ -465,7 +549,7 @@ describe("PATCH /api/app/posts/:id", () => {
 
 	it("allows author to edit their own post description", async () => {
 		mockGetPost.mockResolvedValue(samplePost);
-		mockUpdateDescription.mockResolvedValue({ ...samplePost, description: "Nowy opis" });
+		mockUpdatePost.mockResolvedValue({ ...samplePost, description: "Nowy opis" });
 
 		const api = createApi();
 		const res = await api.request(
@@ -496,7 +580,7 @@ describe("PATCH /api/app/posts/:id", () => {
 			aiBlocked: false,
 		});
 		mockGetPost.mockResolvedValue(samplePost);
-		mockUpdateDescription.mockResolvedValue({ ...samplePost, description: "Admin edit" });
+		mockUpdatePost.mockResolvedValue({ ...samplePost, description: "Admin edit" });
 
 		const api = createApi();
 		const res = await api.request(
@@ -538,7 +622,7 @@ describe("PATCH /api/app/posts/:id", () => {
 		);
 
 		expect(res.status).toBe(403);
-		expect(mockUpdateDescription).not.toHaveBeenCalled();
+		expect(mockUpdatePost).not.toHaveBeenCalled();
 	});
 
 	it("returns 404 for non-existent post", async () => {
@@ -593,7 +677,7 @@ describe("PATCH /api/app/posts/:id", () => {
 
 	it("replaces mentions on edit (delete old then create new from current text)", async () => {
 		mockGetPost.mockResolvedValue(samplePost);
-		mockUpdateDescription.mockResolvedValue({ ...samplePost, description: "Nowy @Ania" });
+		mockUpdatePost.mockResolvedValue({ ...samplePost, description: "Nowy @Ania" });
 
 		const api = createApi();
 		const res = await api.request(
@@ -646,7 +730,7 @@ describe("PATCH /api/app/posts/:id — image operations", () => {
 		mockAddPostImages.mockResolvedValue([
 			{ id: "img-2", postId: "post-1", cfImageId: "cf-bbb", displayOrder: 1, createdAt: now },
 		]);
-		mockUpdateDescription.mockResolvedValue({ ...samplePost, updatedAt: now });
+		mockUpdatePost.mockResolvedValue({ ...samplePost, updatedAt: now });
 
 		const api = createApi();
 		const res = await api.request(
@@ -676,7 +760,7 @@ describe("PATCH /api/app/posts/:id — image operations", () => {
 			{ id: "img-2", postId: "post-1", cfImageId: "cf-bbb", displayOrder: 0, createdAt: now },
 			{ id: "img-1", postId: "post-1", cfImageId: "cf-aaa", displayOrder: 1, createdAt: now },
 		]);
-		mockUpdateDescription.mockResolvedValue({ ...samplePost, updatedAt: now });
+		mockUpdatePost.mockResolvedValue({ ...samplePost, updatedAt: now });
 
 		const api = createApi();
 		const res = await api.request(

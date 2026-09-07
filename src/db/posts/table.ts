@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { index, integer, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { index, integer, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import type { PostVideoEntry } from "./schema";
 
 export const posts = pgTable(
 	"posts",
@@ -7,6 +8,9 @@ export const posts = pgTable(
 		id: text("id").primaryKey(),
 		authorId: text("author_id").notNull(),
 		description: text("description"),
+		// Wideo osadzone w poście (Video v2 #194): [{youtubeVideoId, title, thumbnailUrl}],
+		// max 5 (walidacja w schema.ts), kolejność w tablicy = kolejność odtwarzania.
+		videos: jsonb("videos").$type<PostVideoEntry[]>().notNull().default([]),
 		deletedAt: timestamp("deleted_at"),
 		createdAt: timestamp("created_at").defaultNow().notNull(),
 		updatedAt: timestamp("updated_at").defaultNow().notNull(),

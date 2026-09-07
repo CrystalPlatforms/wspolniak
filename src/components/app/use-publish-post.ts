@@ -5,14 +5,29 @@ import { useNavigate } from "@tanstack/react-router";
 import { useCallback, useState } from "react";
 import { feedQueryKey } from "@/components/app/feed-query";
 import type { Mention } from "@/components/app/mention-input";
+import { runVideoUpload, VideoUploadHttpError } from "@/components/video/use-video-upload";
+import type { PostVideoEntry } from "@/db/posts";
 import { reportUploadFailure, UploadFlowError, uploadFetch, uploadImages } from "@/images/upload";
+
+/** Wideo oczekujące na upload przy publikacji (z kompozytora). */
+export interface PublishVideoInput {
+	file: File;
+	title: string;
+}
 
 /** Wejście publikacji posta (tekst + pliki + wideo + wzmianki). */
 export interface PublishPostInput {
 	description: string | null;
 	files: File[];
-	videoIds: string[];
+	pendingVideos: PublishVideoInput[];
 	mentions: Mention[];
+}
+
+/** Postęp wgrywania wideo przy publikacji — label „Wideo 1/2 — 45%". */
+export interface VideoPublishProgress {
+	videoIndex: number;
+	total: number;
+	percent: number;
 }
 
 /**
@@ -24,12 +39,65 @@ export const PUBLISH_BAR_DURATION_MS = 7000;
 
 export interface RunPublishFlowOptions {
 	input: PublishPostInput;
-	navigate: (opts: { to: string }) => Promise<void> | void;
+	navigate: (opts: { to: string; search?: Record<string, unknown> }) => Promise<void> | void;
 	queryClient: QueryClient;
 	/** Moment startu (Date.now(), ms) — do obliczenia ile brakuje do pełnego paska. */
 	startedAt: number;
+	/** Postęp uploadu wideo („Wideo 1/2 — 45%") — do labelu przycisku. */
+	onUploadProgress?: (p: VideoPublishProgress) => void;
 	/** Jedyna granica sieci — mockowana w testach, realna w hooku usePublishPost. */
 	createPostFn?: (input: PublishPostInput) => Promise<unknown>;
+	/** Granica uploadu wideo (session → chunks → confirm) — mockowana w testach. */
+	uploadVideoFn?: typeof runVideoUpload;
+}
+
+/**
+ * YouTube niepołączony (upload-session → 503): UI zamienia picker na instrukcję
+ * admina zamiast ogólnego błędu publikacji (us story 7, #194).
+ */
+export class VideoNotConnectedError extends Error {
+	constructor() {
+		super("Podłącz YouTube w panelu admina");
+		this.name = "VideoNotConnectedError";
+	}
+}
+
+/**
+ * Wgrywa pending wideo SEKWENCYJNIE (kolejność = kolejność odtwarzania) i zwraca
+ * wpisy `videos` do osadzenia w poście. 503 z upload-session = YouTube
+ * niepołączony → VideoNotConnectedError.
+ */
+async function uploadPendingVideos(
+	videos: PublishVideoInput[],
+	onProgress: (p: VideoPublishProgress) => void,
+	uploadVideoFn?: typeof runVideoUpload,
+): Promise<PostVideoEntry[]> {
+	const upload = uploadVideoFn ?? runVideoUpload;
+	const entries: PostVideoEntry[] = [];
+	for (const [index, video] of videos.entries()) {
+		try {
+			const uploaded = await upload(
+				{ file: video.file, title: video.title, description: null },
+				(p) => {
+					const percent =
+						p.totalBytes === 0 ? 0 : Math.round((p.uploadedBytes / p.totalBytes) * 100);
+					onProgress({ videoIndex: index, total: videos.length, percent });
+				},
+				{ fetchFn: fetch },
+			);
+			entries.push({
+				youtubeVideoId: uploaded.youtubeVideoId,
+				title: video.title,
+				thumbnailUrl: uploaded.thumbnailUrl,
+			});
+		} catch (e) {
+			if (e instanceof VideoUploadHttpError && e.status === 503) {
+				throw new VideoNotConnectedError();
+			}
+			throw e;
+		}
+	}
+	return entries;
 }
 
 /**
@@ -43,13 +111,24 @@ export interface RunPublishFlowOptions {
  */
 export async function runPublishFlow(options: RunPublishFlowOptions): Promise<void> {
 	const create = options.createPostFn ?? createPost;
-	await create(options.input);
+	const videoEntries = await uploadPendingVideos(
+		options.input.pendingVideos,
+		options.onUploadProgress ?? (() => {}),
+		options.uploadVideoFn,
+	);
+	await create({
+		...options.input,
+		videos: videoEntries,
+	});
 	await options.queryClient.refetchQueries({ queryKey: feedQueryKey });
 	const remaining = PUBLISH_BAR_DURATION_MS - (Date.now() - options.startedAt);
 	if (remaining > 0) {
 		await new Promise((resolve) => setTimeout(resolve, remaining));
 	}
-	await options.navigate({ to: "/app" });
+	await options.navigate({
+		to: "/app",
+		...(options.input.pendingVideos.length > 0 ? { search: { videoPublished: true } } : {}),
+	});
 }
 
 /**
@@ -59,7 +138,7 @@ export async function runPublishFlow(options: RunPublishFlowOptions): Promise<vo
  * równoległy upload, twardy timeout 7 s i jasne błędy zamiast "Load failed").
  * `cfImageId` zachowują kolejność plików.
  */
-export async function createPost(input: PublishPostInput): Promise<unknown> {
+export async function createPost(input: PublishPostInput & { videos?: unknown }): Promise<unknown> {
 	const cfImageIds = input.files.length > 0 ? await uploadImages(input.files) : [];
 
 	let res: Response;
@@ -72,7 +151,7 @@ export async function createPost(input: PublishPostInput): Promise<unknown> {
 				body: JSON.stringify({
 					description: input.description || null,
 					cfImageIds,
-					videoIds: input.videoIds,
+					videos: input.videos ?? [],
 					mentions: input.mentions,
 				}),
 			},
@@ -127,6 +206,8 @@ export async function createPost(input: PublishPostInput): Promise<unknown> {
 export interface UsePublishPostResult {
 	publish: (input: PublishPostInput) => Promise<void>;
 	isPending: boolean;
+	/** Postęp uploadu wideo („Wideo 1/2 — 45%") — null gdy poza fazą uploadu. */
+	uploadProgress: VideoPublishProgress | null;
 	isError: boolean;
 	error: Error | null;
 	reset: () => void;
@@ -134,18 +215,21 @@ export interface UsePublishPostResult {
 
 /**
  * Hook (deep module) właściciel publishowania. `isPending` zostaje true przez CAŁY flow
- * (create → refetch → odczekanie paska → navigate), więc pasek jest widoczny aż do pełna
- * i znika dopiero przy nawigacji. Przy błędzie `isPending=false`, `error` ustawione.
+ * (upload wideo → create → refetch → odczekanie paska → navigate), więc pasek jest
+ * widoczny aż do pełna i znika dopiero przy nawigacji. Przy błędzie `isPending=false`,
+ * `error` ustawione.
  */
 export function usePublishPost(): UsePublishPostResult {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const [isPending, setIsPending] = useState(false);
+	const [uploadProgress, setUploadProgress] = useState<VideoPublishProgress | null>(null);
 	const [error, setError] = useState<Error | null>(null);
 
 	const publish = useCallback(
 		async (input: PublishPostInput) => {
 			setError(null);
+			setUploadProgress(null);
 			setIsPending(true);
 			try {
 				await runPublishFlow({
@@ -153,11 +237,13 @@ export function usePublishPost(): UsePublishPostResult {
 					navigate,
 					queryClient,
 					startedAt: Date.now(),
+					onUploadProgress: setUploadProgress,
 				});
 				// sukces: navigate odpaliło się w runPublishFlow, komponent się odmontuje.
 				// Celowo nie zerujemy isPending — pasek ma być pełny aż do samej nawigacji.
 			} catch (e) {
 				setError(e instanceof Error ? e : new Error(String(e)));
+				setUploadProgress(null);
 				setIsPending(false);
 			}
 		},
@@ -167,10 +253,12 @@ export function usePublishPost(): UsePublishPostResult {
 	return {
 		publish,
 		isPending,
+		uploadProgress,
 		isError: error !== null,
 		error,
 		reset: () => {
 			setError(null);
+			setUploadProgress(null);
 			setIsPending(false);
 		},
 	};

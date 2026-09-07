@@ -71,6 +71,7 @@ const stubPost = {
 	updatedAt: new Date(),
 	author: { id: "u-other", name: "Kasia" },
 	images: [],
+	videos: [],
 };
 
 describe("POST /api/app/posts/:id/pin", () => {

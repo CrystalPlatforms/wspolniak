@@ -120,11 +120,11 @@ export async function updateMaintenance(input: MaintenanceUpdate): Promise<void>
 }
 
 // --- Feature flags (Wspólniak On/Off) ------------------------------------
-// Master switches for optional features (Wideo, Edytor, Biblioteka). Default to
+// Master switches for optional features (Edytor, Biblioteka). Default to
 // enabled so existing instances keep their current behaviour once columns are added.
+// Wideo nie ma flagi od Video v2 (#194) — wideo jest zawsze włączone.
 
 export interface FeatureFlags {
-	video: boolean;
 	markdown: boolean;
 	library: boolean;
 	chat: boolean;
@@ -134,7 +134,6 @@ export interface FeatureFlags {
 }
 
 export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
-	video: true,
 	markdown: true,
 	library: true,
 	chat: true,
@@ -155,7 +154,6 @@ export async function getFeatureFlags(): Promise<FeatureFlags> {
 	}
 	const rows = await getDb()
 		.select({
-			videoEnabled: instanceConfig.videoEnabled,
 			markdownEnabled: instanceConfig.markdownEnabled,
 			libraryEnabled: instanceConfig.libraryEnabled,
 			chatEnabled: instanceConfig.chatEnabled,
@@ -166,7 +164,6 @@ export async function getFeatureFlags(): Promise<FeatureFlags> {
 		.limit(1);
 	const row = rows[0];
 	const flags: FeatureFlags = {
-		video: row?.videoEnabled ?? DEFAULT_FEATURE_FLAGS.video,
 		markdown: row?.markdownEnabled ?? DEFAULT_FEATURE_FLAGS.markdown,
 		library: row?.libraryEnabled ?? DEFAULT_FEATURE_FLAGS.library,
 		chat: row?.chatEnabled ?? DEFAULT_FEATURE_FLAGS.chat,
@@ -178,7 +175,6 @@ export async function getFeatureFlags(): Promise<FeatureFlags> {
 }
 
 export interface FeatureFlagsUpdate {
-	video?: boolean;
 	markdown?: boolean;
 	library?: boolean;
 	chat?: boolean;
@@ -190,7 +186,6 @@ export async function updateFeatureFlags(input: FeatureFlagsUpdate): Promise<voi
 	const id = await getInstanceConfigId();
 
 	const set: Record<string, unknown> = {};
-	if (input.video !== undefined) set.videoEnabled = input.video;
 	if (input.markdown !== undefined) set.markdownEnabled = input.markdown;
 	if (input.library !== undefined) set.libraryEnabled = input.library;
 	if (input.chat !== undefined) set.chatEnabled = input.chat;

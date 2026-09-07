@@ -2,14 +2,12 @@
 
 import type { Context } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import { canDeleteVideo } from "@/core/authorization";
-import { AppError, isUniqueViolation } from "@/core/errors";
+import { AppError } from "@/core/errors";
 import {
 	buildAuthorizationUrl,
 	type ChunkRange,
 	createState,
 	decryptRefreshToken,
-	deleteVideo as deleteYoutubeVideo,
 	encryptRefreshToken,
 	exchangeCodeForTokens,
 	fetchOwnChannel,
@@ -20,7 +18,6 @@ import {
 	verifyState,
 	type YoutubeConfig,
 } from "@/core/youtube";
-import { deleteAlbumItemsByRefs } from "@/db/albums";
 import {
 	clearYoutubeConnection,
 	getYoutubeConnection,
@@ -30,13 +27,11 @@ import {
 import {
 	confirmVideoSchema,
 	countTodayUTC,
-	createVideo,
 	DAILY_VIDEO_LIMIT,
-	deleteVideo,
-	getVideoById,
+	logUploadEvent,
 	MAX_VIDEO_BYTES,
 	startUploadSchema,
-} from "@/db/videos";
+} from "@/db/video-uploads";
 import { createHono, getOrigin } from "@/hono/factory";
 import { adminMiddleware } from "@/hono/middleware/admin";
 import { authMiddleware } from "@/hono/middleware/auth";
@@ -233,9 +228,11 @@ videoEndpoint.put("/upload-chunk", async (c) => {
 	}
 });
 
-// POST /api/video/confirm — persist the uploaded video (unlisted) to Neon.
-// `authorId` is taken from the session (never the body); `youtubeVideoId` +
-// `thumbnailUrl` come from the final chunk response the client holds.
+// POST /api/video/confirm — passthrough (Video v2 #194): NIC nie zapisuje.
+// `youtubeVideoId` + `thumbnailUrl` pochodzą z odpowiedzi ostatniego chunka;
+// klient osadza je w payloadzie posta. Zapis do `video_upload_events` podtrzymuje
+// dzienny limit (3 udane uploady / dzień — ta sama semantyka, co stare wiersze
+// `videos`, tylko liczona przy confirm zamiast przy osobnym persist).
 videoEndpoint.post("/confirm", async (c) => {
 	const user = c.get("user");
 	const parsed = confirmVideoSchema.safeParse(await c.req.json());
@@ -243,53 +240,10 @@ videoEndpoint.post("/confirm", async (c) => {
 		return c.json({ error: "Validation failed", details: parsed.error.flatten() }, 400);
 	}
 
-	try {
-		const video = await createVideo({
-			youtubeVideoId: parsed.data.youtubeVideoId,
-			title: parsed.data.title,
-			description: parsed.data.description,
-			authorId: user.userId,
-			thumbnailUrl: parsed.data.thumbnailUrl,
-		});
-		return c.json({ data: video }, 201);
-	} catch (e) {
-		// duplikat youtube_video_id (np. retry confirm) → 409
-		if (isUniqueViolation(e)) return c.json({ error: "To wideo zostało już zapisane" }, 409);
-		throw e;
-	}
-});
-
-// DELETE /api/video/:id — usuń wideo (author lub admin). Atomowo (F4): najpierw
-// YouTube, a dopiero po sukcesie rekord Neon. Błąd YouTube (quota/sieć/401) →
-// rekord Neon ZOSTAJE, błąd ląduje w odpowiedzi (użytkownik może spróbować ponownie).
-// 404 z YouTube (wideo już tam usunięte) traktowane jest jako sukces → sprząta Neon.
-videoEndpoint.delete("/:id", async (c) => {
-	const user = c.get("user");
-
-	const video = await getVideoById(c.req.param("id"));
-	if (!video) return c.json({ error: "Wideo nie zostało znalezione" }, 404);
-
-	if (!canDeleteVideo(user, video)) {
-		return c.json({ error: "Forbidden" }, 403);
-	}
-
-	try {
-		const resolved = await resolveUploadContext(c);
-		if (resolved instanceof Response) return resolved;
-
-		await deleteYoutubeVideo(video.youtubeVideoId, resolved.accessToken, resolved.config);
-	} catch (e) {
-		if (e instanceof AppError)
-			return c.json({ error: e.message }, e.status as ContentfulStatusCode);
-		throw e;
-	}
-
-	await Promise.all([
-		deleteVideo(video.id),
-		// Kaskada F5 (#174): wypożyczone egzemplarze wideo znikają z albumów.
-		deleteAlbumItemsByRefs({ kind: "video", refs: [video.id] }),
-	]);
-	return c.json({ data: { id: video.id } });
+	await logUploadEvent(user.userId);
+	return c.json({
+		data: { youtubeVideoId: parsed.data.youtubeVideoId, thumbnailUrl: parsed.data.thumbnailUrl },
+	});
 });
 
 export default videoEndpoint;

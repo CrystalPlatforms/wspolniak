@@ -9,7 +9,7 @@ import {
 	listRecentPosts,
 	reorderPostImages,
 	softDeletePost,
-	updatePostDescription,
+	updatePost,
 } from "./queries";
 import { postImages, posts } from "./table";
 
@@ -541,7 +541,7 @@ function mockUpdateChain(returnedRows: unknown[]) {
 	mockGetDb.mockReturnValue({ update: mockUpdate } as never);
 }
 
-describe("updatePostDescription", () => {
+describe("updatePost", () => {
 	it("updates description and returns the updated post", async () => {
 		const now = new Date();
 		const updatedPost = {
@@ -554,7 +554,7 @@ describe("updatePostDescription", () => {
 		};
 		mockUpdateChain([updatedPost]);
 
-		const result = await updatePostDescription("post-1", "Nowy opis");
+		const result = await updatePost("post-1", { description: "Nowy opis" });
 
 		expect(result).not.toBeNull();
 		expect(result?.description).toBe("Nowy opis");
@@ -563,7 +563,7 @@ describe("updatePostDescription", () => {
 	it("returns null when post does not exist", async () => {
 		mockUpdateChain([]);
 
-		const result = await updatePostDescription("non-existent", "Coś");
+		const result = await updatePost("non-existent", { description: "Coś" });
 
 		expect(result).toBeNull();
 	});

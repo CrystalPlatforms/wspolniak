@@ -21,7 +21,6 @@ describe("instance_config table", () => {
 				"maintenanceMessage",
 				"maintenanceSubtitle",
 				"maintenanceIcon",
-				"videoEnabled",
 				"chatEnabled",
 				"albumsEnabled",
 				"aiEnabled",
@@ -78,10 +77,9 @@ describe("instance_config table", () => {
 		expect(columns.maintenanceIcon.notNull).toBe(false);
 	});
 
-	it("video_enabled is boolean not null with default true", () => {
-		expect(columns.videoEnabled.dataType).toBe("boolean");
-		expect(columns.videoEnabled.notNull).toBe(true);
-		expect(columns.videoEnabled.hasDefault).toBe(true);
+	// Video v2 (#194): flaga video zniknęła — wideo jest zawsze włączone.
+	it("has no videoEnabled column (removed in #194)", () => {
+		expect((columns as Record<string, unknown>).videoEnabled).toBeUndefined();
 	});
 
 	it("markdown_enabled is boolean not null with default true", () => {

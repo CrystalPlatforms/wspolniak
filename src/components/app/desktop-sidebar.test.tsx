@@ -20,32 +20,12 @@ function setPathname(pathname: string) {
 	currentPathname = pathname;
 }
 
-describe("DesktopSidebar — Wideo feature flag", () => {
-	it("renders Wideo nav link and Dodaj wideo button when video enabled", () => {
+describe("DesktopSidebar — Video v2 (#194): biblioteka usunięta", () => {
+	it("renders no Wideo nav link and no Dodaj wideo button (video always on, no library)", () => {
 		setPathname("/app");
 		render(
 			<DesktopSidebar
 				featureFlags={{
-					video: true,
-					markdown: true,
-					library: true,
-					chat: true,
-					albums: true,
-					ai: false,
-				}}
-			/>,
-		);
-
-		expect(screen.queryByRole("link", { name: /^wideo$/i })).not.toBeNull();
-		expect(screen.queryByRole("link", { name: /dodaj wideo/i })).not.toBeNull();
-	});
-
-	it("hides Wideo nav link and Dodaj wideo button when video disabled", () => {
-		setPathname("/app");
-		render(
-			<DesktopSidebar
-				featureFlags={{
-					video: false,
 					markdown: true,
 					library: true,
 					chat: true,
@@ -66,7 +46,6 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 		render(
 			<DesktopSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: true,
@@ -85,7 +64,6 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 		render(
 			<DesktopSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: true,
@@ -104,7 +82,6 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 		render(
 			<DesktopSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: true,
@@ -124,7 +101,6 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 		render(
 			<DesktopSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: true,
@@ -138,25 +114,6 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 		expect(link.querySelector("svg")?.getAttribute("fill")).toBe("none");
 	});
 
-	it("fills the Wideo icon when active", () => {
-		setPathname("/app/video");
-		render(
-			<DesktopSidebar
-				featureFlags={{
-					video: true,
-					markdown: true,
-					library: true,
-					chat: true,
-					albums: true,
-					ai: false,
-				}}
-			/>,
-		);
-
-		const link = screen.getByRole("link", { name: /^wideo$/i });
-		expect(link.querySelector("svg")?.getAttribute("fill")).toBe("currentColor");
-	});
-
 	it("fills the Kalendarz icon when active as admin", () => {
 		setPathname("/app/calendar");
 		// „admin" przez zmienną — biome traktuje statyczny role="admin" jako niepoprawną rolę ARIA
@@ -166,7 +123,6 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 			<DesktopSidebar
 				role={adminRole}
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: true,
@@ -187,7 +143,6 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 			<DesktopSidebar
 				role={memberRole}
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: true,
@@ -205,7 +160,6 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 		render(
 			<DesktopSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: false,
 					chat: true,
@@ -228,7 +182,6 @@ describe("DesktopSidebar — Chat nav link (F8 #159)", () => {
 		render(
 			<DesktopSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: true,
@@ -247,7 +200,6 @@ describe("DesktopSidebar — Chat nav link (F8 #159)", () => {
 		render(
 			<DesktopSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: false,
@@ -265,7 +217,6 @@ describe("DesktopSidebar — Chat nav link (F8 #159)", () => {
 		render(
 			<DesktopSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: true,
@@ -284,7 +235,6 @@ describe("DesktopSidebar — Chat nav link (F8 #159)", () => {
 		render(
 			<DesktopSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: true,
@@ -308,7 +258,6 @@ describe("DesktopSidebar — Albumy nav link (#170)", () => {
 		render(
 			<DesktopSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: true,
@@ -327,7 +276,6 @@ describe("DesktopSidebar — Albumy nav link (#170)", () => {
 		render(
 			<DesktopSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: true,
@@ -348,7 +296,6 @@ describe("DesktopSidebar — Albumy nav link (#170)", () => {
 		render(
 			<DesktopSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: true,
@@ -371,7 +318,6 @@ describe("DesktopSidebar — Ustawienia moved to feed header (reviza usera)", ()
 		render(
 			<DesktopSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: true,
@@ -398,7 +344,6 @@ describe("DesktopSidebar — flaga albums i kropka „new” (#176)", () => {
 		render(
 			<DesktopSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: true,
@@ -417,7 +362,6 @@ describe("DesktopSidebar — flaga albums i kropka „new” (#176)", () => {
 		render(
 			<DesktopSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: true,
@@ -437,7 +381,6 @@ describe("DesktopSidebar — flaga albums i kropka „new” (#176)", () => {
 		render(
 			<DesktopSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: true,

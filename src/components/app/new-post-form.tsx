@@ -12,9 +12,9 @@ import { rectSortingStrategy, SortableContext, useSortable } from "@dnd-kit/sort
 import { CSS } from "@dnd-kit/utilities";
 import { ImagePlus, X } from "lucide-react";
 import { type ChangeEvent, type FormEvent, useCallback, useMemo, useRef, useState } from "react";
+import { ComposerVideoPicker, type PendingVideo } from "@/components/app/composer-video-picker";
 import type { Mention } from "@/components/app/mention-input";
 import { PostDescriptionField } from "@/components/app/post-description-field";
-import { PostVideoPicker } from "@/components/app/post-video-picker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -31,11 +31,15 @@ interface NewPostFormProps {
 	onSubmit: (data: {
 		description: string;
 		files: File[];
-		videoIds: string[];
+		pendingVideos: { file: File; title: string }[];
 		mentions: Mention[];
 	}) => void;
 	isSubmitting: boolean;
+	/** Postęp uploadu wideo przy publikacji — label przycisku „Wideo 1/2 — 45%" (#194). */
+	uploadProgress?: { videoIndex: number; total: number; percent: number } | null;
 	featureFlags?: FeatureFlags;
+	/** YouTube niepołączony — picker zamienia się w instrukcję admina (us story 7). */
+	videoNotConnected?: boolean;
 	/** Wstępnie wypełniony opis (np. szablon „Zaproponuj datę", #163). */
 	initialDescription?: string;
 }
@@ -101,13 +105,15 @@ function SortablePreview({
 export function NewPostForm({
 	onSubmit,
 	isSubmitting,
+	uploadProgress = null,
 	featureFlags = DEFAULT_FEATURE_FLAGS,
+	videoNotConnected = false,
 	initialDescription,
 }: NewPostFormProps) {
 	const [description, setDescription] = useState(initialDescription ?? "");
 	const [mentions, setMentions] = useState<Mention[]>([]);
 	const [media, setMedia] = useState<MediaItem[]>([]);
-	const [videoIds, setVideoIds] = useState<string[]>([]);
+	const [pendingVideos, setPendingVideos] = useState<PendingVideo[]>([]);
 	const [error, setError] = useState<string | null>(null);
 	const [overId, setOverId] = useState<string | null>(null);
 	const imageInputRef = useRef<HTMLInputElement>(null);
@@ -191,13 +197,13 @@ export function NewPostForm({
 	const handleSubmit = useCallback(
 		(e: FormEvent) => {
 			e.preventDefault();
-			if (images.length === 0 && videoIds.length === 0 && !description.trim()) {
+			if (images.length === 0 && pendingVideos.length === 0 && !description.trim()) {
 				setError("Dodaj tekst, zdjęcie lub wideo");
 				return;
 			}
 			if (description.length > MAX_DESCRIPTION_LENGTH) {
 				setError(
-					`Tekst posta jest za długi — limit to ${MAX_DESCRIPTION_LENGTH} znaków (wpisanych: ${description.length})`,
+					`Tekst posta jest za długi — limit to ${MAX_DESCRIPTION_LENGTH} znaków (wpisowanych: ${description.length})`,
 				);
 				return;
 			}
@@ -206,18 +212,19 @@ export function NewPostForm({
 			onSubmit({
 				description,
 				files,
-				videoIds,
+				pendingVideos: pendingVideos.map(({ file, title }) => ({ file, title })),
 				mentions: validMentions,
 			});
 		},
-		[description, images, onSubmit, mentions.filter, videoIds],
+		[description, images, onSubmit, mentions.filter, pendingVideos],
 	);
 
 	const canSubmit = useMemo(() => {
 		return (
-			(images.length > 0 || videoIds.length > 0 || description.trim().length > 0) && !isSubmitting
+			(images.length > 0 || pendingVideos.length > 0 || description.trim().length > 0) &&
+			!isSubmitting
 		);
-	}, [images.length, description, isSubmitting, videoIds.length]);
+	}, [images.length, description, isSubmitting, pendingVideos.length]);
 
 	return (
 		<form onSubmit={handleSubmit} className="space-y-4">
@@ -249,49 +256,59 @@ export function NewPostForm({
 					onChange={handleImageFileChange}
 					className="hidden"
 				/>
-				<div className="grid grid-cols-2 gap-2">
-					<Button
-						type="button"
-						variant="outline"
-						className="h-11 w-full sm:h-9"
-						onClick={() => imageInputRef.current?.click()}
-						disabled={images.length >= MAX_IMAGES}
-						title={images.length > 0 ? `${images.length}/${MAX_IMAGES}` : "Dodaj zdjęcia"}
-					>
-						<ImagePlus className="h-4 w-4" />
-						<span className="ml-2">
-							{images.length > 0 ? `${images.length}/${MAX_IMAGES}` : "Dodaj zdjęcia"}
-						</span>
-					</Button>
-					{featureFlags.video && (
-						<PostVideoPicker videoIds={videoIds} onChange={setVideoIds} disabled={isSubmitting} />
-					)}
+				{/* Zdjęcia pod przyciskiem zdjęć, wideo pod przyciskiem wideo (reviza usera):
+				    na mobile jedna kolumna, na desktopie dwie równe kolumny. */}
+				<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-start">
+					<div className="space-y-2">
+						<Button
+							type="button"
+							variant="outline"
+							className="h-11 w-full sm:h-9"
+							onClick={() => imageInputRef.current?.click()}
+							disabled={images.length >= MAX_IMAGES}
+							title={images.length > 0 ? `${images.length}/${MAX_IMAGES}` : "Dodaj zdjęcia"}
+						>
+							<ImagePlus className="h-4 w-4" />
+							<span className="ml-2">
+								{images.length > 0 ? `${images.length}/${MAX_IMAGES}` : "Dodaj zdjęcia"}
+							</span>
+						</Button>
+
+						{media.length > 0 && (
+							<DndContext
+								sensors={sensors}
+								onDragStart={handleDragStart}
+								onDragOver={handleDragOver}
+								onDragEnd={handleDragEnd}
+							>
+								<SortableContext items={sortableIds} strategy={rectSortingStrategy}>
+									<div role="listbox" className="grid grid-cols-3 gap-2">
+										{media.map((item, index) => (
+											<SortablePreview
+												key={item.id}
+												id={item.id}
+												url={item.preview ?? ""}
+												index={index}
+												isOver={overId === item.id}
+												onRemove={() => removeMedia(item.id)}
+											/>
+										))}
+									</div>
+								</SortableContext>
+							</DndContext>
+						)}
+					</div>
+
+					<div className="space-y-2">
+						<ComposerVideoPicker
+							videos={pendingVideos}
+							onChange={setPendingVideos}
+							disabled={isSubmitting}
+							notConnected={videoNotConnected}
+						/>
+					</div>
 				</div>
 			</div>
-
-			{media.length > 0 && (
-				<DndContext
-					sensors={sensors}
-					onDragStart={handleDragStart}
-					onDragOver={handleDragOver}
-					onDragEnd={handleDragEnd}
-				>
-					<SortableContext items={sortableIds} strategy={rectSortingStrategy}>
-						<div role="listbox" className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-							{media.map((item, index) => (
-								<SortablePreview
-									key={item.id}
-									id={item.id}
-									url={item.preview ?? ""}
-									index={index}
-									isOver={overId === item.id}
-									onRemove={() => removeMedia(item.id)}
-								/>
-							))}
-						</div>
-					</SortableContext>
-				</DndContext>
-			)}
 
 			<Button
 				type="submit"
@@ -304,7 +321,13 @@ export function NewPostForm({
 						className="absolute inset-0 origin-left animate-[publish-indeterminate_7s_ease-out_forwards] bg-primary-foreground/20"
 					/>
 				) : null}
-				<span className="relative">{isSubmitting ? "Publikowanie..." : "Opublikuj"}</span>
+				<span className="relative">
+					{isSubmitting
+						? uploadProgress
+							? `Wideo ${uploadProgress.videoIndex + 1}/${uploadProgress.total} — ${uploadProgress.percent}%`
+							: "Publikowanie..."
+						: "Opublikuj"}
+				</span>
 			</Button>
 		</form>
 	);

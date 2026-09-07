@@ -4,11 +4,9 @@ import {
 	type CommentTarget,
 	canDeleteComment,
 	canDeletePost,
-	canDeleteVideo,
 	canEditComment,
 	canEditPost,
 	type PostTarget,
-	type VideoTarget,
 } from "./authorization";
 
 function actor(overrides: Partial<Actor> = {}): Actor {
@@ -104,27 +102,5 @@ describe("canPinPost", () => {
 	it("denies member (even acting on their own behalf)", async () => {
 		const { canPinPost } = await import("./authorization");
 		expect(canPinPost(actor({ role: "member" }))).toBe(false);
-	});
-});
-
-function video(overrides: Partial<VideoTarget> = {}): VideoTarget {
-	return { authorId: "u1", ...overrides };
-}
-
-describe("canDeleteVideo", () => {
-	it("allows author to delete their own video", () => {
-		expect(canDeleteVideo(actor({ userId: "u1" }), video({ authorId: "u1" }))).toBe(true);
-	});
-
-	it("allows admin to delete any video", () => {
-		expect(canDeleteVideo(actor({ userId: "u2", role: "admin" }), video({ authorId: "u1" }))).toBe(
-			true,
-		);
-	});
-
-	it("denies non-author member", () => {
-		expect(canDeleteVideo(actor({ userId: "u2", role: "member" }), video({ authorId: "u1" }))).toBe(
-			false,
-		);
 	});
 });

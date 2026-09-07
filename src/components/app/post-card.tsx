@@ -33,10 +33,10 @@ export interface PostCardImage {
 }
 
 export interface PostCardVideo {
-	id: string;
+	/** Video v2 (#194): wideo płyną z JSONB posta — bez id/position. */
+	youtubeVideoId: string;
 	title: string;
 	thumbnailUrl: string;
-	position: number;
 }
 
 export interface PostCardPost {
@@ -195,8 +195,8 @@ export function PostCard({
 				<div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
 					{post.videos.map((video) => (
 						<VideoThumb
-							key={video.id}
-							id={video.id}
+							key={video.youtubeVideoId}
+							youtubeVideoId={video.youtubeVideoId}
 							title={video.title}
 							thumbnailUrl={video.thumbnailUrl}
 						/>

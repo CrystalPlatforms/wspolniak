@@ -8,6 +8,7 @@ import {
 	PUBLISH_BAR_DURATION_MS,
 	type PublishPostInput,
 	runPublishFlow,
+	VideoNotConnectedError,
 } from "./use-publish-post";
 
 vi.mock("@/images/compress", () => ({
@@ -18,12 +19,15 @@ function makeQueryClient() {
 	return new QueryClient({ defaultOptions: { queries: { retry: false } } });
 }
 
-const sampleInput: PublishPostInput = {
-	description: "Cześć",
-	files: [],
-	videoIds: [],
-	mentions: [],
-};
+function makeInput(overrides: Partial<PublishPostInput> = {}): PublishPostInput {
+	return {
+		description: "Cześć",
+		files: [],
+		pendingVideos: [],
+		mentions: [],
+		...overrides,
+	};
+}
 
 afterEach(() => {
 	vi.useRealTimers();
@@ -40,7 +44,7 @@ describe("runPublishFlow", () => {
 		const createPostFn = vi.fn().mockResolvedValue(undefined);
 
 		const flow = runPublishFlow({
-			input: sampleInput,
+			input: makeInput(),
 			navigate,
 			queryClient: qc,
 			createPostFn,
@@ -56,6 +60,7 @@ describe("runPublishFlow", () => {
 
 		expect(refetchSpy).toHaveBeenCalledWith({ queryKey: feedQueryKey });
 		expect(refetchSpy).toHaveBeenCalledBefore(navigate);
+		// Brak wideo → navigate bez flagi videoPublished.
 		expect(navigate).toHaveBeenCalledWith({ to: "/app" });
 	});
 
@@ -68,7 +73,7 @@ describe("runPublishFlow", () => {
 		const navigate = vi.fn().mockResolvedValue(undefined);
 
 		await runPublishFlow({
-			input: sampleInput,
+			input: makeInput(),
 			navigate,
 			queryClient: qc,
 			createPostFn: vi.fn().mockResolvedValue(undefined),
@@ -86,7 +91,7 @@ describe("runPublishFlow", () => {
 
 		await expect(
 			runPublishFlow({
-				input: sampleInput,
+				input: makeInput(),
 				navigate,
 				queryClient: qc,
 				createPostFn,
@@ -97,7 +102,159 @@ describe("runPublishFlow", () => {
 		expect(refetchSpy).not.toHaveBeenCalled();
 		expect(navigate).not.toHaveBeenCalled();
 	});
+
+	it("post z wideo: uploady (session→chunks→confirm) idą przed createPost, wpis videos osadzony w payloadzie", async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(0);
+
+		const qc = makeQueryClient();
+		vi.spyOn(qc, "refetchQueries").mockResolvedValue(undefined);
+		const navigate = vi.fn().mockResolvedValue(undefined);
+		const createPostFn = vi.fn().mockResolvedValue(undefined);
+
+		const file = new File([new Uint8Array(10)], "clip.mp4", { type: "video/mp4" });
+		const flow = runPublishFlow({
+			input: makeInput({
+				pendingVideos: [{ file, title: "Klip" }],
+			}),
+			navigate,
+			queryClient: qc,
+			createPostFn,
+			startedAt: 0,
+			uploadVideoFn: vi.fn(async (_input, _onProgress, _deps) => ({
+				youtubeVideoId: "yt-abc",
+				thumbnailUrl: "https://i.ytimg.com/vi/yt-abc/default.jpg",
+			})),
+		});
+		// flow czeka na pełny pasek (setTimeout 7s) — przyspieszamy zegar i domykamy.
+		await vi.advanceTimersByTimeAsync(PUBLISH_BAR_DURATION_MS);
+		await flow;
+
+		// createPost dostał wpis videos osadzony w payloadzie (kolejność = kolejność pending).
+		expect(createPostFn).toHaveBeenCalledWith(
+			expect.objectContaining({
+				videos: [
+					{
+						youtubeVideoId: "yt-abc",
+						title: "Klip",
+						thumbnailUrl: "https://i.ytimg.com/vi/yt-abc/default.jpg",
+					},
+				],
+			}),
+		);
+		// Post z wideo → navigate z flagą videoPublished (toast na feedzie).
+		expect(navigate).toHaveBeenCalledWith({
+			to: "/app",
+			search: { videoPublished: true },
+		});
+	});
+
+	it("wiele wideo: uploady idą sekwencyjnie z per-wideo postępem („Wideo 1/2 — x%”)", async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(0);
+
+		const qc = makeQueryClient();
+		vi.spyOn(qc, "refetchQueries").mockResolvedValue(undefined);
+		const navigate = vi.fn().mockResolvedValue(undefined);
+
+		const progressEvents: { videoIndex: number; total: number; percent: number }[] = [];
+		const fileA = new File([new Uint8Array(5)], "a.mp4", { type: "video/mp4" });
+		const fileB = new File([new Uint8Array(5)], "b.mp4", { type: "video/mp4" });
+
+		// Kolejność resolve śledzi, że upload B startuje DOPIERO po resolve A (sekwencyjnie).
+		const calls: string[] = [];
+		const uploadVideoFn = vi.fn(
+			async (
+				input: { title: string },
+				onProgress: (p: { uploadedBytes: number; totalBytes: number }) => void,
+			) => {
+				calls.push(`start:${input.title}`);
+				await Promise.resolve();
+				onProgress({ uploadedBytes: 5, totalBytes: 5 }); // 100%
+				calls.push(`end:${input.title}`);
+				return {
+					youtubeVideoId: `yt-${input.title}`,
+					thumbnailUrl: `https://i.ytimg.com/vi/yt-${input.title}/default.jpg`,
+				};
+			},
+		);
+
+		const flow = runPublishFlow({
+			input: makeInput({
+				pendingVideos: [
+					{ file: fileA, title: "A" },
+					{ file: fileB, title: "B" },
+				],
+			}),
+			navigate,
+			queryClient: qc,
+			createPostFn: vi.fn().mockResolvedValue(undefined),
+			startedAt: 0,
+			onUploadProgress: (p) => progressEvents.push(p),
+			uploadVideoFn: uploadVideoFn as never,
+		});
+		await vi.advanceTimersByTimeAsync(PUBLISH_BAR_DURATION_MS);
+		await flow;
+
+		expect(calls).toEqual(["start:A", "end:A", "start:B", "end:B"]);
+		// Per-wideo postęp: ostatnie zdarzenie per wideo = 100%.
+		const lastA = progressEvents.filter((p) => p.videoIndex === 0).at(-1);
+		const lastB = progressEvents.filter((p) => p.videoIndex === 1).at(-1);
+		expect(lastA).toEqual({ videoIndex: 0, total: 2, percent: 100 });
+		expect(lastB).toEqual({ videoIndex: 1, total: 2, percent: 100 });
+	});
+
+	it("błąd uploadu wideo: rzuca (formularz zostaje z tekstem i listą wideo), post nie powstaje", async () => {
+		const qc = makeQueryClient();
+		const refetchSpy = vi.spyOn(qc, "refetchQueries").mockResolvedValue(undefined);
+		const navigate = vi.fn().mockResolvedValue(undefined);
+		const createPostFn = vi.fn().mockResolvedValue(undefined);
+
+		const file = new File([new Uint8Array(10)], "clip.mp4", { type: "video/mp4" });
+
+		await expect(
+			runPublishFlow({
+				input: makeInput({ pendingVideos: [{ file, title: "Klip" }] }),
+				navigate,
+				queryClient: qc,
+				createPostFn,
+				startedAt: 0,
+				uploadVideoFn: vi.fn(async () => {
+					throw new Error("Błąd uploadu (500)");
+				}),
+			}),
+		).rejects.toThrow("Błąd uploadu (500)");
+
+		// Post NIE powstaje po nieudanym uploadzie (kompozytor zostaje nietknięty).
+		expect(createPostFn).not.toHaveBeenCalled();
+		expect(refetchSpy).not.toHaveBeenCalled();
+		expect(navigate).not.toHaveBeenCalled();
+	});
+
+	it("503 z upload-session (YouTube niepołączony) → VideoNotConnectedError", async () => {
+		const qc = makeQueryClient();
+		vi.spyOn(qc, "refetchQueries").mockResolvedValue(undefined);
+		const navigate = vi.fn().mockResolvedValue(undefined);
+
+		const file = new File([new Uint8Array(10)], "clip.mp4", { type: "video/mp4" });
+
+		await expect(
+			runPublishFlow({
+				input: makeInput({ pendingVideos: [{ file, title: "Klip" }] }),
+				navigate,
+				queryClient: qc,
+				createPostFn: vi.fn(),
+				startedAt: 0,
+				uploadVideoFn: vi.fn(async () => {
+					throw new VideoUploadHttpError("Najpierw połącz kanał YouTube", 503);
+				}),
+			}),
+		).rejects.toBeInstanceOf(VideoNotConnectedError);
+	});
 });
+
+// Potrzebny w teście 503 — import PO vi.mockach (klasa z use-video-upload).
+import { VideoUploadHttpError } from "@/components/video/use-video-upload";
 
 describe("createPost", () => {
 	afterEach(() => {
@@ -137,7 +294,7 @@ describe("createPost", () => {
 			new File(["b"], "2.jpg", { type: "image/jpeg" }),
 		];
 
-		await createPost({ description: "hi", files, videoIds: [], mentions: [] });
+		await createPost({ description: "hi", files, pendingVideos: [], mentions: [] });
 
 		const calls = fetchMock.mock.calls.map(([u]) => String(u));
 
@@ -163,11 +320,29 @@ describe("createPost", () => {
 	it("pomija upload-urls całkowicie, gdy nie ma plików (samo POST /posts)", async () => {
 		const fetchMock = stubFetch(() => []);
 
-		await createPost({ description: "brak zdjęć", files: [], videoIds: [], mentions: [] });
+		await createPost({ description: "brak zdjęć", files: [], pendingVideos: [], mentions: [] });
 
 		const calls = fetchMock.mock.calls.map(([u]) => String(u));
 		expect(calls.filter((u) => u.endsWith("/api/app/images/upload-urls"))).toHaveLength(0);
 		expect(calls.filter((u) => u.endsWith("/api/app/posts"))).toHaveLength(1);
+	});
+
+	it("POST /posts z wideo: videos osadzone w ciele żądania (#194)", async () => {
+		const fetchMock = stubFetch(() => []);
+
+		await createPost({
+			description: "z wideo",
+			files: [],
+			pendingVideos: [],
+			mentions: [],
+			videos: [{ youtubeVideoId: "yt-1", title: "Klip", thumbnailUrl: "https://t/1" }],
+		});
+
+		const postsCalls = fetchMock.mock.calls.filter(([u]) => String(u).endsWith("/api/app/posts"));
+		const postsBody = JSON.parse(String(postsCalls[0]?.[1]?.body)) as { videos: unknown[] };
+		expect(postsBody.videos).toEqual([
+			{ youtubeVideoId: "yt-1", title: "Klip", thumbnailUrl: "https://t/1" },
+		]);
 	});
 
 	it("awaria sieci przy tworzeniu posta → UploadFlowError (network, step create-post), nie 'Load failed'", async () => {
@@ -181,7 +356,7 @@ describe("createPost", () => {
 		const error = await createPost({
 			description: "tekst",
 			files: [],
-			videoIds: [],
+			pendingVideos: [],
 			mentions: [],
 		}).catch((e: unknown) => e);
 
@@ -199,7 +374,7 @@ describe("createPost", () => {
 		});
 		vi.stubGlobal("fetch", fetchMock);
 
-		await createPost({ description: "tekst", files: [], videoIds: [], mentions: [] }).catch(
+		await createPost({ description: "tekst", files: [], pendingVideos: [], mentions: [] }).catch(
 			() => {},
 		);
 
@@ -230,7 +405,7 @@ describe("createPost", () => {
 		const error = await createPost({
 			description: "za długi",
 			files: [],
-			videoIds: [],
+			pendingVideos: [],
 			mentions: [],
 		}).catch((e: unknown) => e);
 
@@ -259,7 +434,7 @@ describe("createPost", () => {
 		const error = await createPost({
 			description: "za długi",
 			files: [],
-			videoIds: [],
+			pendingVideos: [],
 			mentions: [],
 		}).catch((e: unknown) => e);
 

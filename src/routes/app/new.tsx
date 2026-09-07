@@ -5,7 +5,11 @@ import { useRef } from "react";
 import { calendarProposalTemplate } from "@/components/app/calendar-proposal";
 import { NewPostForm } from "@/components/app/new-post-form";
 import { UploadErrorAlert } from "@/components/app/upload-error-alert";
-import { type PublishPostInput, usePublishPost } from "@/components/app/use-publish-post";
+import {
+	type PublishPostInput,
+	usePublishPost,
+	VideoNotConnectedError,
+} from "@/components/app/use-publish-post";
 
 /** ?calendar=1 — wejście z przycisku „Zaproponuj datę" (Kalendarz v2, #163). */
 interface NewPostSearch {
@@ -23,7 +27,7 @@ function NewPostPage() {
 	const navigate = useNavigate();
 	const { featureFlags, session } = Route.useRouteContext();
 	const { calendar } = Route.useSearch();
-	const { publish, isPending, isError, error, reset } = usePublishPost();
+	const { publish, isPending, uploadProgress, isError, error, reset } = usePublishPost();
 	// Ostatni input trzymany do ręcznego ponowienia (issue #135) — forma po błędzie
 	// trzyma stan, ale retry z Alertu musi mieć dane, którymi wołamy publish.
 	const lastInputRef = useRef<PublishPostInput | null>(null);
@@ -70,11 +74,13 @@ function NewPostPage() {
 					handlePublish({
 						description: data.description || null,
 						files: data.files,
-						videoIds: data.videoIds,
+						pendingVideos: data.pendingVideos,
 						mentions: data.mentions,
 					})
 				}
 				isSubmitting={isPending}
+				uploadProgress={uploadProgress}
+				videoNotConnected={error instanceof VideoNotConnectedError}
 			/>
 		</div>
 	);

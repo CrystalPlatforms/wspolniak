@@ -59,7 +59,6 @@ describe("POST /api/setup", () => {
 			maintenanceMessage: null,
 			maintenanceSubtitle: null,
 			maintenanceIcon: null,
-			videoEnabled: true,
 			markdownEnabled: true,
 			libraryEnabled: true,
 			chatEnabled: true,

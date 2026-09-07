@@ -10,7 +10,6 @@ import {
 	Menu,
 	MessageSquare,
 	Plus,
-	Video,
 } from "lucide-react";
 import { useState } from "react";
 import { useTheme } from "@/components/theme/theme-provider";
@@ -35,7 +34,6 @@ interface NavItem {
 // Mirror desktop-sidebar.tsx NAV_ITEMS — jedno źródło prawdy dla nawigacji.
 const NAV_ITEMS: NavItem[] = [
 	{ to: "/app", icon: Home, label: "Feed", exact: true },
-	{ to: "/app/video", icon: Video, label: "Wideo", fillWhenActive: true },
 	{ to: "/app/lib", icon: Bookmark, label: "Biblioteka", fillWhenActive: true },
 	// Albumy (#170): mirror desktop-sidebar; brak flagi w F1 — zawsze widoczna,
 	// bez fillWhenActive (wypełniona ikona Images wygląda źle — reviza usera).
@@ -74,7 +72,6 @@ function isNavItemVisible(
 ): boolean {
 	if (item.aiOnly && !aiEntrance) return false;
 	if (item.adminOnly && role !== "admin") return false;
-	if (item.to === "/app/video" && !featureFlags.video) return false;
 	if (item.to === "/app/lib" && !featureFlags.library) return false;
 	if (item.to === "/app/chat" && !featureFlags.chat) return false;
 	if (item.to === "/app/albums" && !featureFlags.albums) return false;
@@ -151,14 +148,6 @@ export function MobileSidebar({
 				</nav>
 
 				<div className="flex flex-col gap-2 border-t border-border p-4">
-					{featureFlags.video && (
-						<Link to="/app/new-video" onClick={() => setOpen(false)}>
-							<Button className="w-full rounded-full bg-[#0c275f] py-4 text-lg font-bold text-white hover:bg-[#0c275f]/90">
-								<Video className="mr-2 size-6" />
-								Dodaj wideo
-							</Button>
-						</Link>
-					)}
 					<Link to="/app/new" onClick={() => setOpen(false)}>
 						<Button className="w-full rounded-full py-4 text-lg font-bold">
 							<Plus className="mr-2 size-6" />

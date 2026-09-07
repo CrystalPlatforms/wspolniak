@@ -190,7 +190,13 @@ describe("PostCard — choreografia odsłaniania (#145)", () => {
 		mockedSettled.mockReturnValue(false);
 		const post = makePost({
 			images: [],
-			videos: [{ id: "v1", title: "Wakacje", thumbnailUrl: "https://yt/img", position: 0 }],
+			videos: [
+				{
+					youtubeVideoId: "v1",
+					title: "Wakacje",
+					thumbnailUrl: "https://yt/img",
+				},
+			],
 		});
 		const { rerenderCard } = renderCard(post);
 		expect(screen.queryByText("Wakacje")).toBeNull();

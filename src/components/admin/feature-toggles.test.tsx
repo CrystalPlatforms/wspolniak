@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-// Założenia kontraktu (F7 #176): sekcja „Funkcje" ma PIĘĆ przełączników —
-// Wideo, Edytor (Markdown), Biblioteka, Chat i Albumy. Przełączenie wysyła
+// Założenia kontraktu (F7 #176 → Video v2 #194): sekcja „Funkcje" ma CZTERY
+// przełączniki — Edytor (Markdown), Biblioteka, Chat i Albumy. Wideo nie ma
+// przełącznika od #194 (zawsze włączone). Przełączenie wysyła
 // onChange({ klucz: wartość }) — tylko zmieniana flaga, bez reszty.
 // GOTCHA: brak jest-dom → asercje przez getAttribute/toBeTruthy.
 import { render, screen } from "@testing-library/react";
@@ -14,10 +15,9 @@ function renderToggles(
 	render(<FeatureToggles flags={flags} isSaving={false} onChange={onChange} />);
 }
 
-describe("FeatureToggles — piąty przełącznik Albumy (F7 #176)", () => {
-	it("renders all five feature switches including Albumy", () => {
+describe("FeatureToggles — Video v2 (#194): bez przełącznika Wideo", () => {
+	it("renders no Wideo switch (video is always on after #194)", () => {
 		renderToggles({
-			video: true,
 			markdown: true,
 			library: true,
 			chat: true,
@@ -25,7 +25,19 @@ describe("FeatureToggles — piąty przełącznik Albumy (F7 #176)", () => {
 			ai: false,
 		});
 
-		for (const label of ["Wideo", "Edytor (Markdown)", "Biblioteka", "Chat", "Albumy"]) {
+		expect(screen.queryByRole("switch", { name: "Wideo" })).toBeNull();
+	});
+
+	it("renders all four feature switches", () => {
+		renderToggles({
+			markdown: true,
+			library: true,
+			chat: true,
+			albums: true,
+			ai: false,
+		});
+
+		for (const label of ["Edytor (Markdown)", "Biblioteka", "Chat", "Albumy"]) {
 			expect(screen.getByRole("switch", { name: label })).toBeTruthy();
 		}
 	});
@@ -41,7 +53,7 @@ describe("FeatureToggles — piąty przełącznik Albumy (F7 #176)", () => {
 	it("reflects albums: false as unchecked and fires onChange({ albums: true }) on toggle", async () => {
 		const onChange = vi.fn();
 		renderToggles(
-			{ video: true, markdown: true, library: true, chat: true, albums: false, ai: false },
+			{ markdown: true, library: true, chat: true, albums: false, ai: false },
 			onChange,
 		);
 

@@ -3,6 +3,7 @@ import type { InferSelectModel } from "drizzle-orm";
 import { and, asc, count, desc, eq, gte, inArray, isNull, lt, not, or } from "drizzle-orm";
 import { users } from "@/db/identity/table";
 import { getDb } from "@/db/setup";
+import type { PostVideoEntry } from "./schema";
 import { postImages, posts } from "./table";
 
 export type Post = InferSelectModel<typeof posts>;
@@ -12,14 +13,18 @@ interface CreatePostInput {
 	authorId: string;
 	description: string | null;
 	cfImageIds?: string[];
+	videos?: PostVideoEntry[];
 }
 
 export async function createPost(input: CreatePostInput) {
-	const { authorId, description, cfImageIds = [] } = input;
+	const { authorId, description, cfImageIds = [], videos = [] } = input;
 	const db = getDb();
 
 	const postId = crypto.randomUUID();
-	const postRows = await db.insert(posts).values({ id: postId, authorId, description }).returning();
+	const postRows = await db
+		.insert(posts)
+		.values({ id: postId, authorId, description, videos })
+		.returning();
 	const post = postRows[0];
 	if (!post) throw new Error("createPost: insert returned no rows");
 
@@ -45,6 +50,8 @@ export interface PostWithAuthorAndImages {
 	id: string;
 	authorId: string;
 	description: string | null;
+	/** Wideo osadzone w poście — z kolumny JSONB, kolejność = odtwarzanie (#194). */
+	videos: PostVideoEntry[];
 	createdAt: Date;
 	updatedAt: Date;
 	author: { id: string; name: string };
@@ -69,6 +76,7 @@ function aggregatePostRows(rows: PostJoinRow[]): PostWithAuthorAndImages[] {
 				id: row.post.id,
 				authorId: row.post.authorId,
 				description: row.post.description,
+				videos: row.post.videos,
 				createdAt: row.post.createdAt,
 				updatedAt: row.post.updatedAt,
 				author: { id: row.author?.id ?? "", name: row.author?.name ?? "" },
@@ -187,6 +195,7 @@ export async function getPostById(id: string): Promise<PostWithAuthorAndImages |
 		id: first.post.id,
 		authorId: first.post.authorId,
 		description: first.post.description,
+		videos: first.post.videos,
 		createdAt: first.post.createdAt,
 		updatedAt: first.post.updatedAt,
 		author: { id: first.author?.id ?? "", name: first.author?.name ?? "" },
@@ -194,13 +203,22 @@ export async function getPostById(id: string): Promise<PostWithAuthorAndImages |
 	};
 }
 
-export async function updatePostDescription(
-	id: string,
-	description: string | null,
-): Promise<Post | null> {
+export interface UpdatePostInput {
+	description?: string | null;
+	/** Obecne tylko gdy klient przysłał pole `videos` (PATCH nie nadpisuje inaczej). */
+	videos?: PostVideoEntry[];
+}
+
+export async function updatePost(id: string, input: UpdatePostInput): Promise<Post | null> {
+	const set: { description?: string | null; videos?: PostVideoEntry[]; updatedAt: Date } = {
+		updatedAt: new Date(),
+	};
+	if (input.description !== undefined) set.description = input.description;
+	if (input.videos !== undefined) set.videos = input.videos;
+
 	const rows = await getDb()
 		.update(posts)
-		.set({ description, updatedAt: new Date() })
+		.set(set)
 		.where(and(eq(posts.id, id), isNull(posts.deletedAt)))
 		.returning();
 

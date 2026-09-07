@@ -632,7 +632,6 @@ describe("GET /api/admin/stats", () => {
 describe("GET /api/admin/features", () => {
 	it("returns current feature flags", async () => {
 		mockGetFeatureFlags.mockResolvedValue({
-			video: true,
 			markdown: false,
 			library: true,
 			chat: true,
@@ -649,10 +648,9 @@ describe("GET /api/admin/features", () => {
 
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as {
-			data: { video: boolean; markdown: boolean; library: boolean };
+			data: { markdown: boolean; library: boolean };
 		};
 		expect(body.data).toEqual({
-			video: true,
 			markdown: false,
 			library: true,
 			chat: true,
@@ -665,7 +663,6 @@ describe("GET /api/admin/features", () => {
 describe("PUT /api/admin/features", () => {
 	it("updates both flags and returns the new state", async () => {
 		mockGetFeatureFlags.mockResolvedValue({
-			video: false,
 			markdown: false,
 			library: false,
 			chat: false,
@@ -680,7 +677,6 @@ describe("PUT /api/admin/features", () => {
 				method: "PUT",
 				headers: { ...adminHeaders(), "Content-Type": "application/json" },
 				body: JSON.stringify({
-					video: false,
 					markdown: false,
 					library: false,
 					chat: false,
@@ -692,7 +688,6 @@ describe("PUT /api/admin/features", () => {
 
 		expect(res.status).toBe(200);
 		expect(mockUpdateFeatureFlags).toHaveBeenCalledWith({
-			video: false,
 			markdown: false,
 			library: false,
 			chat: false,
@@ -700,9 +695,8 @@ describe("PUT /api/admin/features", () => {
 		});
 	});
 
-	it("forwards a partial update (only video)", async () => {
+	it("forwards a partial update (only markdown)", async () => {
 		mockGetFeatureFlags.mockResolvedValue({
-			video: false,
 			markdown: true,
 			library: true,
 			chat: true,
@@ -716,29 +710,38 @@ describe("PUT /api/admin/features", () => {
 			{
 				method: "PUT",
 				headers: { ...adminHeaders(), "Content-Type": "application/json" },
-				body: JSON.stringify({ video: false }),
+				body: JSON.stringify({ markdown: false }),
 			},
 			{ SESSION_SECRET: "secret" },
 		);
 
 		expect(res.status).toBe(200);
-		expect(mockUpdateFeatureFlags).toHaveBeenCalledWith({ video: false });
+		expect(mockUpdateFeatureFlags).toHaveBeenCalledWith({ markdown: false });
 	});
 
-	it("rejects non-boolean video", async () => {
+	it("ignores the removed video flag (Video v2 #194 — always on)", async () => {
+		mockGetFeatureFlags.mockResolvedValue({
+			markdown: true,
+			library: true,
+			chat: true,
+			albums: true,
+			ai: false,
+		});
+
 		const api = createApi();
 		const res = await api.request(
 			"/api/admin/features",
 			{
 				method: "PUT",
 				headers: { ...adminHeaders(), "Content-Type": "application/json" },
-				body: JSON.stringify({ video: "yes" }),
+				body: JSON.stringify({ video: false, markdown: true }),
 			},
 			{ SESSION_SECRET: "secret" },
 		);
 
-		expect(res.status).toBe(400);
-		expect(mockUpdateFeatureFlags).not.toHaveBeenCalled();
+		expect(res.status).toBe(200);
+		// Klucz `video` nie jest już flagą — PUT z nim działa, ale go ignoruje.
+		expect(mockUpdateFeatureFlags).toHaveBeenCalledWith({ markdown: true });
 	});
 
 	it("rejects non-boolean markdown", async () => {
@@ -934,7 +937,6 @@ describe("share-code (#166)", () => {
 describe("feature flags — albums (#176)", () => {
 	it("forwards an albums-only PUT to updateFeatureFlags", async () => {
 		mockGetFeatureFlags.mockResolvedValue({
-			video: true,
 			markdown: true,
 			library: true,
 			chat: true,

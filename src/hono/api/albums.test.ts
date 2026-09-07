@@ -558,12 +558,7 @@ describe("PATCH /api/app/albums/:id", () => {
 				kind: "video",
 				ref: "yt-1",
 				createdAt: now,
-				video: {
-					id: "yt-1",
-					title: "Fiesta",
-					thumbnailUrl: "https://img/yt-1",
-					youtubeVideoId: "abc123",
-				},
+				video: null,
 			},
 		],
 	};
@@ -764,12 +759,7 @@ describe("DELETE /api/app/albums/:id", () => {
 		albumId: "album-1",
 		ref: "yt-1",
 		createdAt: now,
-		video: {
-			id: "yt-1",
-			title: "Fiesta",
-			thumbnailUrl: "https://img/yt-1",
-			youtubeVideoId: "abc123",
-		},
+		video: null,
 	};
 	const detail = {
 		id: "album-1",
@@ -1081,70 +1071,30 @@ describe("GET /api/app/albums/:id/photos.zip (F6 #175)", () => {
 	});
 });
 
-describe("GET /api/app/albums/:id/videos.html (F6 #175)", () => {
-	const videosDetail = {
-		id: "album-2",
-		creatorId: "u1",
-		title: "Chorwacja",
-		coverItemId: null,
-		createdAt: now,
-		items: [
-			{
-				id: "i1",
-				albumId: "album-2",
-				kind: "video",
-				ref: "v1",
-				createdAt: now,
-				video: {
-					id: "v1",
-					title: "Fiesta",
-					thumbnailUrl: "https://img/1",
-					youtubeVideoId: "abc123",
-				},
-			},
-			{
-				id: "i2",
-				albumId: "album-2",
-				kind: "video",
-				ref: "v2",
-				createdAt: now,
-				video: {
-					id: "v2",
-					title: "Plaza",
-					thumbnailUrl: "https://img/2",
-					youtubeVideoId: "xyz789",
-				},
-			},
-		],
-	};
-
+describe("GET /api/app/albums/:id/videos.html (F6 #175 → Video v2 #194)", () => {
+	// Video v2: biblioteka zniknęła, album_items kind=video czyści migracja —
+	// endpoint zawsze widzi zero wideo i zwraca 404 (zostaje dla starych klientów).
 	beforeEach(() => {
 		vi.clearAllMocks();
 		authedUser();
 	});
 
-	it("returns an HTML file with a Polish header and one link per video", async () => {
-		mockGetAlbumById.mockResolvedValue(videosDetail);
-
-		const api = createApi();
-		const res = await api.request("/api/app/albums/album-2/videos.html", authedRequest(), env);
-
-		expect(res.status).toBe(200);
-		expect(res.headers.get("content-type")).toContain("text/html");
-		expect(res.headers.get("content-disposition")).toContain(".html");
-		const html = await res.text();
-		expect(html).toContain('<html lang="pl">');
-		expect(html).toContain("Wideo z albumu „Chorwacja”");
-		expect(html).toContain("https://www.youtube.com/watch?v=abc123");
-		expect(html).toContain("https://www.youtube.com/watch?v=xyz789");
-		expect(html).toContain(">Fiesta</a>");
-	});
-
-	it("returns 404 when the album has no watchable videos", async () => {
+	it("returns 404 — wideo z biblioteki już nie istnieją po Video v2 (#194)", async () => {
 		mockGetAlbumById.mockResolvedValue({
-			...videosDetail,
+			id: "album-2",
+			creatorId: "u1",
+			title: "Chorwacja",
+			coverItemId: null,
+			createdAt: now,
 			items: [
-				{ id: "i9", albumId: "album-2", kind: "video", ref: "vx", createdAt: now, video: null },
+				{
+					id: "i1",
+					albumId: "album-2",
+					kind: "video",
+					ref: "v1",
+					createdAt: now,
+					video: null,
+				},
 			],
 		});
 

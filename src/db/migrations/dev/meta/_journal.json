@@ -225,6 +225,20 @@
       "when": 1788257389943,
       "tag": "0031_foamy_archangel",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1788788993950,
+      "tag": "0032_colorful_jetstream",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1788789044324,
+      "tag": "0033_heavy_nocturne",
+      "breakpoints": true
     }
   ]
 }

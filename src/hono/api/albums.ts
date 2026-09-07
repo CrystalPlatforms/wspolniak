@@ -278,9 +278,10 @@ albumsEndpoint.get("/:id/videos.html", async (c) => {
 		return c.json({ error: "Not found" }, 404);
 	}
 
-	const videos = detail.items.flatMap((item) =>
-		item.video ? [{ title: item.video.title, youtubeVideoId: item.video.youtubeVideoId }] : [],
-	);
+	// Video v2 (#194): biblioteka zniknęła, a wiersze album_items kind=video czyści
+	// migracja — metadane wideo nie mają źródła, więc lista jest zawsze pusta
+	// (endpoint zostaje dla starych klientów i zwraca 404 jak przy braku wideo).
+	const videos: { title: string; youtubeVideoId: string }[] = [];
 	if (videos.length === 0) {
 		return c.json({ error: "Ten album nie ma wideo do pobrania" }, 404);
 	}

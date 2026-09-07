@@ -24,7 +24,6 @@ vi.mock("@/core/youtube", () => ({
 	refreshAccessToken: vi.fn(),
 	startResumableUpload: vi.fn(),
 	forwardChunk: vi.fn(),
-	deleteVideo: vi.fn(),
 }));
 
 vi.mock("@/db/instance", () => ({
@@ -34,15 +33,9 @@ vi.mock("@/db/instance", () => ({
 	getYoutubeRefreshToken: vi.fn(),
 }));
 
-vi.mock("@/db/albums", () => ({
-	deleteAlbumItemsByRefs: vi.fn(),
-}));
-
-vi.mock("@/db/videos", () => ({
+vi.mock("@/db/video-uploads", () => ({
 	countTodayUTC: vi.fn(),
-	createVideo: vi.fn(),
-	deleteVideo: vi.fn(),
-	getVideoById: vi.fn(),
+	logUploadEvent: vi.fn(),
 	DAILY_VIDEO_LIMIT: 3,
 	MAX_VIDEO_BYTES: 2 * 1024 * 1024 * 1024,
 	startUploadSchema: {
@@ -57,8 +50,8 @@ vi.mock("@/db/videos", () => ({
 	confirmVideoSchema: {
 		safeParse: (b: unknown) => {
 			const obj = b as Record<string, unknown>;
-			if (typeof obj?.title !== "string" || obj.title.length === 0) {
-				return { success: false, error: { flatten: () => ({ formErrors: ["title"] }) } };
+			if (typeof obj?.youtubeVideoId !== "string" || obj.youtubeVideoId.length === 0) {
+				return { success: false, error: { flatten: () => ({ formErrors: ["youtubeVideoId"] }) } };
 			}
 			if (typeof obj?.thumbnailUrl !== "string" || !obj.thumbnailUrl.startsWith("http")) {
 				return { success: false, error: { flatten: () => ({ formErrors: ["thumbnailUrl"] }) } };
@@ -72,7 +65,6 @@ import {
 	buildAuthorizationUrl,
 	createState,
 	decryptRefreshToken,
-	deleteVideo as deleteYoutubeVideo,
 	encryptRefreshToken,
 	exchangeCodeForTokens,
 	fetchOwnChannel,
@@ -82,7 +74,6 @@ import {
 	startResumableUpload,
 	verifyState,
 } from "@/core/youtube";
-import { deleteAlbumItemsByRefs } from "@/db/albums";
 import { findActiveUserById } from "@/db/identity/queries";
 import { verifySessionCookie } from "@/db/identity/session";
 import {
@@ -91,7 +82,7 @@ import {
 	getYoutubeRefreshToken,
 	setYoutubeConnection,
 } from "@/db/instance";
-import { countTodayUTC, createVideo, deleteVideo, getVideoById } from "@/db/videos";
+import { countTodayUTC, logUploadEvent } from "@/db/video-uploads";
 import videoEndpoint from "./video";
 
 const mockVerify = vi.mocked(verifySessionCookie);
@@ -589,41 +580,23 @@ describe("PUT /api/video/upload-chunk", () => {
 	});
 });
 
-const mockCreateVideo = vi.mocked(createVideo);
+const mockLogUploadEvent = vi.mocked(logUploadEvent);
 
 function confirmBody(overrides: Record<string, unknown> = {}) {
 	return JSON.stringify({
 		youtubeVideoId: "yt-abc",
-		title: "Wakacje",
-		description: "Opis",
 		thumbnailUrl: "https://i.ytimg.com/h.jpg",
 		...overrides,
 	});
 }
 
-function uniqueViolation(): Error {
-	const cause = new Error("pg dup");
-	(cause as Error & { code?: string }).code = "23505";
-	const err = new Error("Failed query: insert into videos");
-	(err as Error & { cause?: unknown }).cause = cause;
-	return err;
-}
-
-describe("POST /api/video/confirm", () => {
+describe("POST /api/video/confirm — passthrough (Video v2 #194)", () => {
 	beforeEach(() => {
 		memberSession();
-		mockCreateVideo.mockResolvedValue({
-			id: "v-1",
-			youtubeVideoId: "yt-abc",
-			title: "Wakacje",
-			description: "Opis",
-			authorId: "u2",
-			thumbnailUrl: "https://i.ytimg.com/h.jpg",
-			createdAt: new Date(),
-		});
+		mockLogUploadEvent.mockResolvedValue(undefined);
 	});
 
-	it("writes the record with authorId from the session and returns 201 + thumbnail", async () => {
+	it("persists nothing and returns id + thumbnail for the client to embed", async () => {
 		const api = createApi();
 		const res = await api.request(
 			"/api/video/confirm",
@@ -631,18 +604,14 @@ describe("POST /api/video/confirm", () => {
 			ENV,
 		);
 
-		expect(res.status).toBe(201);
-		// authorId pochodzi z sesji (memberSession → u2), NIE z ciała żądania
-		expect(mockCreateVideo).toHaveBeenCalledWith({
-			youtubeVideoId: "yt-abc",
-			title: "Wakacje",
-			description: "Opis",
-			authorId: "u2",
-			thumbnailUrl: "https://i.ytimg.com/h.jpg",
-		});
-		const body = (await res.json()) as { data: { id: string; thumbnailUrl: string } };
-		expect(body.data.id).toBe("v-1");
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as {
+			data: { youtubeVideoId: string; thumbnailUrl: string };
+		};
+		expect(body.data.youtubeVideoId).toBe("yt-abc");
 		expect(body.data.thumbnailUrl).toBe("https://i.ytimg.com/h.jpg");
+		// JEDYNY efekt uboczny: wpis do dziennego logu uploadów (limit 3/dzień).
+		expect(mockLogUploadEvent).toHaveBeenCalledExactlyOnceWith("u2");
 	});
 
 	it("returns 401 without a session", async () => {
@@ -655,7 +624,7 @@ describe("POST /api/video/confirm", () => {
 		);
 
 		expect(res.status).toBe(401);
-		expect(mockCreateVideo).not.toHaveBeenCalled();
+		expect(mockLogUploadEvent).not.toHaveBeenCalled();
 	});
 
 	it("returns 400 when the thumbnailUrl is invalid", async () => {
@@ -667,188 +636,18 @@ describe("POST /api/video/confirm", () => {
 		);
 
 		expect(res.status).toBe(400);
-		expect(mockCreateVideo).not.toHaveBeenCalled();
+		expect(mockLogUploadEvent).not.toHaveBeenCalled();
 	});
 
-	it("returns 409 when the video was already saved (unique violation)", async () => {
-		mockCreateVideo.mockRejectedValue(uniqueViolation());
+	it("returns 400 when youtubeVideoId is missing", async () => {
 		const api = createApi();
 		const res = await api.request(
 			"/api/video/confirm",
-			{ method: "POST", headers: jsonHeaders(), body: confirmBody() },
+			{ method: "POST", headers: jsonHeaders(), body: confirmBody({ youtubeVideoId: "" }) },
 			ENV,
 		);
 
-		expect(res.status).toBe(409);
-	});
-});
-
-const mockDeleteYoutube = vi.mocked(deleteYoutubeVideo);
-const mockDeleteRecord = vi.mocked(deleteVideo);
-const mockDeleteAlbumItemsByRefs = vi.mocked(deleteAlbumItemsByRefs);
-const mockGetVideo = vi.mocked(getVideoById);
-
-/** Rekord wideo z autorem — kształt `VideoFeedItem` zwracany przez getVideoById. */
-function videoRow(
-	overrides: Partial<{ id: string; youtubeVideoId: string; authorId: string }> = {},
-) {
-	return {
-		id: "v-1",
-		youtubeVideoId: "yt-1",
-		title: "Wakacje",
-		description: null,
-		authorId: "u2",
-		thumbnailUrl: "https://i.ytimg.com/vi/yt-1/hqdefault.jpg",
-		createdAt: new Date(),
-		author: { id: "u2", name: "Kasia" },
-		...overrides,
-	};
-}
-
-describe("DELETE /api/video/:id", () => {
-	beforeEach(() => {
-		connectedYoutube();
-		mockDeleteYoutube.mockResolvedValue(undefined);
-		mockDeleteRecord.mockResolvedValue(videoRow() as never);
-	});
-
-	it("lets the author delete their own video (YouTube + Neon) and returns 200", async () => {
-		memberSession(); // u2
-		mockGetVideo.mockResolvedValue(videoRow({ authorId: "u2" }));
-
-		const api = createApi();
-		const res = await api.request(
-			"/api/video/v-1",
-			{ method: "DELETE", headers: adminHeaders() },
-			ENV,
-		);
-
-		expect(res.status).toBe(200);
-		expect(mockDeleteYoutube).toHaveBeenCalledWith("yt-1", "ya29", expect.any(Object));
-		expect(mockDeleteRecord).toHaveBeenCalledWith("v-1");
-		const body = (await res.json()) as { data: { id: string } };
-		expect(body.data.id).toBe("v-1");
-	});
-
-	it("lets an admin delete any video", async () => {
-		adminSession(); // u1 admin
-		mockGetVideo.mockResolvedValue(videoRow({ authorId: "u2" })); // cudze wideo
-
-		const api = createApi();
-		const res = await api.request(
-			"/api/video/v-1",
-			{ method: "DELETE", headers: adminHeaders() },
-			ENV,
-		);
-
-		expect(res.status).toBe(200);
-		expect(mockDeleteYoutube).toHaveBeenCalledWith("yt-1", expect.any(String), expect.any(Object));
-		expect(mockDeleteRecord).toHaveBeenCalledWith("v-1");
-	});
-
-	it("returns 403 for a non-author non-admin and touches neither YouTube nor Neon", async () => {
-		memberSession(); // u2
-		mockGetVideo.mockResolvedValue(videoRow({ authorId: "u1" })); // cudze wideo
-
-		const api = createApi();
-		const res = await api.request(
-			"/api/video/v-1",
-			{ method: "DELETE", headers: adminHeaders() },
-			ENV,
-		);
-
-		expect(res.status).toBe(403);
-		expect(mockDeleteYoutube).not.toHaveBeenCalled();
-		expect(mockDeleteRecord).not.toHaveBeenCalled();
-	});
-
-	it("returns 404 when the video does not exist", async () => {
-		memberSession();
-		mockGetVideo.mockResolvedValue(null);
-
-		const api = createApi();
-		const res = await api.request(
-			"/api/video/missing",
-			{ method: "DELETE", headers: adminHeaders() },
-			ENV,
-		);
-
-		expect(res.status).toBe(404);
-		expect(mockDeleteYoutube).not.toHaveBeenCalled();
-		expect(mockDeleteRecord).not.toHaveBeenCalled();
-	});
-
-	it("returns 503 when YouTube is not connected and does not delete the Neon record", async () => {
-		memberSession();
-		mockGetVideo.mockResolvedValue(videoRow({ authorId: "u2" }));
-		mockGetToken.mockResolvedValue(null); // brak refresh tokenu → 503
-
-		const api = createApi();
-		const res = await api.request(
-			"/api/video/v-1",
-			{ method: "DELETE", headers: adminHeaders() },
-			ENV,
-		);
-
-		expect(res.status).toBe(503);
-		expect(mockDeleteYoutube).not.toHaveBeenCalled();
-		expect(mockDeleteRecord).not.toHaveBeenCalled();
-	});
-
-	it("is atomic: a YouTube delete failure leaves the Neon record untouched", async () => {
-		memberSession();
-		mockGetVideo.mockResolvedValue(videoRow({ authorId: "u2" }));
-		mockDeleteYoutube.mockRejectedValue(
-			new AppError("YouTube: błąd podczas usuwania wideo", "UNAUTHORIZED", 403),
-		);
-
-		const api = createApi();
-		const res = await api.request(
-			"/api/video/v-1",
-			{ method: "DELETE", headers: adminHeaders() },
-			ENV,
-		);
-
-		expect(res.status).toBe(403);
-		expect(mockDeleteRecord).not.toHaveBeenCalled();
-	});
-
-	it("returns 401 without a session", async () => {
-		mockVerify.mockResolvedValue(null);
-
-		const api = createApi();
-		const res = await api.request(
-			"/api/video/v-1",
-			{ method: "DELETE", headers: { Cookie: "session=x" } },
-			ENV,
-		);
-
-		expect(res.status).toBe(401);
-	});
-});
-
-// Kaskada F5 (#174): usunięcie wideo wyciąga je (kind = "video", ref = id
-// wiersza) ze wszystkich albumów w tej samej operacji co usunięcie rekordu.
-describe("DELETE /api/video/:id — kaskada albumów (#174)", () => {
-	beforeEach(() => {
-		connectedYoutube();
-		mockDeleteYoutube.mockResolvedValue(undefined);
-		mockDeleteRecord.mockResolvedValue(videoRow() as never);
-	});
-
-	it("removes the video from all albums when the video is deleted", async () => {
-		memberSession(); // u2 — autor
-		mockGetVideo.mockResolvedValue(videoRow({ id: "v-1", authorId: "u2" }));
-
-		const api = createApi();
-		const res = await api.request(
-			"/api/video/v-1",
-			{ method: "DELETE", headers: adminHeaders() },
-			ENV,
-		);
-
-		expect(res.status).toBe(200);
-		expect(mockDeleteRecord).toHaveBeenCalledWith("v-1");
-		expect(mockDeleteAlbumItemsByRefs).toHaveBeenCalledWith({ kind: "video", refs: ["v-1"] });
+		expect(res.status).toBe(400);
+		expect(mockLogUploadEvent).not.toHaveBeenCalled();
 	});
 });

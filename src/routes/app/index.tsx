@@ -8,6 +8,7 @@ import { type FeedPage, feedQueryKey } from "@/components/app/feed-query";
 import { filterPosts } from "@/components/app/feed-search";
 import { FeedSearchBar } from "@/components/app/feed-search-bar";
 import { PullToRefresh } from "@/components/app/pull-to-refresh";
+import { useVideoPublishedToast } from "@/components/app/use-video-published-toast";
 import { Button } from "@/components/ui/button";
 import { useAiAccess } from "@/core/ai/use-ai-access";
 import { getFeedPage } from "@/core/functions/feed";
@@ -33,11 +34,17 @@ export const Route = createFileRoute("/app/")({
 	loader: async ({ context }) => {
 		await context.queryClient.ensureInfiniteQueryData(feedOptions);
 	},
+	// ?videoPublished=1 — powrót po publikacji posta z wideo (Video v2 #194);
+	// feed pokazuje jednokrotnie toast o przetwarzaniu HD i czyści flagę.
+	validateSearch: (search: Record<string, unknown>): { videoPublished?: boolean } => ({
+		videoPublished: search.videoPublished === true || search.videoPublished === "1",
+	}),
 	component: FeedScreen,
 });
 
 function FeedScreen() {
 	const { session, featureFlags } = Route.useRouteContext();
+	const { videoPublished } = Route.useSearch();
 	const { data, hasNextPage, isFetchingNextPage, fetchNextPage, refetch, isPending } =
 		useInfiniteQuery(feedOptions);
 	// Chat AL (F6 #184): wejście z nagłówka feeda przy skutecznym dostępie.
@@ -48,6 +55,9 @@ function FeedScreen() {
 
 	const allPosts = data?.pages.flatMap((page) => page.data) ?? [];
 	const imageAccountHash = data?.pages[0]?.meta.imageAccountHash ?? "";
+
+	// Toast o przetwarzaniu HD (#194): dokładnie RAZ na flagę (hook czyści search param).
+	useVideoPublishedToast(videoPublished);
 
 	return (
 		<PullToRefresh

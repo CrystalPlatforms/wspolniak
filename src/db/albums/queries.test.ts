@@ -354,42 +354,23 @@ describe("listAlbums — liczniki per kind (#172)", () => {
 	});
 });
 
-describe("getAlbumById — wideo (#172)", () => {
+describe("getAlbumById — Video v2 (#194)", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 	});
 
-	it("enriches video items with title and thumbnail; photos get video: null", async () => {
-		const items = [
-			itemRow("cf-1", 0),
-			{ ...itemRow("yt-1", 1), kind: "video" },
-			{ ...itemRow("yt-gone", 2), kind: "video" },
-		];
-		const videoRows = [
-			{
-				id: "yt-1",
-				youtubeVideoId: "abc123",
-				title: "Fiesta",
-				description: null,
-				authorId: "u1",
-				thumbnailUrl: "https://img.example/yt-1",
-				createdAt: BASE,
-			},
-		];
-		makeSelectDb([albumRow()], items, videoRows);
+	it("returns video: null for every item — the library source is gone (#194)", async () => {
+		const items = [itemRow("cf-1", 0), { ...itemRow("yt-1", 1), kind: "video" }];
+		makeSelectDb([albumRow()], items);
 		const { getAlbumById } = await import("./queries");
 
 		const detail = await getAlbumById("album-1");
 
-		expect(detail?.items[0]?.video).toBeNull();
-		expect(detail?.items[1]?.video).toEqual({
-			id: "yt-1",
-			title: "Fiesta",
-			thumbnailUrl: "https://img.example/yt-1",
-			youtubeVideoId: "abc123",
-		});
-		// Wideo usunięte z biblioteki (brak rekordu) — video: null, render pomija.
-		expect(detail?.items[2]?.video).toBeNull();
+		// Video v2: biblioteka zniknęła — wiersze kind=video czyści migracja,
+		// a enrich nie ma źródła. Wszystkie elementy mają video: null (render pomija).
+		for (const item of detail?.items ?? []) {
+			expect(item.video).toBeNull();
+		}
 	});
 });
 

@@ -47,7 +47,6 @@ function makeMaintenance(overrides: Partial<MaintenanceConfig> = {}): Maintenanc
 
 function makeFlags(overrides: Partial<FeatureFlags> = {}): FeatureFlags {
 	return {
-		video: true,
 		markdown: true,
 		library: true,
 		chat: true,
@@ -88,7 +87,7 @@ describe("app bootstrap", () => {
 
 			expect(context.session.userId).toBe("user-1");
 			expect(context.maintenance.enabled).toBe(false);
-			expect(context.featureFlags.video).toBe(true);
+			expect(context.featureFlags.chat).toBe(true);
 			expect(mockedGetSession).toHaveBeenCalledTimes(1);
 			expect(mockedGetMaintenance).toHaveBeenCalledTimes(1);
 			expect(mockedGetFlags).toHaveBeenCalledTimes(1);
@@ -113,7 +112,7 @@ describe("app bootstrap", () => {
 			primeCache(queryClient, {
 				session: makeSession({ name: "Staszek" }),
 				maintenance: makeMaintenance({ message: "stara" }),
-				featureFlags: makeFlags({ video: false }),
+				featureFlags: makeFlags({ chat: false }),
 			});
 			// Sieć "wisi" — jeśli loadAppBootstrap by na niej czekał, test by timeoutował.
 			mockedGetSession.mockReturnValue(new Promise(() => {}));
@@ -124,7 +123,7 @@ describe("app bootstrap", () => {
 
 			expect(context.session.name).toBe("Staszek");
 			expect(context.maintenance.message).toBe("stara");
-			expect(context.featureFlags.video).toBe(false);
+			expect(context.featureFlags.chat).toBe(false);
 		});
 
 		it("świeży przeterminowane dane w tle — cache dostaje nowe wartości po resolve", async () => {
@@ -132,22 +131,22 @@ describe("app bootstrap", () => {
 			primeCache(queryClient, {
 				session: makeSession({ name: "Staszek" }),
 				maintenance: makeMaintenance(),
-				featureFlags: makeFlags({ video: false }),
+				featureFlags: makeFlags({ chat: false }),
 			});
 			mockedGetSession.mockResolvedValue(makeSession({ name: "Nowa Ania" }));
 			mockedGetMaintenance.mockResolvedValue(makeMaintenance());
-			mockedGetFlags.mockResolvedValue(makeFlags({ video: true }));
+			mockedGetFlags.mockResolvedValue(makeFlags({ chat: true }));
 
 			const context = await loadAppBootstrap({ queryClient });
 			// Natychmiast: stare wartości (bez flasha pendingu).
 			expect(context.session.name).toBe("Staszek");
-			expect(context.featureFlags.video).toBe(false);
+			expect(context.featureFlags.chat).toBe(false);
 
 			// W tle revalidation podmienia dane w cache.
 			await waitFor(() =>
 				expect(queryClient.getQueryData(appBootstrapKey)).toMatchObject({
 					session: { name: "Nowa Ania" },
-					featureFlags: { video: true },
+					featureFlags: { chat: true },
 				}),
 			);
 		});
@@ -180,11 +179,11 @@ describe("app bootstrap", () => {
 			primeCache(queryClient, {
 				session: makeSession({ name: "Staszek" }),
 				maintenance: makeMaintenance(),
-				featureFlags: makeFlags({ video: false }),
+				featureFlags: makeFlags({ chat: false }),
 			});
 			mockedGetSession.mockResolvedValue(makeSession({ name: "Nowa Ania" }));
 			mockedGetMaintenance.mockResolvedValue(makeMaintenance());
-			mockedGetFlags.mockResolvedValue(makeFlags({ video: true }));
+			mockedGetFlags.mockResolvedValue(makeFlags({ chat: true }));
 
 			const { result } = renderHook(() => useAppBootstrap(), {
 				wrapper: createWrapper(queryClient),
@@ -193,12 +192,12 @@ describe("app bootstrap", () => {
 			// Natychmiast stare wartości — isPending nie rośnie (brak flasha).
 			expect(result.current.isPending).toBe(false);
 			expect(result.current.session?.name).toBe("Staszek");
-			expect(result.current.featureFlags?.video).toBe(false);
+			expect(result.current.featureFlags?.chat).toBe(false);
 
 			// Background refetch podmienia dane na żywo.
 			await waitFor(() => expect(result.current.session?.name).toBe("Nowa Ania"));
 			expect(result.current.isPending).toBe(false);
-			expect(result.current.featureFlags?.video).toBe(true);
+			expect(result.current.featureFlags?.chat).toBe(true);
 		});
 	});
 });

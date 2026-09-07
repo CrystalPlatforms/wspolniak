@@ -2,43 +2,38 @@
 import { countCommentsByPosts } from "@/db/comments";
 import { listPinnedPostIds } from "@/db/pinned-posts";
 import { listPaginatedPosts, listPostsByIds, type PostWithAuthorAndImages } from "@/db/posts";
-import { listVideosByPostIds, type PostVideo } from "@/db/videos";
 
 export interface FeedCursor {
 	createdAt: string;
 	id: string;
 }
 
+/** Post z doklejonym licznikiem komentarzy — `videos` płyną z wiersza posta (#194). */
 export type FeedPostData = PostWithAuthorAndImages & {
 	commentCount: number;
 	pinned?: boolean;
-	videos: PostVideo[];
 };
 
-/** Post z doklejonymi metadanymi (licznik komentarzy + wideo) — kształt wspólny dla feedu i Biblioteki. */
+/** Post z doklejonymi metadanymi (licznik komentarzy) — kształt wspólny dla feedu i Biblioteki. */
 export type EnrichedPost = PostWithAuthorAndImages & {
 	commentCount: number;
-	videos: PostVideo[];
 };
 
 /**
- * Dokleja do postów liczniki komentarzy i wideo w jednym batchu (no waterfall).
+ * Dokleja do postów liczniki komentarzy w jednym batchu (no waterfall).
  * Współdzielone między feedem (`assembleFeedPage`) a Biblioteką, żeby PostCard
- * renderował się identycznie w obu miejscach (#127).
+ * renderował się identycznie w obu miejscach (#127). Wideo nie wymaga doklejania —
+ * żyją w wierszu posta od Video v2 (#194).
  */
 export async function enrichPosts(
 	posts: (PostWithAuthorAndImages & { pinned?: boolean })[],
 ): Promise<EnrichedPost[]> {
 	if (posts.length === 0) return [];
 	const postIds = posts.map((p) => p.id);
-	const [commentCounts, videosByPost] = await Promise.all([
-		countCommentsByPosts(postIds),
-		listVideosByPostIds(postIds),
-	]);
+	const commentCounts = await countCommentsByPosts(postIds);
 	return posts.map((p) => ({
 		...p,
 		commentCount: commentCounts.get(p.id) ?? 0,
-		videos: videosByPost.get(p.id) ?? [],
 	}));
 }
 
@@ -87,15 +82,4 @@ export async function assembleFeedPage(input: {
 		data: postsWithComments,
 		meta: { nextCursor: result.nextCursor, imageAccountHash },
 	};
-}
-
-/**
- * Dokleja uporządkowaną listę wideo do pojedynczego posta (strona szczegółów).
- * Mirror batcha z `assembleFeedPage`, ale dla jednego posta.
- */
-export async function withPostVideos(
-	post: PostWithAuthorAndImages,
-): Promise<PostWithAuthorAndImages & { videos: PostVideo[] }> {
-	const map = await listVideosByPostIds([post.id]);
-	return { ...post, videos: map.get(post.id) ?? [] };
 }

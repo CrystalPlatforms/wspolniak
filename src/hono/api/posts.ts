@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { canDeletePost, canEditPost } from "@/core/authorization";
-import { assembleFeedPage, withPostVideos } from "@/core/feed";
+import { assembleFeedPage } from "@/core/feed";
 import { notifyMentions, notifyNewPost } from "@/core/notify";
 import { buildPushDeps } from "@/core/push-deps";
 import { deleteAlbumItemsByRefs } from "@/db/albums";
@@ -14,10 +14,9 @@ import {
 	getPostById,
 	reorderPostImages,
 	softDeletePost,
-	updatePostDescription,
+	updatePost,
 } from "@/db/posts/queries";
 import { createPostSchema, updatePostSchema } from "@/db/posts/schema";
-import { setPostVideos } from "@/db/videos";
 import { createHono } from "@/hono/factory";
 import { authMiddleware } from "@/hono/middleware/auth";
 
@@ -45,9 +44,8 @@ postsEndpoint.post("/", async (c) => {
 		authorId: user.userId,
 		description: result.data.description,
 		cfImageIds: result.data.cfImageIds ?? [],
+		videos: result.data.videos ?? [],
 	});
-
-	await setPostVideos(post.post.id, result.data.videoIds ?? []);
 
 	const mentionUserIds = result.data.mentions.map((m) => m.userId);
 	if (mentionUserIds.length > 0) {
@@ -91,9 +89,8 @@ postsEndpoint.get("/:id", async (c) => {
 	if (!post) {
 		return c.json({ error: "Not found" }, 404);
 	}
-	const postWithVideos = await withPostVideos(post);
 	return c.json({
-		data: postWithVideos,
+		data: post,
 		meta: { imageAccountHash: c.env.CLOUDFLARE_IMAGES_ACCOUNT_HASH },
 	});
 });
@@ -116,7 +113,7 @@ postsEndpoint.patch("/:id", async (c) => {
 		return c.json({ error: "Forbidden" }, 403);
 	}
 
-	const { cfImageIds, imageOrder, videoIds } = result.data;
+	const { cfImageIds, imageOrder, videos } = result.data;
 
 	if (imageOrder) {
 		const knownIds = new Set(post.images.map((img) => img.id));
@@ -131,11 +128,10 @@ postsEndpoint.patch("/:id", async (c) => {
 		await addPostImages(post.id, cfImageIds, post.images.length);
 	}
 
-	if (videoIds) {
-		await setPostVideos(post.id, videoIds);
-	}
-
-	const updated = await updatePostDescription(post.id, result.data.description);
+	const updated = await updatePost(post.id, {
+		description: result.data.description,
+		videos,
+	});
 
 	const mentionUserIds = result.data.mentions.map((m) => m.userId);
 	if (mentionUserIds.length > 0) {
@@ -208,9 +204,8 @@ publicPostsEndpoint.get("/:id", async (c) => {
 	if (!post) {
 		return c.json({ error: "Not found" }, 404);
 	}
-	const postWithVideos = await withPostVideos(post);
 	return c.json({
-		data: postWithVideos,
+		data: post,
 		meta: { imageAccountHash: c.env.CLOUDFLARE_IMAGES_ACCOUNT_HASH },
 	});
 });

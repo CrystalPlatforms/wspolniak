@@ -200,7 +200,6 @@ function AdminPage() {
 			if (!res.ok) throw new Error("Nie udało się pobrać ustawień funkcji");
 			const json = (await res.json()) as {
 				data: {
-					video: boolean;
 					markdown: boolean;
 					library: boolean;
 					chat: boolean;
@@ -214,7 +213,6 @@ function AdminPage() {
 
 	const featuresMutation = useMutation({
 		mutationFn: async (input: {
-			video?: boolean;
 			markdown?: boolean;
 			library?: boolean;
 			chat?: boolean;

@@ -154,7 +154,6 @@ describe("feature flags", () => {
 
 	it("returns both features enabled when columns are true", async () => {
 		mockSelectRow({
-			videoEnabled: true,
 			markdownEnabled: true,
 			libraryEnabled: true,
 			chatEnabled: true,
@@ -165,7 +164,6 @@ describe("feature flags", () => {
 		const flags = await getFeatureFlags();
 
 		expect(flags).toEqual({
-			video: true,
 			markdown: true,
 			library: true,
 			chat: true,
@@ -176,7 +174,6 @@ describe("feature flags", () => {
 
 	it("returns a disabled flag when its column is false", async () => {
 		mockSelectRow({
-			videoEnabled: false,
 			markdownEnabled: true,
 			libraryEnabled: true,
 			chatEnabled: true,
@@ -187,7 +184,6 @@ describe("feature flags", () => {
 		const flags = await getFeatureFlags();
 
 		expect(flags).toEqual({
-			video: false,
 			markdown: true,
 			library: true,
 			chat: true,
@@ -199,7 +195,6 @@ describe("feature flags", () => {
 	// F8 #159: flaga czatu — domyślnie true, kolumna chat_enabled.
 	it("returns a disabled chat flag when its column is false", async () => {
 		mockSelectRow({
-			videoEnabled: true,
 			markdownEnabled: true,
 			libraryEnabled: true,
 			chatEnabled: false,
@@ -213,7 +208,6 @@ describe("feature flags", () => {
 
 	it("defaults to enabled when columns are null (no opinion stored yet)", async () => {
 		mockSelectRow({
-			videoEnabled: null,
 			markdownEnabled: null,
 			libraryEnabled: null,
 			chatEnabled: null,
@@ -223,7 +217,6 @@ describe("feature flags", () => {
 		const flags = await getFeatureFlags();
 
 		expect(flags).toEqual({
-			video: true,
 			markdown: true,
 			library: true,
 			chat: true,
@@ -235,7 +228,6 @@ describe("feature flags", () => {
 	// F1 #179: AL — jedyny flag domyślnie WYŁĄCZONY (AI nie działa bez zgody admina).
 	it("defaults the ai flag to disabled when its column is null", async () => {
 		mockSelectRow({
-			videoEnabled: true,
 			markdownEnabled: true,
 			libraryEnabled: true,
 			chatEnabled: true,
@@ -250,7 +242,6 @@ describe("feature flags", () => {
 
 	it("serves cached flags on second call without hitting DB again", async () => {
 		const { select } = mockSelectRow({
-			videoEnabled: true,
 			markdownEnabled: true,
 			libraryEnabled: true,
 		});
@@ -263,7 +254,6 @@ describe("feature flags", () => {
 
 	it("re-reads DB after the cache is invalidated", async () => {
 		const { select } = mockSelectRow({
-			videoEnabled: false,
 			markdownEnabled: true,
 			libraryEnabled: true,
 		});
@@ -294,7 +284,6 @@ describe("updateFeatureFlags", () => {
 		const { set } = mockUpdateById("inst-1");
 
 		await updateFeatureFlags({
-			video: false,
 			markdown: false,
 			library: false,
 			chat: false,
@@ -302,7 +291,6 @@ describe("updateFeatureFlags", () => {
 		});
 
 		expect(set).toHaveBeenCalledWith({
-			videoEnabled: false,
 			markdownEnabled: false,
 			libraryEnabled: false,
 			chatEnabled: false,
@@ -313,9 +301,9 @@ describe("updateFeatureFlags", () => {
 	it("persists only provided fields and ignores undefined", async () => {
 		const { set } = mockUpdateById("inst-1");
 
-		await updateFeatureFlags({ video: false });
+		await updateFeatureFlags({ markdown: false });
 
-		expect(set).toHaveBeenCalledWith({ videoEnabled: false });
+		expect(set).toHaveBeenCalledWith({ markdownEnabled: false });
 	});
 
 	it("throws when no instance_config row exists", async () => {
@@ -324,13 +312,14 @@ describe("updateFeatureFlags", () => {
 		const select = vi.fn().mockReturnValue({ from });
 		mockGetDb.mockReturnValue({ select, update: vi.fn() } as never);
 
-		await expect(updateFeatureFlags({ video: false })).rejects.toThrow(/no instance_config row/i);
+		await expect(updateFeatureFlags({ markdown: false })).rejects.toThrow(
+			/no instance_config row/i,
+		);
 	});
 
 	it("invalidates the cache so the next read sees fresh values", async () => {
 		let dbRow: Record<string, unknown> = {
 			id: "inst-1",
-			videoEnabled: true,
 			markdownEnabled: true,
 			libraryEnabled: true,
 		};
@@ -343,13 +332,13 @@ describe("updateFeatureFlags", () => {
 		mockGetDb.mockReturnValue({ select, update } as never);
 
 		const first = await getFeatureFlags();
-		expect(first.video).toBe(true);
+		expect(first.markdown).toBe(true);
 
-		dbRow = { id: "inst-1", videoEnabled: false, markdownEnabled: true, libraryEnabled: true }; // persisted change
-		await updateFeatureFlags({ video: false }); // invalidates cache
+		dbRow = { id: "inst-1", markdownEnabled: false, libraryEnabled: true }; // persisted change
+		await updateFeatureFlags({ markdown: false }); // invalidates cache
 
 		const second = await getFeatureFlags();
-		expect(second.video).toBe(false);
+		expect(second.markdown).toBe(false);
 	});
 });
 
@@ -661,7 +650,6 @@ describe("feature flags — albums (#176)", () => {
 
 	it("albums defaults to enabled when the column is null (no opinion stored yet)", async () => {
 		mockSelectRow({
-			videoEnabled: null,
 			markdownEnabled: null,
 			libraryEnabled: null,
 			chatEnabled: null,
@@ -674,7 +662,6 @@ describe("feature flags — albums (#176)", () => {
 
 	it("albums is disabled when its column is false", async () => {
 		mockSelectRow({
-			videoEnabled: true,
 			markdownEnabled: true,
 			libraryEnabled: true,
 			chatEnabled: true,

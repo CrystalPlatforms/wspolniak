@@ -3,7 +3,6 @@ import type { InferSelectModel } from "drizzle-orm";
 import { and, asc, count, desc, eq, inArray } from "drizzle-orm";
 import { AppError } from "@/core/errors";
 import { getDb } from "@/db/setup";
-import { listVideosByIds } from "@/db/videos";
 import type { AlbumItemKind } from "./schema";
 import { MAX_ALBUM_ITEMS } from "./schema";
 import { albumItems, albums } from "./table";
@@ -189,21 +188,18 @@ export async function listAlbums(): Promise<AlbumTile[]> {
 	}));
 }
 
-/** Element albumu wzbogacony o metadane wideo (dla kind = "video", #172). */
+/** Element albumu (dawniej enrich wideo #172; Video v2 #194 — patrz niżej). */
 export interface AlbumItemWithVideo extends AlbumItem {
-	/** null dla zdjęć oraz wideo już nieobecnych w bibliotece (render pomija). */
-	video: {
-		id: string;
-		title: string;
-		thumbnailUrl: string;
-		/** #175 — plik wideo linków buduje z niego URL youtube.com/watch?v=… */
-		youtubeVideoId: string;
-	} | null;
+	/**
+	 * Video v2 (#194): biblioteka wideo zniknęła, a wiersze `album_items` ze
+	 * `kind = "video"` czyści migracja — enrich nie ma źródła. Pole zostaje
+	 * w kształcie DTO (zawsze `null`) dla zgodności UI i endpointu videos.html.
+	 */
+	video: null;
 }
 
 /**
- * Szczegóły albumu + elementy w kolejności dodawania (created_at ASC),
- * elementy wideo wzbogacone o tytuł i miniaturkę (#172).
+ * Szczegóły albumu + elementy w kolejności dodawania (created_at ASC).
  * Zwraca null, gdy album nie istnieje (API mapuje na 404).
  */
 export async function getAlbumById(
@@ -221,28 +217,11 @@ export async function getAlbumById(
 		.where(eq(albumItems.albumId, id))
 		.orderBy(asc(albumItems.createdAt));
 
-	// Batch metadanych wideo (#172) — jeden inArray, bez zapytania per element.
-	const videoRefs = items.filter((item) => item.kind === "video").map((item) => item.ref);
-	const videoRows = await listVideosByIds(videoRefs);
-
 	return {
 		...album,
 		items: items.map((item) => ({
 			...item,
-			video:
-				item.kind === "video"
-					? (() => {
-							const row = videoRows.get(item.ref);
-							return row
-								? {
-										id: row.id,
-										title: row.title,
-										thumbnailUrl: row.thumbnailUrl,
-										youtubeVideoId: row.youtubeVideoId,
-									}
-								: null;
-						})()
-					: null,
+			video: null,
 		})),
 	};
 }

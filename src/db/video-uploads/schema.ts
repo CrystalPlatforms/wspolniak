@@ -4,6 +4,9 @@ import { z } from "zod";
 /** Maks. rozmiar pliku wideo — 2 GiB (AC: plik 2 GB kończy upload). */
 export const MAX_VIDEO_BYTES = 2 * 1024 * 1024 * 1024;
 
+/** Limit wgranych wideo na instancję dzień (okno UTC, reset o północy). */
+export const DAILY_VIDEO_LIMIT = 3;
+
 /**
  * Wejście `POST /api/video/upload-session`.
  * `size`/`mime` trafiają do nagłówków `X-Upload-Content-*` sesji resumable.
@@ -23,19 +26,13 @@ export const startUploadSchema = z.object({
 export type StartUploadRequest = z.infer<typeof startUploadSchema>;
 
 /**
- * Wejście `POST /api/video/confirm` — zapis rekordu wideo po uploadzie.
- * `youtubeVideoId` i `thumbnailUrl` pochodzą z odpowiedzi ostatniego chunka;
- * `title`/`description` są oryginalnym wejściem użytkownika (klient odsyła).
- * `authorId` doklejane jest w handlerze z sesji (NIE z ciała).
+ * Wejście `POST /api/video/confirm` — passthrough (Video v2 #194): endpoint NIC
+ * nie zapisuje, tylko oddaje klientowi dane ostatniego chunka, które ten osadza
+ * w payloadzie posta. `title` mieszka po stronie kompozytora — nie przechodzi
+ * przez confirm.
  */
 export const confirmVideoSchema = z.object({
 	youtubeVideoId: z.string().min(1),
-	title: z.string().min(1, "Tytuł jest wymagany").max(100),
-	description: z
-		.string()
-		.max(5000)
-		.nullish()
-		.transform((v) => v ?? null),
 	thumbnailUrl: z.string().url(),
 });
 

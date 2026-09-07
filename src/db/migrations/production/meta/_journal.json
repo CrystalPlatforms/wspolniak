@@ -106,6 +106,20 @@
       "when": 1788257404045,
       "tag": "0014_wooden_mariko_yashida",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1788789104227,
+      "tag": "0015_greedy_stick",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1788789155549,
+      "tag": "0016_reflective_proteus",
+      "breakpoints": true
     }
   ]
 }

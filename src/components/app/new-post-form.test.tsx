@@ -2,11 +2,6 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
-// Picker wideo ma własne zależności (server fn + QueryClient) — izolujemy test formularza.
-vi.mock("@/components/app/post-video-picker", () => ({
-	PostVideoPicker: () => <div data-testid="post-video-picker" />,
-}));
-
 import { NewPostForm } from "./new-post-form";
 
 function makeFile(name: string) {
@@ -46,29 +41,17 @@ describe("NewPostForm", () => {
 		expect(screen.queryByRole("button", { name: /pogrubienie/i })).toBeNull();
 	});
 
-	it("renders the video picker when the video feature is enabled", () => {
+	it("renders the composer video picker button (F2 #194)", () => {
 		render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
 
-		expect(screen.queryByTestId("post-video-picker")).not.toBeNull();
+		expect(screen.queryByRole("button", { name: /dodaj wideo/i })).not.toBeNull();
 	});
 
-	it("hides the video picker when the video feature is disabled", () => {
-		render(
-			<NewPostForm
-				onSubmit={vi.fn()}
-				isSubmitting={false}
-				featureFlags={{
-					video: false,
-					markdown: true,
-					library: true,
-					chat: true,
-					albums: true,
-					ai: false,
-				}}
-			/>,
-		);
+	it("renders the admin-panel message instead of the picker when YouTube is not connected", () => {
+		render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} videoNotConnected />);
 
-		expect(screen.queryByTestId("post-video-picker")).toBeNull();
+		expect(screen.queryByRole("button", { name: /dodaj wideo/i })).toBeNull();
+		expect(screen.getByText(/podłącz youtube w panelu admina/i)).toBeDefined();
 	});
 
 	it("hides the formatting switch when the markdown feature is disabled", () => {
@@ -77,7 +60,6 @@ describe("NewPostForm", () => {
 				onSubmit={vi.fn()}
 				isSubmitting={false}
 				featureFlags={{
-					video: true,
 					markdown: false,
 					library: true,
 					chat: true,

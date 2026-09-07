@@ -1,23 +1,25 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { Link } from "@tanstack/react-router";
 import { Play } from "lucide-react";
 
 interface VideoThumbProps {
-	/** Id rekordu wideo (DB) — cel trasy `/app/video/$id`. */
-	id: string;
+	/** Id wideo na YouTube — miniatura otwiera `youtube.com/watch` w nowej karcie. */
+	youtubeVideoId: string;
 	title: string;
 	thumbnailUrl: string;
 }
 
 /**
  * Miniaturka wideo z czarnym zaokrąglonym kwadratem i zieloną (primary) ikoną play.
- * Klik nawiguje do detalu wideo `/app/video/$id`. Reużywana w feedzie i w poście.
+ * Video v2 (#194): biblioteka zniknęła — do czasu własnego playera (F4) klik
+ * otwiera film na YouTube w nowej karcie (ten sam wzorzec co w albumach #175).
+ * Reużywana w feedzie i w poście.
  */
-export function VideoThumb({ id, title, thumbnailUrl }: VideoThumbProps) {
+export function VideoThumb({ youtubeVideoId, title, thumbnailUrl }: VideoThumbProps) {
 	return (
-		<Link
-			to="/app/video/$id"
-			params={{ id }}
+		<a
+			href={`https://www.youtube.com/watch?v=${youtubeVideoId}`}
+			target="_blank"
+			rel="noreferrer"
 			className="group relative block overflow-hidden rounded-lg border border-border bg-card transition-colors hover:bg-accent"
 		>
 			<div className="relative aspect-video w-full overflow-hidden bg-muted">
@@ -34,6 +36,6 @@ export function VideoThumb({ id, title, thumbnailUrl }: VideoThumbProps) {
 				</span>
 			</div>
 			<p className="line-clamp-1 p-2 text-sm font-medium text-foreground">{title}</p>
-		</Link>
+		</a>
 	);
 }

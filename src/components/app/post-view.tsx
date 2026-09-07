@@ -37,11 +37,10 @@ interface PostImage {
 }
 
 interface PostVideo {
-	id: string;
+	/** Video v2 (#194): wideo płyną z JSONB posta — bez id/position. */
 	youtubeVideoId: string;
 	title: string;
 	thumbnailUrl: string;
-	position: number;
 }
 
 interface PostData {
@@ -221,19 +220,12 @@ export function PostView({
 			{post.videos && post.videos.length > 0 && (
 				<div className="space-y-2">
 					{post.videos.map((video) => (
-						<div key={video.id} className="group relative">
-							<VideoThumb id={video.id} title={video.title} thumbnailUrl={video.thumbnailUrl} />
-							{currentUserId && (
-								<AddToAlbumButton
-									kind="video"
-									itemRef={video.id}
-									ariaLabel="Dodaj wideo do albumu"
-									className="absolute right-2 top-2 hidden rounded-full bg-background/80 p-2 text-foreground opacity-0 backdrop-blur-sm transition-opacity hover:bg-background group-hover:opacity-100 sm:block"
-								>
-									<Images className="h-5 w-5" />
-								</AddToAlbumButton>
-							)}
-						</div>
+						<VideoThumb
+							key={video.youtubeVideoId}
+							youtubeVideoId={video.youtubeVideoId}
+							title={video.title}
+							thumbnailUrl={video.thumbnailUrl}
+						/>
 					))}
 				</div>
 			)}

@@ -34,11 +34,21 @@ export interface VideoUploadProgress {
 	totalBytes: number;
 }
 
+/** Wideo po uploadzie — dane z YouTube do osadzenia w poście (#194). */
 export interface UploadedVideo {
-	/** Id rekordu w Neon (z `confirm`). */
-	id: string;
 	youtubeVideoId: string;
 	thumbnailUrl: string;
+}
+
+/** Błąd HTTP z pipeline'u uploadu — `status` pozwala rozpoznać 503 (brak połączenia). */
+export class VideoUploadHttpError extends Error {
+	constructor(
+		message: string,
+		readonly status: number,
+	) {
+		super(message);
+		this.name = "VideoUploadHttpError";
+	}
 }
 
 async function errorMessage(res: Response): Promise<string> {
@@ -55,7 +65,8 @@ async function errorMessage(res: Response): Promise<string> {
  * Pełny lifecycle uploadu wideo (deep module, testowalny bez Reacta):
  * 1. `POST /upload-session` — limit dzienny + start sesji resumable.
  * 2. `PUT /upload-chunk` per chunk (Worker proxy → YouTube), `onProgress` po każdym.
- * 3. `POST /confirm` — zapis rekordu w Neon z id z ostatniego chunka.
+ * 3. `POST /confirm` — passthrough (#194): NIC nie zapisuje, zwraca id + miniaturę,
+ *    które klient osadza w payloadzie posta.
  *
  * Błąd na którymś kroku → rzucany (hook ustawia `error`).
  */
@@ -78,7 +89,9 @@ export async function runVideoUpload(
 			mime: input.file.type || "video/mp4",
 		}),
 	});
-	if (!sessionRes.ok) throw new Error(await errorMessage(sessionRes));
+	if (!sessionRes.ok) {
+		throw new VideoUploadHttpError(await errorMessage(sessionRes), sessionRes.status);
+	}
 	const { data: session } = (await sessionRes.json()) as { data: { sessionUrl: string } };
 
 	let youtubeVideoId = "";
@@ -95,7 +108,9 @@ export async function runVideoUpload(
 			body: input.file.slice(chunk.start, chunk.end + 1),
 			duplex: "half",
 		} as RequestInit);
-		if (!chunkRes.ok) throw new Error(await errorMessage(chunkRes));
+		if (!chunkRes.ok) {
+			throw new VideoUploadHttpError(await errorMessage(chunkRes), chunkRes.status);
+		}
 
 		const { data: chunkData } = (await chunkRes.json()) as {
 			data: { complete: boolean; video?: { id: string; thumbnailUrl: string } };
@@ -114,17 +129,16 @@ export async function runVideoUpload(
 	const confirmRes = await fetchFn("/api/video/confirm", {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			youtubeVideoId,
-			title: input.title,
-			description: input.description,
-			thumbnailUrl,
-		}),
+		body: JSON.stringify({ youtubeVideoId, thumbnailUrl }),
 	});
-	if (!confirmRes.ok) throw new Error(await errorMessage(confirmRes));
-	const { data: video } = (await confirmRes.json()) as { data: { id: string } };
+	if (!confirmRes.ok) {
+		throw new VideoUploadHttpError(await errorMessage(confirmRes), confirmRes.status);
+	}
+	const { data: video } = (await confirmRes.json()) as {
+		data: { youtubeVideoId: string; thumbnailUrl: string };
+	};
 
-	return { id: video.id, youtubeVideoId, thumbnailUrl };
+	return { youtubeVideoId: video.youtubeVideoId, thumbnailUrl: video.thumbnailUrl };
 }
 
 export interface UseVideoUploadResult {

@@ -13,7 +13,6 @@ export const instanceConfig = pgTable("instance_config", {
 	maintenanceIcon: text("maintenance_icon"),
 	// Feature master switches (Wspólniak On/Off). Default to enabled so existing
 	// instances keep current behaviour once the columns are added.
-	videoEnabled: boolean("video_enabled").notNull().default(true),
 	markdownEnabled: boolean("markdown_enabled").notNull().default(true),
 	libraryEnabled: boolean("library_enabled").notNull().default(true),
 	chatEnabled: boolean("chat_enabled").notNull().default(true),

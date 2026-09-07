@@ -20,14 +20,6 @@ export function canDeletePost(actor: Actor, post: PostTarget): boolean {
 	return isOwnerOrAdmin(actor, post.authorId);
 }
 
-export interface VideoTarget {
-	authorId: string;
-}
-
-export function canDeleteVideo(actor: Actor, video: VideoTarget): boolean {
-	return isOwnerOrAdmin(actor, video.authorId);
-}
-
 export function canPinPost(actor: Actor): boolean {
 	return actor.role === "admin";
 }

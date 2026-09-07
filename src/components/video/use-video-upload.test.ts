@@ -41,7 +41,10 @@ function makeFetchFn() {
 			return jsonResponse(200, { data: { complete: false } });
 		}
 		if (url === "/api/video/confirm") {
-			return jsonResponse(201, { data: { id: "v-1" } });
+			// Passthrough (#194): endpoint zwraca dane i NIC nie zapisuje.
+			return jsonResponse(200, {
+				data: { youtubeVideoId: "yt-1", thumbnailUrl: "https://t/h.jpg" },
+			});
 		}
 		return jsonResponse(404, { error: "not found" });
 	});
@@ -49,7 +52,7 @@ function makeFetchFn() {
 }
 
 describe("runVideoUpload", () => {
-	it("runs session → chunks → confirm, reports per-chunk progress, returns the video", async () => {
+	it("runs session → chunks → confirm (passthrough), reports per-chunk progress, returns the video", async () => {
 		const { fetchFn, calls } = makeFetchFn();
 		const progress: VideoUploadProgress[] = [];
 
@@ -60,7 +63,6 @@ describe("runVideoUpload", () => {
 		);
 
 		expect(result).toEqual({
-			id: "v-1",
 			youtubeVideoId: "yt-1",
 			thumbnailUrl: "https://t/h.jpg",
 		});
@@ -75,14 +77,12 @@ describe("runVideoUpload", () => {
 			"/api/video/upload-chunk",
 			"/api/video/confirm",
 		]);
-		// confirm dostaje youtubeVideoId + thumbnailUrl z ostatniego chunka
+		// confirm dostaje youtubeVideoId + thumbnailUrl z ostatniego chunka (bez title/description).
 		const confirmCall = fetchFn.mock.calls.find((c) => c[0] === "/api/video/confirm");
 		const confirmBody = JSON.parse((confirmCall?.[1] as RequestInit).body as string);
-		expect(confirmBody).toMatchObject({
+		expect(confirmBody).toEqual({
 			youtubeVideoId: "yt-1",
 			thumbnailUrl: "https://t/h.jpg",
-			title: "Wakacje",
-			description: "Opis",
 		});
 	});
 

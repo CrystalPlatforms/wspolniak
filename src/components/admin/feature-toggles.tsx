@@ -8,7 +8,6 @@ interface FeatureTogglesProps {
 	flags?: FeatureFlags;
 	isSaving: boolean;
 	onChange: (input: {
-		video?: boolean;
 		markdown?: boolean;
 		library?: boolean;
 		chat?: boolean;
@@ -18,12 +17,11 @@ interface FeatureTogglesProps {
 }
 
 /**
- * Sekcja „Funkcje" w panelu admina — master switch dla Wideo, Edytora,
+ * Sekcja „Funkcje" w panelu admina — master switch dla Edytora,
  * Biblioteki i Chata. Stan jest trzymany w `instance_config`; zmiana natychmiast
- * wysyła PUT.
+ * wysyła PUT. Wideo nie ma przełącznika od Video v2 (#194) — jest zawsze włączone.
  */
 export function FeatureToggles({ flags, isSaving, onChange }: FeatureTogglesProps) {
-	const video = flags?.video ?? true;
 	const markdown = flags?.markdown ?? true;
 	const library = flags?.library ?? true;
 	const chat = flags?.chat ?? true;
@@ -38,13 +36,6 @@ export function FeatureToggles({ flags, isSaving, onChange }: FeatureTogglesProp
 				{isSaving ? <Loader loading={isSaving} /> : null}
 			</div>
 			<div className="space-y-3">
-				<ToggleRow
-					label="Wideo"
-					description="Kanał Wspólniak Wideo i przycisk dodawania filmów."
-					checked={video}
-					disabled={isSaving}
-					onCheckedChange={(v) => onChange({ video: v })}
-				/>
 				<ToggleRow
 					label="Edytor (Markdown)"
 					description="Pasek formatowania i podgląd Markdown w kompozytorze postów."

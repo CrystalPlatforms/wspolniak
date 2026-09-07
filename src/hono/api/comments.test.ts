@@ -82,6 +82,7 @@ const samplePost = {
 	updatedAt: now,
 	author: { id: "u1", name: "Tomek" },
 	images: [],
+	videos: [],
 };
 
 const sampleComment = {

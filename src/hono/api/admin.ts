@@ -181,7 +181,8 @@ adminEndpoint.put("/features", async (c) => {
 
 	// F1 #179: `ai` dołącza do istniejących flag — jedna pętla waliduje wszystkie
 	// (boolean-check + komunikat 400 per nazwa pola, jak wcześniej per-flag).
-	const FLAG_KEYS = ["video", "markdown", "library", "chat", "albums", "ai"] as const;
+	// Wideo nie ma flagi od Video v2 (#194) — zawsze włączone.
+	const FLAG_KEYS = ["markdown", "library", "chat", "albums", "ai"] as const;
 	const update: Partial<Record<(typeof FLAG_KEYS)[number], boolean>> = {};
 	for (const key of FLAG_KEYS) {
 		const value = body[key];

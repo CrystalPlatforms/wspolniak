@@ -16,4 +16,14 @@ describe("db/schema barrel export", () => {
 	it("does not export removed clients table", () => {
 		expect("clients" in schema).toBe(false);
 	});
+
+	it("does not export removed videos/postVideos tables (Video v2 #194)", () => {
+		expect("videos" in schema).toBe(false);
+		expect("postVideos" in schema).toBe(false);
+	});
+
+	it("exports videoUploadEvents table (#194 — dzienny limit uploadów)", () => {
+		expect(schema.videoUploadEvents).toBeDefined();
+		expect(getTableName(schema.videoUploadEvents)).toBe("video_upload_events");
+	});
 });

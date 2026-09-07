@@ -13,4 +13,4 @@ export { postImages, posts } from "./posts/table";
 export { pushDeliveryEvents } from "./push-delivery-events/table";
 export { pushSubscriptions } from "./push-subscriptions/table";
 export { uploadFailures } from "./upload-failures/table";
-export { postVideos, videos } from "./videos/table";
+export { videoUploadEvents } from "./video-uploads/table";

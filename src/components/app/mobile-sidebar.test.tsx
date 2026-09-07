@@ -32,7 +32,6 @@ describe("MobileSidebar — Biblioteka nav link (#129)", () => {
 		render(
 			<MobileSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: true,
@@ -52,7 +51,6 @@ describe("MobileSidebar — Biblioteka nav link (#129)", () => {
 		render(
 			<MobileSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: true,
@@ -72,7 +70,6 @@ describe("MobileSidebar — Biblioteka nav link (#129)", () => {
 		render(
 			<MobileSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: true,
@@ -92,7 +89,6 @@ describe("MobileSidebar — Biblioteka nav link (#129)", () => {
 		render(
 			<MobileSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: false,
 					chat: true,
@@ -116,7 +112,6 @@ describe("MobileSidebar — Chat nav link (F8 #159)", () => {
 		render(
 			<MobileSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: true,
@@ -136,7 +131,6 @@ describe("MobileSidebar — Chat nav link (F8 #159)", () => {
 		render(
 			<MobileSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: false,
@@ -155,7 +149,6 @@ describe("MobileSidebar — Chat nav link (F8 #159)", () => {
 		render(
 			<MobileSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: true,
@@ -179,7 +172,6 @@ describe("MobileSidebar — Albumy nav link (#170)", () => {
 		render(
 			<MobileSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: true,
@@ -199,7 +191,6 @@ describe("MobileSidebar — Albumy nav link (#170)", () => {
 		render(
 			<MobileSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: true,
@@ -223,7 +214,6 @@ describe("MobileSidebar — Ustawienia moved to feed header (reviza usera)", () 
 		render(
 			<MobileSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: true,
@@ -251,7 +241,6 @@ describe("MobileSidebar — flaga albums i kropka „new” (#176)", () => {
 		render(
 			<MobileSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: true,
@@ -271,7 +260,6 @@ describe("MobileSidebar — flaga albums i kropka „new” (#176)", () => {
 		render(
 			<MobileSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: true,
@@ -292,7 +280,6 @@ describe("MobileSidebar — flaga albums i kropka „new” (#176)", () => {
 		render(
 			<MobileSidebar
 				featureFlags={{
-					video: true,
 					markdown: true,
 					library: true,
 					chat: true,
