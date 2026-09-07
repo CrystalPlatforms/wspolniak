@@ -47,6 +47,11 @@ interface ComposerVideoPickerProps {
 	 * przycisku pokazujemy instrukcję admina (#194, user story 7).
 	 */
 	notConnected?: boolean;
+	/**
+	 * Licznik do limitu 5 — w edycji posta picker nie trzyma listy (lista
+	 * unified żyje w EditPostForm), więc liczymy wszystkie wideo posta.
+	 */
+	count?: number;
 }
 
 interface SortableVideoCardProps {
@@ -132,6 +137,7 @@ export function ComposerVideoPicker({
 	onChange,
 	disabled = false,
 	notConnected = false,
+	count,
 }: ComposerVideoPickerProps) {
 	const [pendingFile, setPendingFile] = useState<File | null>(null);
 	const [title, setTitle] = useState("");
@@ -142,7 +148,8 @@ export function ComposerVideoPicker({
 
 	const sortableIds = videos.map((v) => v.key);
 
-	const full = videos.length >= MAX_POST_VIDEOS;
+	const videoCount = count ?? videos.length;
+	const full = videoCount >= MAX_POST_VIDEOS;
 
 	const handleFileChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0];
@@ -228,7 +235,7 @@ export function ComposerVideoPicker({
 			>
 				<Clapperboard className="h-4 w-4" />
 				<span className="ml-2">
-					{videos.length > 0 ? `${videos.length}/${MAX_POST_VIDEOS}` : "Dodaj wideo"}
+					{videoCount > 0 ? `${videoCount}/${MAX_POST_VIDEOS}` : "Dodaj wideo"}
 				</span>
 			</Button>
 

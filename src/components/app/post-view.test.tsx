@@ -256,15 +256,31 @@ describe("PostView — Dodaj do albumu (#171/#172)", () => {
 		expect(screen.queryByRole("button", { name: "Dodaj wideo do albumu" })).toBeNull();
 	});
 
-	it("renders post videos as YouTube links without an add-to-album button (Video v2 #194)", () => {
-		render(<PostView post={post} imageAccountHash="hash-1" currentUserId="u2" />, {
+	it("renders post videos as stacked independent players without add-to-album (Video v2 F4 #198)", () => {
+		const first = render(<PostView post={post} imageAccountHash="hash-1" currentUserId="u2" />, {
 			wrapper: createWrapper(),
 		});
 
-		// Wideo z posta → link do youtube.com/watch (do czasu własnego playera, F4).
-		const videoLink = screen.getByRole("link", { name: /fiesta/i });
-		expect(videoLink.getAttribute("href")).toBe("https://www.youtube.com/watch?v=abc");
-		expect(videoLink.getAttribute("target")).toBe("_blank");
+		// Każde wideo = własny player (poster z aria-label „Odtwórz wideo …").
+		expect(screen.getByRole("button", { name: /odtwórz wideo fiesta/i })).not.toBeNull();
 		expect(screen.queryByRole("button", { name: "Dodaj wideo do albumu" })).toBeNull();
+		first.unmount();
+
+		// Stacking: dwa wideo → dwa niezależne playery jeden pod drugim.
+		const twoVideos = {
+			...post,
+			videos: [
+				...post.videos,
+				{
+					youtubeVideoId: "def456",
+					title: "Drugi klip",
+					thumbnailUrl: "https://img.example/2.jpg",
+				},
+			],
+		};
+		render(<PostView post={twoVideos} imageAccountHash="hash-1" currentUserId="u2" />, {
+			wrapper: createWrapper(),
+		});
+		expect(screen.getAllByRole("button", { name: /odtwórz wideo/i })).toHaveLength(2);
 	});
 });

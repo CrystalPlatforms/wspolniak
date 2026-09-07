@@ -8,5 +8,7 @@ export {
 	MAX_VIDEO_BYTES,
 	type StartUploadRequest,
 	startUploadSchema,
+	type YoutubeDeleteRequest,
+	youtubeDeleteSchema,
 } from "./schema";
 export { videoUploadEvents } from "./table";

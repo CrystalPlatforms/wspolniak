@@ -8,6 +8,7 @@ import {
 	type ChunkRange,
 	createState,
 	decryptRefreshToken,
+	deleteVideo as deleteYoutubeVideo,
 	encryptRefreshToken,
 	exchangeCodeForTokens,
 	fetchOwnChannel,
@@ -31,6 +32,7 @@ import {
 	logUploadEvent,
 	MAX_VIDEO_BYTES,
 	startUploadSchema,
+	youtubeDeleteSchema,
 } from "@/db/video-uploads";
 import { createHono, getOrigin } from "@/hono/factory";
 import { adminMiddleware } from "@/hono/middleware/admin";
@@ -45,11 +47,11 @@ videoEndpoint.use("/oauth/*", adminMiddleware());
 videoEndpoint.use("/connection", adminMiddleware());
 
 /** Derives the YouTube config + raw encryption key from env, or null if unset. */
-function youtubeEnv(c: Context): { config: YoutubeConfig; encryptionKeyRaw: string } | null {
-	const origin = c.env.APP_URL;
-	const clientId = c.env.YOUTUBE_CLIENT_ID;
-	const clientSecret = c.env.YOUTUBE_CLIENT_SECRET;
-	const encryptionKeyRaw = c.env.YOUTUBE_TOKEN_ENCRYPTION_KEY;
+function youtubeEnv(env: Env): { config: YoutubeConfig; encryptionKeyRaw: string } | null {
+	const origin = env.APP_URL;
+	const clientId = env.YOUTUBE_CLIENT_ID;
+	const clientSecret = env.YOUTUBE_CLIENT_SECRET;
+	const encryptionKeyRaw = env.YOUTUBE_TOKEN_ENCRYPTION_KEY;
 	if (!origin || !clientId || !clientSecret || !encryptionKeyRaw) {
 		return null;
 	}
@@ -58,10 +60,10 @@ function youtubeEnv(c: Context): { config: YoutubeConfig; encryptionKeyRaw: stri
 		config: {
 			clientId,
 			clientSecret,
-			redirectUri: c.env.YOUTUBE_REDIRECT_URI ?? `${origin}/api/video/oauth/callback`,
+			redirectUri: env.YOUTUBE_REDIRECT_URI ?? `${origin}/api/video/oauth/callback`,
 			// SESSION_SECRET already signs session cookies; reuse it to sign the OAuth
 			// state (CSRF). Token encryption uses YOUTUBE_TOKEN_ENCRYPTION_KEY separately.
-			stateSecret: c.env.SESSION_SECRET,
+			stateSecret: env.SESSION_SECRET,
 		},
 	};
 }
@@ -75,32 +77,32 @@ function youtubeEnv(c: Context): { config: YoutubeConfig; encryptionKeyRaw: stri
 async function resolveUploadContext(
 	c: Context,
 ): Promise<{ accessToken: string; config: YoutubeConfig } | Response> {
-	const env = youtubeEnv(c);
-	if (!env) return c.json({ error: "YouTube nie jest skonfigurowane" }, 503);
+	const cfg = youtubeEnv(c.env);
+	if (!cfg) return c.json({ error: "YouTube nie jest skonfigurowane" }, 503);
 
 	const tokenRow = await getYoutubeRefreshToken();
 	if (!tokenRow) return c.json({ error: "Najpierw połącz kanał YouTube" }, 503);
 
-	const encryptionKey = await importEncryptionKey(env.encryptionKeyRaw);
+	const encryptionKey = await importEncryptionKey(cfg.encryptionKeyRaw);
 	const refreshToken = await decryptRefreshToken(tokenRow.encryptedRefreshToken, encryptionKey);
-	const { accessToken } = await refreshAccessToken(refreshToken, env.config);
-	return { accessToken, config: env.config };
+	const { accessToken } = await refreshAccessToken(refreshToken, cfg.config);
+	return { accessToken, config: cfg.config };
 }
 
 // GET /api/video/oauth/start — redirect the admin to Google's consent screen.
 videoEndpoint.get("/oauth/start", async (c) => {
-	const env = youtubeEnv(c);
-	if (!env) return c.json({ error: "YouTube nie jest skonfigurowane" }, 503);
+	const cfg = youtubeEnv(c.env);
+	if (!cfg) return c.json({ error: "YouTube nie jest skonfigurowane" }, 503);
 
 	const admin = c.get("user");
-	const state = await createState(admin.userId, env.config);
-	return c.redirect(buildAuthorizationUrl(state, env.config));
+	const state = await createState(admin.userId, cfg.config);
+	return c.redirect(buildAuthorizationUrl(state, cfg.config));
 });
 
 // GET /api/video/oauth/callback — Google redirects back here with ?code&state.
 videoEndpoint.get("/oauth/callback", async (c) => {
-	const env = youtubeEnv(c);
-	if (!env) return c.json({ error: "YouTube nie jest skonfigurowane" }, 503);
+	const cfg = youtubeEnv(c.env);
+	if (!cfg) return c.json({ error: "YouTube nie jest skonfigurowane" }, 503);
 
 	if (c.req.query("error")) {
 		return c.redirect(`${getOrigin(c)}/app/admin?youtube=error`);
@@ -112,15 +114,15 @@ videoEndpoint.get("/oauth/callback", async (c) => {
 		return c.json({ error: "Brak kodu autoryzacji" }, 400);
 	}
 
-	const verified = await verifyState(state, env.config);
+	const verified = await verifyState(state, cfg.config);
 	if (!verified) {
 		return c.json({ error: "Nieprawidłowy stan (CSRF)" }, 400);
 	}
 
 	try {
-		const tokens = await exchangeCodeForTokens(code, env.config);
-		const channel = await fetchOwnChannel(tokens.accessToken, env.config);
-		const encryptionKey = await importEncryptionKey(env.encryptionKeyRaw);
+		const tokens = await exchangeCodeForTokens(code, cfg.config);
+		const channel = await fetchOwnChannel(tokens.accessToken, cfg.config);
+		const encryptionKey = await importEncryptionKey(cfg.encryptionKeyRaw);
 		const encryptedRefreshToken = await encryptRefreshToken(tokens.refreshToken, encryptionKey);
 
 		await setYoutubeConnection({
@@ -164,7 +166,7 @@ videoEndpoint.post("/upload-session", async (c) => {
 
 	const todayCount = await countTodayUTC();
 	if (todayCount >= DAILY_VIDEO_LIMIT) {
-		return c.json({ error: "Osiągnięto dzienny limit wideo (3)" }, 429);
+		return c.json({ error: `Osiągnięto dzienny limit wideo (${DAILY_VIDEO_LIMIT})` }, 429);
 	}
 
 	try {
@@ -245,5 +247,64 @@ videoEndpoint.post("/confirm", async (c) => {
 		data: { youtubeVideoId: parsed.data.youtubeVideoId, thumbnailUrl: parsed.data.thumbnailUrl },
 	});
 });
+
+// POST /api/video/yt-delete — JEDNA serwerowa zdolność usuwania klipu z YouTube
+// (Video v2 F3 #197, us stories 13–15). Fire-and-forget: 202 wraca natychmiast,
+// a błąd YouTube (quota/sieć/brak połączenia) jest TYLKO logowany — nigdy nie
+// wywraca akcji użytkownika; ewentualne resztki pozostają unlisted i niewidoczne.
+videoEndpoint.post("/yt-delete", async (c) => {
+	const parsed = youtubeDeleteSchema.safeParse(await c.req.json());
+	if (!parsed.success) {
+		return c.json({ error: "Validation failed", details: parsed.error.flatten() }, 400);
+	}
+
+	fireAndForgetYoutubeDelete(c.executionCtx, c.env, parsed.data.youtubeVideoId);
+	return c.json({ data: { ok: true } }, 202);
+});
+
+/**
+ * Usuwa klip z YouTube w tle (YouTube Data API videos.delete, admin OAuth).
+ * Jedyna droga usuwania z YouTube w aplikacji — wołana z endpointu /yt-delete
+ * (usuwanie z edycji) i z kaskady usuwania posta. Jakikolwiek błąd ląduje w
+ * logu; użytkownik nigdy nie dostaje błędu z tej ścieżki (#197).
+ */
+export function fireAndForgetYoutubeDelete(
+	executionCtx: { waitUntil: (promise: Promise<unknown>) => void },
+	env: Env,
+	youtubeVideoId: string,
+): void {
+	executionCtx.waitUntil(
+		(async () => {
+			try {
+				const cfg = youtubeEnv(env);
+				if (!cfg) {
+					// biome-ignore lint/suspicious/noConsole: log w Workerze — bez tego utrata delete jest niewidoczna
+					console.warn("[video] YouTube delete skipped — not configured:", youtubeVideoId);
+					return;
+				}
+				const tokenRow = await getYoutubeRefreshToken();
+				if (!tokenRow) {
+					// biome-ignore lint/suspicious/noConsole: log w Workerze — bez tego utrata delete jest niewidoczna
+					console.warn("[video] YouTube delete skipped — channel not connected:", youtubeVideoId);
+					return;
+				}
+				const encryptionKey = await importEncryptionKey(cfg.encryptionKeyRaw);
+				const refreshToken = await decryptRefreshToken(
+					tokenRow.encryptedRefreshToken,
+					encryptionKey,
+				);
+				const { accessToken } = await refreshAccessToken(refreshToken, cfg.config);
+				await deleteYoutubeVideo(youtubeVideoId, accessToken, cfg.config);
+			} catch (e) {
+				// biome-ignore lint/suspicious/noConsole: jedyny ślad po nieudanym delete — wymóg AC #197
+				console.error(
+					"[video] YouTube delete failed (leftover stays unlisted):",
+					youtubeVideoId,
+					e,
+				);
+			}
+		})(),
+	);
+}
 
 export default videoEndpoint;

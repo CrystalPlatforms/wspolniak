@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import type { ExecutionContext } from "hono";
 import { Hono } from "hono";
 import { AppError } from "@/core/errors";
 import type { SessionPayload } from "@/db/identity/session";
@@ -24,6 +26,7 @@ vi.mock("@/core/youtube", () => ({
 	refreshAccessToken: vi.fn(),
 	startResumableUpload: vi.fn(),
 	forwardChunk: vi.fn(),
+	deleteVideo: vi.fn(),
 }));
 
 vi.mock("@/db/instance", () => ({
@@ -59,12 +62,22 @@ vi.mock("@/db/video-uploads", () => ({
 			return { success: true, data: obj };
 		},
 	},
+	youtubeDeleteSchema: {
+		safeParse: (b: unknown) => {
+			const obj = b as Record<string, unknown>;
+			if (typeof obj?.youtubeVideoId !== "string" || obj.youtubeVideoId.length === 0) {
+				return { success: false, error: { flatten: () => ({ formErrors: ["youtubeVideoId"] }) } };
+			}
+			return { success: true, data: obj };
+		},
+	},
 }));
 
 import {
 	buildAuthorizationUrl,
 	createState,
 	decryptRefreshToken,
+	deleteVideo as deleteYoutubeVideo,
 	encryptRefreshToken,
 	exchangeCodeForTokens,
 	fetchOwnChannel,
@@ -581,6 +594,7 @@ describe("PUT /api/video/upload-chunk", () => {
 });
 
 const mockLogUploadEvent = vi.mocked(logUploadEvent);
+const mockDeleteYoutube = vi.mocked(deleteYoutubeVideo);
 
 function confirmBody(overrides: Record<string, unknown> = {}) {
 	return JSON.stringify({
@@ -649,5 +663,69 @@ describe("POST /api/video/confirm — passthrough (Video v2 #194)", () => {
 
 		expect(res.status).toBe(400);
 		expect(mockLogUploadEvent).not.toHaveBeenCalled();
+	});
+});
+
+// F3 #197: POST /api/video/yt-delete — JEDNA zdolność usuwania z YouTube,
+// fire-and-forget: 202 natychmiast, błąd YouTube tylko w logu (nigdy w odpowiedzi).
+describe("POST /api/video/yt-delete", () => {
+	const waitUntilCalls: Promise<unknown>[] = [];
+	const executionCtx = {
+		waitUntil: (promise: Promise<unknown>) => {
+			waitUntilCalls.push(promise);
+		},
+		passThroughOnException: () => {},
+	} as unknown as ExecutionContext;
+
+	beforeEach(() => {
+		waitUntilCalls.length = 0;
+		connectedYoutube();
+		mockDeleteYoutube.mockResolvedValue(undefined);
+	});
+
+	it("returns 202 immediately and deletes on YouTube in the background, exactly once", async () => {
+		const api = createApi();
+		const res = await api.request(
+			"/api/video/yt-delete",
+			{ method: "POST", headers: jsonHeaders(), body: JSON.stringify({ youtubeVideoId: "yt-1" }) },
+			ENV,
+			executionCtx,
+		);
+
+		expect(res.status).toBe(202);
+		expect(waitUntilCalls).toHaveLength(1);
+		await waitUntilCalls[0];
+		expect(mockDeleteYoutube).toHaveBeenCalledExactlyOnceWith("yt-1", "ya29", expect.any(Object));
+	});
+
+	it("still returns 202 and only logs when the YouTube delete fails (#197)", async () => {
+		mockDeleteYoutube.mockRejectedValue(new Error("YouTube: quota exceeded"));
+		const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/video/yt-delete",
+			{ method: "POST", headers: jsonHeaders(), body: JSON.stringify({ youtubeVideoId: "yt-2" }) },
+			ENV,
+			executionCtx,
+		);
+
+		expect(res.status).toBe(202);
+		await waitUntilCalls[0];
+		expect(consoleError).toHaveBeenCalled();
+		consoleError.mockRestore();
+	});
+
+	it("returns 400 when youtubeVideoId is missing", async () => {
+		const api = createApi();
+		const res = await api.request(
+			"/api/video/yt-delete",
+			{ method: "POST", headers: jsonHeaders(), body: JSON.stringify({ youtubeVideoId: "" }) },
+			ENV,
+			executionCtx,
+		);
+
+		expect(res.status).toBe(400);
+		expect(waitUntilCalls).toHaveLength(0);
 	});
 });

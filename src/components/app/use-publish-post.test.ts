@@ -8,6 +8,7 @@ import {
 	PUBLISH_BAR_DURATION_MS,
 	type PublishPostInput,
 	runPublishFlow,
+	uploadVideoPlan,
 	VideoNotConnectedError,
 } from "./use-publish-post";
 
@@ -368,25 +369,6 @@ describe("createPost", () => {
 		expect(flowError.message).not.toContain("Load failed");
 	});
 
-	it("awaria sieci przy tworzeniu posta → raport na /api/app/upload-failures", async () => {
-		const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => {
-			throw new TypeError("Load failed");
-		});
-		vi.stubGlobal("fetch", fetchMock);
-
-		await createPost({ description: "tekst", files: [], pendingVideos: [], mentions: [] }).catch(
-			() => {},
-		);
-
-		const reportCalls = fetchMock.mock.calls.filter(([u]) =>
-			String(u).endsWith("/api/app/upload-failures"),
-		);
-		expect(reportCalls).toHaveLength(1);
-		const body = JSON.parse(String(reportCalls[0]?.[1]?.body)) as { step: string; kind: string };
-		expect(body.step).toBe("create-post");
-		expect(body.kind).toBe("network");
-	});
-
 	it("HTTP 400 z serwera → detail zawiera komunikat błędu serwera (np. dlugość opisu)", async () => {
 		vi.stubGlobal(
 			"fetch",
@@ -442,5 +424,44 @@ describe("createPost", () => {
 		const flowError = error as UploadFlowError;
 		expect(flowError.message).toContain("za długi");
 		expect(flowError.message).toContain("2000");
+	});
+});
+
+describe("uploadVideoPlan (F3 #197)", () => {
+	it("passes existing through 1:1, uploads pending, preserves plan order", async () => {
+		const progress: { videoIndex: number; total: number; percent: number }[] = [];
+		const plan: Parameters<typeof uploadVideoPlan>[0] = [
+			{
+				kind: "existing",
+				entry: { youtubeVideoId: "yt-a", title: "A", thumbnailUrl: "https://t/a" },
+			},
+			{
+				kind: "pending",
+				file: new File([new Uint8Array(5)], "b.mp4", { type: "video/mp4" }),
+				title: "B",
+			},
+			{
+				kind: "existing",
+				entry: { youtubeVideoId: "yt-c", title: "C", thumbnailUrl: "https://t/c" },
+			},
+		];
+
+		const entries = await uploadVideoPlan(
+			plan,
+			(p) => progress.push(p),
+			vi.fn(async (_input, onProgress) => {
+				onProgress?.({ uploadedBytes: 5, totalBytes: 5 });
+				return { youtubeVideoId: "yt-b", thumbnailUrl: "https://t/b" };
+			}) as never,
+		);
+
+		// Kolejność planu zachowana: existing → uploaded pending → existing.
+		expect(entries).toEqual([
+			{ youtubeVideoId: "yt-a", title: "A", thumbnailUrl: "https://t/a" },
+			{ youtubeVideoId: "yt-b", title: "B", thumbnailUrl: "https://t/b" },
+			{ youtubeVideoId: "yt-c", title: "C", thumbnailUrl: "https://t/c" },
+		]);
+		const last = progress.at(-1);
+		expect(last).toEqual({ videoIndex: 1, total: 3, percent: 100 });
 	});
 });

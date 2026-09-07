@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import type { ExecutionContext } from "hono";
 import { Hono } from "hono";
 
 vi.mock("@/db/identity/session", () => ({
@@ -43,6 +45,10 @@ vi.mock("@/core/feed", () => ({
 	assembleFeedPage: vi.fn(),
 }));
 
+vi.mock("@/hono/api/video", () => ({
+	fireAndForgetYoutubeDelete: vi.fn(),
+}));
+
 import { assembleFeedPage } from "@/core/feed";
 import { deleteAlbumItemsByRefs } from "@/db/albums";
 import { deleteBookmarksByPost } from "@/db/bookmarks";
@@ -59,6 +65,7 @@ import {
 	softDeletePost,
 	updatePost,
 } from "@/db/posts/queries";
+import { fireAndForgetYoutubeDelete } from "@/hono/api/video";
 import postsEndpoint from "./posts";
 
 const mockVerify = vi.mocked(verifySessionCookie);
@@ -1093,5 +1100,68 @@ describe("DELETE /api/app/posts/:id — kaskada albumów (#174)", () => {
 			kind: "post_photo",
 			refs: ["cf-1", "cf-2"],
 		});
+	});
+});
+
+// F3 #197: usunięcie posta odpala po jednym fire-and-forget YouTube delete na wideo;
+// błąd YouTube (symulowany przez mock) nie wpływa na odpowiedź.
+describe("DELETE /api/app/posts/:id — kaskada YouTube (F3 #197)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockVerify.mockResolvedValue({ userId: "u1", name: "Tomek", role: "member" });
+		mockFindUser.mockResolvedValue({
+			id: "u1",
+			name: "Tomek",
+			role: "member",
+			tokenHash: "hash",
+			deletedAt: null,
+			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
+		});
+	});
+
+	it("fires one YouTube delete per video and still succeeds", async () => {
+		mockGetPost.mockResolvedValue({
+			...samplePost,
+			videos: [
+				{ youtubeVideoId: "yt-1", title: "Pierwsze", thumbnailUrl: "https://t/1" },
+				{ youtubeVideoId: "yt-2", title: "Drugie", thumbnailUrl: "https://t/2" },
+			],
+		});
+		mockSoftDelete.mockResolvedValue({ ...samplePost, deletedAt: new Date() });
+		const executionCtx = {
+			waitUntil: () => {},
+			passThroughOnException: () => {},
+		} as unknown as ExecutionContext;
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/posts/post-1",
+			authedRequest("/api/app/posts/post-1", { method: "DELETE" }),
+			env,
+			executionCtx,
+		);
+
+		expect(res.status).toBe(200);
+		expect(fireAndForgetYoutubeDelete).toHaveBeenCalledTimes(2);
+		expect(fireAndForgetYoutubeDelete).toHaveBeenCalledWith(executionCtx, env, "yt-1");
+		expect(fireAndForgetYoutubeDelete).toHaveBeenCalledWith(executionCtx, env, "yt-2");
+	});
+
+	it("post without videos fires no YouTube deletes", async () => {
+		mockGetPost.mockResolvedValue(samplePost);
+		mockSoftDelete.mockResolvedValue({ ...samplePost, deletedAt: new Date() });
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/posts/post-1",
+			authedRequest("/api/app/posts/post-1", { method: "DELETE" }),
+			env,
+			{ waitUntil: () => {}, passThroughOnException: () => {} } as unknown as ExecutionContext,
+		);
+
+		expect(res.status).toBe(200);
+		expect(fireAndForgetYoutubeDelete).not.toHaveBeenCalled();
 	});
 });

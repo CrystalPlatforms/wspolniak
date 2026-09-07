@@ -17,6 +17,7 @@ import {
 	updatePost,
 } from "@/db/posts/queries";
 import { createPostSchema, updatePostSchema } from "@/db/posts/schema";
+import { fireAndForgetYoutubeDelete } from "@/hono/api/video";
 import { createHono } from "@/hono/factory";
 import { authMiddleware } from "@/hono/middleware/auth";
 
@@ -173,6 +174,13 @@ postsEndpoint.delete("/:id", async (c) => {
 			refs: post.images.map((image) => image.cfImageId),
 		}),
 	]);
+
+	// Kaskada YouTube (Video v2 F3 #197, us story 15): po jednym fire-and-forget
+	// delete na wideo posta — błąd YouTube nigdy nie wywraca żądania (#197).
+	for (const video of post.videos) {
+		fireAndForgetYoutubeDelete(c.executionCtx, c.env, video.youtubeVideoId);
+	}
+
 	return c.json({ data: { id: post.id } });
 });
 

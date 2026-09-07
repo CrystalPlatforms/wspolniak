@@ -90,61 +90,13 @@ export async function uploadFetch(
 }
 
 /**
- * Best-effort raport nieudanego uploadu do panelu admina (issue #135).
- * Fire-and-forget: nigdy nie rzuca, nie blokuje UI — to tylko diagnostyka.
- */
-export function reportUploadFailure(report: {
-	step: UploadStep;
-	kind: UploadErrorKind;
-	detail?: string;
-	fileName?: string;
-	fileSize?: number;
-}): void {
-	try {
-		void fetch("/api/app/upload-failures", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(report),
-			// keepalive: raport przeżyje nawigację/zamknięcie karty po błędzie
-			keepalive: true,
-		}).catch(() => {
-			// sieć leży — nic nie poradzimy, diagnostyka jest opcjonalna
-		});
-	} catch {
-		// nawet synchroniczny błąd fetch nie może zepsuć flow uploadu
-	}
-}
-
-/** Zgłasza błąd uploadu (poza http — te serwer już zna) i przepuszcza go dalej. */
-function reportAndRethrow(error: unknown, files: File[]): never {
-	if (error instanceof UploadFlowError && error.kind !== "http") {
-		const fileSize = error.fileName
-			? files.find((f) => f.name === error.fileName)?.size
-			: undefined;
-		reportUploadFailure({
-			step: error.step,
-			kind: error.kind,
-			detail: error.detail,
-			fileName: error.fileName,
-			fileSize,
-		});
-	}
-	throw error;
-}
-
-/**
  * Uploaduje pliki: jeden batch `POST /upload-urls`, kompresja i upload każdego
  * pliku równolegle (issue #95). Zwraca `cfImageId` w kolejności plików.
- * Awaria sieci/timeoutu → raport do admina (issue #135).
+ * Błędy (sieć/timeout/http) przepływają jako szczegółowy `UploadFlowError`.
  */
 export async function uploadImages(files: File[]): Promise<string[]> {
 	if (files.length === 0) return [];
-
-	try {
-		return await uploadImagesInner(files);
-	} catch (error) {
-		reportAndRethrow(error, files);
-	}
+	return uploadImagesInner(files);
 }
 
 async function uploadImagesInner(files: File[]): Promise<string[]> {

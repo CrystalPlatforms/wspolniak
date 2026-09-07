@@ -7,7 +7,7 @@ import { feedQueryKey } from "@/components/app/feed-query";
 import type { Mention } from "@/components/app/mention-input";
 import { runVideoUpload, VideoUploadHttpError } from "@/components/video/use-video-upload";
 import type { PostVideoEntry } from "@/db/posts";
-import { reportUploadFailure, UploadFlowError, uploadFetch, uploadImages } from "@/images/upload";
+import { UploadFlowError, uploadFetch, uploadImages } from "@/images/upload";
 
 /** Wideo oczekujące na upload przy publikacji (z kompozytora). */
 export interface PublishVideoInput {
@@ -63,31 +63,43 @@ export class VideoNotConnectedError extends Error {
 }
 
 /**
- * Wgrywa pending wideo SEKWENCYJNIE (kolejność = kolejność odtwarzania) i zwraca
- * wpisy `videos` do osadzenia w poście. 503 z upload-session = YouTube
- * niepołączony → VideoNotConnectedError.
+ * Element planu wideo — `existing` idzie 1:1 (round-trip), `pending` zostaje
+ * wgryty przed zapisem. Kolejność planu = kolejność odtwarzania w poście (F3).
  */
-async function uploadPendingVideos(
-	videos: PublishVideoInput[],
+export type VideoPlanEntry =
+	| { kind: "existing"; entry: PostVideoEntry }
+	| { kind: "pending"; file: File; title: string };
+
+/**
+ * Realizuje plan wideo: wgrywa wpisy `pending` SEKWENCYJNIE (postęp per wideo),
+ * `existing` przepuszcza 1:1. Zwraca wpisy `videos` w kolejności planu.
+ * 503 z upload-session = YouTube niepołączony → VideoNotConnectedError.
+ */
+export async function uploadVideoPlan(
+	plan: VideoPlanEntry[],
 	onProgress: (p: VideoPublishProgress) => void,
 	uploadVideoFn?: typeof runVideoUpload,
 ): Promise<PostVideoEntry[]> {
 	const upload = uploadVideoFn ?? runVideoUpload;
 	const entries: PostVideoEntry[] = [];
-	for (const [index, video] of videos.entries()) {
+	for (const [index, item] of plan.entries()) {
+		if (item.kind === "existing") {
+			entries.push(item.entry);
+			continue;
+		}
 		try {
 			const uploaded = await upload(
-				{ file: video.file, title: video.title, description: null },
+				{ file: item.file, title: item.title, description: null },
 				(p) => {
 					const percent =
 						p.totalBytes === 0 ? 0 : Math.round((p.uploadedBytes / p.totalBytes) * 100);
-					onProgress({ videoIndex: index, total: videos.length, percent });
+					onProgress({ videoIndex: index, total: plan.length, percent });
 				},
 				{ fetchFn: fetch },
 			);
 			entries.push({
 				youtubeVideoId: uploaded.youtubeVideoId,
-				title: video.title,
+				title: item.title,
 				thumbnailUrl: uploaded.thumbnailUrl,
 			});
 		} catch (e) {
@@ -98,6 +110,23 @@ async function uploadPendingVideos(
 		}
 	}
 	return entries;
+}
+
+/**
+ * Wgrywa pending wideo SEKWENCYJNIE (kolejność = kolejność odtwarzania) i zwraca
+ * wpisy `videos` do osadzenia w poście. 503 z upload-session = YouTube
+ * niepołączony → VideoNotConnectedError.
+ */
+async function uploadPendingVideos(
+	videos: PublishVideoInput[],
+	onProgress: (p: VideoPublishProgress) => void,
+	uploadVideoFn?: typeof runVideoUpload,
+): Promise<PostVideoEntry[]> {
+	return uploadVideoPlan(
+		videos.map((v) => ({ kind: "pending" as const, file: v.file, title: v.title })),
+		onProgress,
+		uploadVideoFn,
+	);
 }
 
 /**
@@ -141,34 +170,20 @@ export async function runPublishFlow(options: RunPublishFlowOptions): Promise<vo
 export async function createPost(input: PublishPostInput & { videos?: unknown }): Promise<unknown> {
 	const cfImageIds = input.files.length > 0 ? await uploadImages(input.files) : [];
 
-	let res: Response;
-	try {
-		res = await uploadFetch(
-			"/api/app/posts",
-			{
-				method: "POST",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
-					description: input.description || null,
-					cfImageIds,
-					videos: input.videos ?? [],
-					mentions: input.mentions,
-				}),
-			},
-			"create-post",
-		);
-	} catch (error) {
-		// Awaria sieci/timeout przy tworzeniu posta — serwer jej nie zna, więc
-		// zgłaszamy do panelu admina (issue #135); http (np. 429) serwer zna sam.
-		if (error instanceof UploadFlowError && error.kind !== "http") {
-			reportUploadFailure({
-				step: error.step,
-				kind: error.kind,
-				detail: error.detail,
-			});
-		}
-		throw error;
-	}
+	const res = await uploadFetch(
+		"/api/app/posts",
+		{
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				description: input.description || null,
+				cfImageIds,
+				videos: input.videos ?? [],
+				mentions: input.mentions,
+			}),
+		},
+		"create-post",
+	);
 
 	if (res.status === 429) {
 		throw new UploadFlowError(

@@ -6,6 +6,11 @@ import { useCallback } from "react";
 import { EditPostForm } from "@/components/app/edit-post-form";
 import type { Mention } from "@/components/app/mention-input";
 import { UploadErrorAlert } from "@/components/app/upload-error-alert";
+import {
+	uploadVideoPlan,
+	VideoNotConnectedError,
+	type VideoPlanEntry,
+} from "@/components/app/use-publish-post";
 import type { PostVideoEntry } from "@/db/posts/schema";
 import { uploadImages } from "@/images/upload";
 
@@ -36,6 +41,26 @@ async function fetchPost(id: string): Promise<PostResponse | null> {
 	return res.json() as Promise<PostResponse>;
 }
 
+/** YouTube delete dokładnie raz — fire-and-forget, błąd nigdy nie blokuje zapisu (#197). */
+async function deleteFromYoutube(youtubeVideoId: string): Promise<void> {
+	await fetch("/api/video/yt-delete", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ youtubeVideoId }),
+	}).catch(() => {
+		// Nieudane "zapalenie" delete nie blokuje zapisu — serwer loguje własne próby.
+	});
+}
+
+interface EditSubmitInput {
+	description: string;
+	files: File[];
+	removedImageIds: string[];
+	imageOrder: string[];
+	videoPlan: VideoPlanEntry[];
+	mentions: Mention[];
+}
+
 export const Route = createFileRoute("/app/post/$id_/edit")({
 	component: EditPostPage,
 });
@@ -52,14 +77,7 @@ function EditPostPage() {
 	});
 
 	const mutation = useMutation({
-		mutationFn: async (input: {
-			description: string;
-			files: File[];
-			removedImageIds: string[];
-			imageOrder: string[];
-			videos: PostVideoEntry[];
-			mentions: Mention[];
-		}) => {
+		mutationFn: async (input: EditSubmitInput) => {
 			// Delete removed images
 			await Promise.all(
 				input.removedImageIds.map((imageId) =>
@@ -90,15 +108,16 @@ function EditPostPage() {
 				if (!res.ok) throw new Error("Nie udało się zmienić kolejności zdjęć");
 			}
 
-			// Update description + mentions + videos in a single PATCH. Wideo idą
-			// w kółko bez zmian (Video v2 #194); edycja listy wideo to F3.
+			// Video v2 F3 (#197): najpierw wgrywa pending wideo z planu (sekwencyjnie,
+			// existing idą 1:1), dopiero potem zapisuje payload z finalną kolejnością.
+			const videos = await uploadVideoPlan(input.videoPlan, () => {});
 			const res = await fetch(`/api/app/posts/${id}`, {
 				method: "PATCH",
 				headers: { "Content-Type": "application/json" },
 				body: JSON.stringify({
 					description: input.description || null,
 					mentions: input.mentions,
-					videos: input.videos,
+					videos,
 				}),
 			});
 			if (res.status === 403) throw new Error("Brak uprawnień do edycji tego posta");
@@ -114,19 +133,16 @@ function EditPostPage() {
 	});
 
 	const handleSubmit = useCallback(
-		(data: {
-			description: string;
-			files: File[];
-			removedImageIds: string[];
-			imageOrder: string[];
-			videos: PostVideoEntry[];
-			mentions: Mention[];
-		}) => {
+		(data: EditSubmitInput) => {
 			mutation.reset();
 			mutation.mutate(data);
 		},
 		[mutation],
 	);
+
+	const handleVideoDelete = useCallback((youtubeVideoId: string) => {
+		void deleteFromYoutube(youtubeVideoId);
+	}, []);
 
 	if (isLoading) {
 		return (
@@ -160,7 +176,7 @@ function EditPostPage() {
 				<h1 className="text-2xl font-bold text-foreground">Edytuj post</h1>
 			</div>
 
-			{mutation.isError && (
+			{mutation.isError && !(mutation.error instanceof VideoNotConnectedError) && (
 				<UploadErrorAlert
 					error={mutation.error}
 					// Ręczne ponowienie (issue #135): react-query trzyma ostatnie
@@ -182,6 +198,7 @@ function EditPostPage() {
 				imageAccountHash={response.meta.imageAccountHash}
 				initialVideos={post.videos}
 				onSubmit={handleSubmit}
+				onVideoDelete={handleVideoDelete}
 				isSubmitting={mutation.isPending}
 				featureFlags={featureFlags}
 			/>

@@ -19,7 +19,6 @@ import {
 	updateMaintenance,
 } from "@/db/instance/queries";
 import { getStatsSummary } from "@/db/stats";
-import { listRecentUploadFailures } from "@/db/upload-failures";
 import { createHono, getOrigin } from "@/hono/factory";
 import { adminMiddleware } from "@/hono/middleware/admin";
 import { authMiddleware } from "@/hono/middleware/auth";
@@ -201,12 +200,6 @@ adminEndpoint.put("/features", async (c) => {
 adminEndpoint.get("/stats", async (c) => {
 	const summary = await getStatsSummary(new Date());
 	return c.json({ data: summary });
-});
-
-// GET /upload-failures — ostatnie nieudane uploady zdjęć (diagnostyka, issue #135).
-adminEndpoint.get("/upload-failures", async (c) => {
-	const failures = await listRecentUploadFailures(50);
-	return c.json({ data: failures });
 });
 
 export default adminEndpoint;

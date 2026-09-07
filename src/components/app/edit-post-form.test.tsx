@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { fireEvent, render, screen } from "@testing-library/react";
+// Video v2 F3 (#197): edycja dostaje ten sam flow dodawania co kompozytor
+// (picker → dialog tytułu → karta), unified lista (istniejące + nowe) z drag &
+// drop, × na istniejącym wymaga potwierdzenia i woła onVideoDelete DOKŁADNIE RAZ
+// (YouTube delete po stronie route, fire-and-forget). Zapis wysyła videoPlan —
+// existing 1:1, kolejność listy = kolejność odtwarzania.
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-
+import type { PostVideoEntry } from "@/db/posts/schema";
 import { EditPostForm } from "./edit-post-form";
 
 const baseFlags = {
@@ -12,57 +17,37 @@ const baseFlags = {
 	ai: false,
 };
 
-describe("EditPostForm — Video v2 (#194)", () => {
-	it("renders no video picker (add/remove in edit lands in F3)", () => {
+function makeVideo(name: string): PostVideoEntry {
+	return {
+		youtubeVideoId: name,
+		title: name === "yt-1" ? "Pierwszy" : "Drugi",
+		thumbnailUrl: `https://i.ytimg.com/vi/${name}/hq.jpg`,
+	};
+}
+
+describe("EditPostForm — Video v2 F3 (#197)", () => {
+	it("renders the add-video flow and existing videos together (us story 12)", () => {
 		render(
 			<EditPostForm
 				postId="p1"
 				description="hello"
 				existingImages={[]}
 				imageAccountHash="hash"
+				initialVideos={[makeVideo("yt-1")]}
 				featureFlags={baseFlags}
 				onSubmit={vi.fn()}
 				isSubmitting={false}
 			/>,
 		);
 
-		expect(screen.queryByRole("button", { name: /dodaj wideo/i })).toBeNull();
+		// Ten sam przycisk co w kompozytorze (przy 1 wideo pokazuje „1/5") + karta.
+		expect(screen.getByTitle(/dodaj wideo/i)).toBeDefined();
+		expect(screen.getByText("Pierwszy")).toBeDefined();
+		expect(screen.getByText(/istniejące/i)).toBeDefined();
 	});
 
-	it("round-trips existing videos untouched on save (order and titles preserved)", async () => {
-		const onSubmit = vi.fn();
-		const videos = [
-			{
-				youtubeVideoId: "yt-2",
-				title: "Drugi",
-				thumbnailUrl: "https://i.ytimg.com/vi/yt-2/default.jpg",
-			},
-			{
-				youtubeVideoId: "yt-1",
-				title: "Pierwszy",
-				thumbnailUrl: "https://i.ytimg.com/vi/yt-1/default.jpg",
-			},
-		];
-		render(
-			<EditPostForm
-				postId="p1"
-				description="hello"
-				existingImages={[]}
-				imageAccountHash="hash"
-				initialVideos={videos}
-				featureFlags={baseFlags}
-				onSubmit={onSubmit}
-				isSubmitting={false}
-			/>,
-		);
-
-		await userEvent.click(screen.getByRole("button", { name: /zapisz zmiany/i }));
-
-		// Wideo idą w kółko bez zmian (kolejność + tytuły) — edycja listy to F3.
-		expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ videos }));
-	});
-
-	it("blokuje zapis tekstu >2000 znaków z konkretnym komunikatem", async () => {
+	it("removing an existing video requires confirmation and fires onVideoDelete exactly once (us stories 13–14)", async () => {
+		const onVideoDelete = vi.fn();
 		const onSubmit = vi.fn();
 		const user = userEvent.setup();
 		render(
@@ -71,18 +56,53 @@ describe("EditPostForm — Video v2 (#194)", () => {
 				description="hello"
 				existingImages={[]}
 				imageAccountHash="hash"
+				initialVideos={[makeVideo("yt-1")]}
+				featureFlags={baseFlags}
+				onSubmit={onSubmit}
+				onVideoDelete={onVideoDelete}
+				isSubmitting={false}
+			/>,
+		);
+
+		await user.click(screen.getByRole("button", { name: /usuń wideo/i }));
+		expect(screen.getByText(/usunąć wideo\?/i)).toBeDefined();
+
+		// Anuluj — nic się nie dzieje.
+		await user.click(screen.getByRole("button", { name: /anuluj/i }));
+		expect(onVideoDelete).not.toHaveBeenCalled();
+
+		// Ponownie → Usuń — delete dokładnie raz.
+		await user.click(screen.getByRole("button", { name: /usuń wideo/i }));
+		await user.click(screen.getByRole("button", { name: /^usuń$/i }));
+		expect(onVideoDelete).toHaveBeenCalledExactlyOnceWith("yt-1");
+		expect(screen.queryByText("Pierwszy")).toBeNull();
+	});
+
+	it("submits the video plan preserving list order (existing 1:1)", async () => {
+		const onSubmit = vi.fn();
+		const user = userEvent.setup();
+		render(
+			<EditPostForm
+				postId="p1"
+				description="hello"
+				existingImages={[]}
+				imageAccountHash="hash"
+				initialVideos={[makeVideo("yt-2"), makeVideo("yt-1")]}
 				featureFlags={baseFlags}
 				onSubmit={onSubmit}
 				isSubmitting={false}
 			/>,
 		);
 
-		const long = "a".repeat(2001);
-		const description = screen.getByLabelText(/^tekst$/i);
-		fireEvent.change(description, { target: { value: long } });
 		await user.click(screen.getByRole("button", { name: /zapisz zmiany/i }));
 
-		expect(screen.getByText(/za długi/i)).toBeDefined();
-		expect(onSubmit).not.toHaveBeenCalled();
+		expect(onSubmit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				videoPlan: [
+					{ kind: "existing", entry: makeVideo("yt-2") },
+					{ kind: "existing", entry: makeVideo("yt-1") },
+				],
+			}),
+		);
 	});
 });

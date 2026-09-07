@@ -15,7 +15,7 @@ import {
 	SkeletonMeta,
 } from "@/components/app/post-card-skeleton";
 import { PostWhoReacted } from "@/components/app/post-who-reacted";
-import { VideoThumb } from "@/components/video/video-thumb";
+import { YoutubePostPlayer } from "@/components/video/youtube-post-player";
 import { getImageUrl } from "@/images/client";
 import { downloadImage } from "@/lib/download-image";
 
@@ -220,7 +220,7 @@ export function PostView({
 			{post.videos && post.videos.length > 0 && (
 				<div className="space-y-2">
 					{post.videos.map((video) => (
-						<VideoThumb
+						<YoutubePostPlayer
 							key={video.youtubeVideoId}
 							youtubeVideoId={video.youtubeVideoId}
 							title={video.title}

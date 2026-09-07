@@ -8,10 +8,6 @@ import { MaintenanceDialog } from "@/components/admin/maintenance-dialog";
 import { MemberRow } from "@/components/admin/member-row";
 import { ShareCodeDialog } from "@/components/admin/share-code-dialog";
 import {
-	type UploadFailureEntry,
-	UploadFailuresSection,
-} from "@/components/admin/upload-failures-section";
-import {
 	YoutubeConnection,
 	type YoutubeConnectionStatus,
 } from "@/components/admin/youtube-connection";
@@ -242,25 +238,6 @@ function AdminPage() {
 				? "error"
 				: null;
 
-	// Nieudane uploady zdjęć (issue #135) — diagnostyka; userId rozwiązujemy do
-	// imienia z listy członków (już pobranej powyżej).
-	const uploadFailuresQuery = useQuery({
-		queryKey: ["admin", "upload-failures"],
-		queryFn: async () => {
-			const res = await fetch("/api/admin/upload-failures");
-			if (!res.ok) throw new Error("Nie udało się pobrać nieudanych uploadów");
-			const json = (await res.json()) as {
-				data: Array<Omit<UploadFailureEntry, "userName">>;
-			};
-			return json.data;
-		},
-	});
-	const memberNames = new Map(membersQuery.data?.map((m) => [m.id, m.name]) ?? []);
-	const uploadFailures = uploadFailuresQuery.data?.map((failure) => ({
-		...failure,
-		userName: memberNames.get(failure.userId),
-	}));
-
 	async function copyToClipboard(text: string) {
 		await navigator.clipboard.writeText(text);
 		setCopiedLink(text);
@@ -441,13 +418,6 @@ function AdminPage() {
 						featuresMutation.reset();
 						featuresMutation.mutate(input);
 					}}
-				/>
-			</div>
-
-			<div className="mt-6">
-				<UploadFailuresSection
-					failures={uploadFailures}
-					isLoading={uploadFailuresQuery.isLoading}
 				/>
 			</div>
 		</div>

@@ -8,12 +8,14 @@ import {
 	useSensor,
 	useSensors,
 } from "@dnd-kit/core";
-import { rectSortingStrategy, SortableContext, useSortable } from "@dnd-kit/sortable";
+import { SortableContext, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { ImagePlus, X } from "lucide-react";
 import { type ChangeEvent, type FormEvent, useCallback, useMemo, useRef, useState } from "react";
+import { EditPostVideos, type VideoItem } from "@/components/app/edit-post-videos";
 import type { Mention } from "@/components/app/mention-input";
 import { PostDescriptionField } from "@/components/app/post-description-field";
+import type { VideoPlanEntry } from "@/components/app/use-publish-post";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -41,21 +43,30 @@ interface ImageItem {
 	fileIndex?: number;
 }
 
+const LISTBOX_ROLE = "listbox";
+const OPTION_ROLE = "option";
+
 interface EditPostFormProps {
 	postId: string;
 	description: string | null;
 	existingImages: ExistingImage[];
 	imageAccountHash: string;
-	/** Wideo posta (Video v2 #194) — przechodzą round-trip bez zmian do F3. */
+	/** Wideo posta — wchodzą do unified listy (reorder + remove, Video v2 F3 #197). */
 	initialVideos?: PostVideoEntry[];
 	onSubmit: (data: {
 		description: string;
 		files: File[];
 		removedImageIds: string[];
 		imageOrder: string[];
-		videos: PostVideoEntry[];
+		/** Plan wideo wg kolejności listy: existing 1:1, pending wgrane przy zapisie. */
+		videoPlan: VideoPlanEntry[];
 		mentions: Mention[];
 	}) => void;
+	/**
+	 * Usunięcie ISTNIEJĄCEGO wideo (po potwierdzeniu) — route wywołuje YouTube
+	 * delete dokładnie raz (fire-and-forget, #197).
+	 */
+	onVideoDelete?: (youtubeVideoId: string) => void;
 	isSubmitting: boolean;
 	featureFlags?: FeatureFlags;
 }
@@ -91,9 +102,10 @@ function SortablePreview({
 			style={style}
 			{...attributes}
 			{...listeners}
-			role="option"
+			// Role przez zmienną — biome wycina statyczne role/tabIndex przy formacie.
+			role={OPTION_ROLE}
 			tabIndex={0}
-			className={`relative aspect-square touch-none ${isDragging ? "scale-90 opacity-80" : ""} ${isOver ? "ring-4 ring-green-500 ring-offset-2 rounded-md" : ""}`}
+			className={`relative aspect-square touch-none ${isDragging ? "scale-90 opacity-80" : ""} ${isOver ? "rounded-md ring-4 ring-green-500 ring-offset-2" : ""}`}
 		>
 			<img
 				src={url}
@@ -123,13 +135,17 @@ export function EditPostForm({
 	imageAccountHash,
 	initialVideos = [],
 	onSubmit,
+	onVideoDelete,
 	isSubmitting,
 	featureFlags = DEFAULT_FEATURE_FLAGS,
 }: EditPostFormProps) {
 	const [description, setDescription] = useState(initialDescription ?? "");
-	// F2/F3: wideo w edycji tylko przechodzą round-trip (bez dodawania/usuwania).
-	// Stan lokalny — F3 dorobi mutacje listy (dodaj/usuń) bez zmiany kontraktu.
-	const [videos] = useState<PostVideoEntry[]>(initialVideos);
+	const [videoItems, setVideoItems] = useState<VideoItem[]>(() =>
+		initialVideos.map((entry, index) => ({
+			key: `ex-${index}-${entry.youtubeVideoId}`,
+			existing: entry,
+		})),
+	);
 	const [mentions, setMentions] = useState<Mention[]>([]);
 	const [error, setError] = useState<string | null>(null);
 	const [overId, setOverId] = useState<string | null>(null);
@@ -161,7 +177,7 @@ export function EditPostForm({
 		setOverId(event.over ? String(event.over.id) : null);
 	}, []);
 
-	const handleDragEnd = useCallback(
+	const handleImageDragEnd = useCallback(
 		(event: DragEndEvent) => {
 			setOverId(null);
 			const { active, over } = event;
@@ -226,8 +242,8 @@ export function EditPostForm({
 	const handleSubmit = useCallback(
 		(e: FormEvent) => {
 			e.preventDefault();
-			if (description.trim() === "" && items.length === 0) {
-				setError("Dodaj tekst lub zdjęcie");
+			if (description.trim() === "" && items.length === 0 && videoItems.length === 0) {
+				setError("Dodaj tekst, zdjęcie lub wideo");
 				return;
 			}
 			if (description.length > MAX_DESCRIPTION_LENGTH) {
@@ -251,23 +267,33 @@ export function EditPostForm({
 
 			const imageOrder = currentExistingIds;
 
+			const videoPlan: VideoPlanEntry[] = videoItems.map((item) =>
+				item.existing
+					? { kind: "existing" as const, entry: item.existing }
+					: {
+							kind: "pending" as const,
+							file: item.pending?.file as File,
+							title: item.pending?.title as string,
+						},
+			);
+
 			const validMentions = mentions.filter((m) => description.includes(`@${m.name}`));
-			// Wideo idą w kółko bez zmian (Video v2 #194) — edycja listy to F3.
 			onSubmit({
 				description,
 				files,
 				removedImageIds,
 				imageOrder,
-				videos,
+				videoPlan,
 				mentions: validMentions,
 			});
 		},
-		[description, items, existingImages, newFiles, onSubmit, mentions.filter, videos],
+		[description, items, existingImages, newFiles, videoItems, onSubmit, mentions.filter],
 	);
 
 	const canSubmit = useMemo(
-		() => (items.length > 0 || description.trim().length > 0) && !isSubmitting,
-		[items.length, description, isSubmitting],
+		() =>
+			(items.length > 0 || description.trim().length > 0 || videoItems.length > 0) && !isSubmitting,
+		[items.length, description, isSubmitting, videoItems.length],
 	);
 
 	return (
@@ -301,46 +327,56 @@ export function EditPostForm({
 					onChange={handleFileChange}
 					className="hidden"
 				/>
-				<div className="grid grid-cols-1 gap-2">
-					<Button
-						type="button"
-						variant="outline"
-						className="h-11 w-full sm:h-9"
-						onClick={() => fileInputRef.current?.click()}
-						disabled={items.length >= MAX_FILES}
-						title={items.length > 0 ? `${items.length}/${MAX_FILES}` : "Dodaj zdjęcia"}
-					>
-						<ImagePlus className="h-4 w-4" />
-						<span className="ml-2">
-							{items.length > 0 ? `${items.length}/${MAX_FILES}` : "Dodaj zdjęcia"}
-						</span>
-					</Button>
+				{/* Zdjęcia pod przyciskiem zdjęć, wideo pod swoim — mirror kompozytora (reviza usera). */}
+				<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-start">
+					<div className="space-y-2">
+						<Button
+							type="button"
+							variant="outline"
+							className="h-11 w-full sm:h-9"
+							onClick={() => fileInputRef.current?.click()}
+							disabled={items.length >= MAX_FILES}
+							title={items.length > 0 ? `${items.length}/${MAX_FILES}` : "Dodaj zdjęcia"}
+						>
+							<ImagePlus className="h-4 w-4" />
+							<span className="ml-2">
+								{items.length > 0 ? `${items.length}/${MAX_FILES}` : "Dodaj zdjęcia"}
+							</span>
+						</Button>
+
+						{items.length > 0 && (
+							<DndContext
+								sensors={sensors}
+								onDragStart={handleDragStart}
+								onDragOver={handleDragOver}
+								onDragEnd={handleImageDragEnd}
+							>
+								<SortableContext items={sortableIds}>
+									<div role={LISTBOX_ROLE} className="grid grid-cols-3 gap-2">
+										{items.map((item, i) => (
+											<SortablePreview
+												key={item.key}
+												id={item.key}
+												url={item.url}
+												index={i}
+												isOver={overId === item.key}
+												onRemove={() => removeItem(i)}
+											/>
+										))}
+									</div>
+								</SortableContext>
+							</DndContext>
+						)}
+					</div>
+
+					<EditPostVideos
+						items={videoItems}
+						onItemsChange={setVideoItems}
+						disabled={isSubmitting}
+						onVideoDelete={onVideoDelete}
+					/>
 				</div>
 			</div>
-
-			{items.length > 0 && (
-				<DndContext
-					sensors={sensors}
-					onDragStart={handleDragStart}
-					onDragOver={handleDragOver}
-					onDragEnd={handleDragEnd}
-				>
-					<SortableContext items={sortableIds} strategy={rectSortingStrategy}>
-						<div role="listbox" className="grid grid-cols-3 gap-2 sm:grid-cols-4">
-							{items.map((item, i) => (
-								<SortablePreview
-									key={item.key}
-									id={item.key}
-									url={item.url}
-									index={i}
-									isOver={overId === item.key}
-									onRemove={() => removeItem(i)}
-								/>
-							))}
-						</div>
-					</SortableContext>
-				</DndContext>
-			)}
 
 			<Button type="submit" className="w-full" disabled={!canSubmit}>
 				<Loader loading={isSubmitting} />

@@ -5,7 +5,7 @@ import { z } from "zod";
 export const MAX_VIDEO_BYTES = 2 * 1024 * 1024 * 1024;
 
 /** Limit wgranych wideo na instancję dzień (okno UTC, reset o północy). */
-export const DAILY_VIDEO_LIMIT = 3;
+export const DAILY_VIDEO_LIMIT = 5;
 
 /**
  * Wejście `POST /api/video/upload-session`.
@@ -37,3 +37,13 @@ export const confirmVideoSchema = z.object({
 });
 
 export type ConfirmVideoRequest = z.infer<typeof confirmVideoSchema>;
+
+/**
+ * Wejście `POST /api/video/yt-delete` (Video v2 F3 #197) — usuwanie klipu z
+ * YouTube przez admin OAuth. Fire-and-forget: błąd YouTube jest tylko logowany.
+ */
+export const youtubeDeleteSchema = z.object({
+	youtubeVideoId: z.string().min(1),
+});
+
+export type YoutubeDeleteRequest = z.infer<typeof youtubeDeleteSchema>;
