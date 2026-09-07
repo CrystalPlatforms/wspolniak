@@ -1,3 +1,10 @@
+# [5.6.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.5.0...v5.6.0) (2026-09-07)
+
+
+### Features
+
+* **video:** Video v2 F3+F4 — edit & delete flows, custom player ([#197](https://github.com/CrystalPlatforms/wspolniak/issues/197), [#198](https://github.com/CrystalPlatforms/wspolniak/issues/198)) ([f232b3d](https://github.com/CrystalPlatforms/wspolniak/commit/f232b3d90081d1387a48c31bf3d4cd5dc943add2))
+
 # [5.5.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.4.1...v5.5.0) (2026-09-07)
 
 
