@@ -46,8 +46,12 @@ vi.mock("@tanstack/react-router", () => ({
 
 // VideoThumb wymaga kontekstu routera (Link) — testujemy bramkowanie etapem
 // photos w PostCard, nie wewnętrzności miniatury (te mają własne testy).
-vi.mock("@/components/video/video-thumb", () => ({
-	VideoThumb: ({ title }: { title: string }) => <div data-testid="video-thumb">{title}</div>,
+vi.mock("@/components/video/youtube-post-player", () => ({
+	YoutubePostPlayer: ({ title }: { title: string }) => (
+		<button type="button" aria-label={`Odtwórz wideo ${title}`}>
+			{title}
+		</button>
+	),
 }));
 
 const mockedSettled = vi.mocked(useBootSettled);
@@ -199,11 +203,11 @@ describe("PostCard — choreografia odsłaniania (#145)", () => {
 			],
 		});
 		const { rerenderCard } = renderCard(post);
-		expect(screen.queryByText("Wakacje")).toBeNull();
+		expect(screen.queryByRole("button", { name: /odtwórz wideo wakacje/i })).toBeNull();
 
 		mockedSettled.mockReturnValue(true);
 		rerenderCard(post);
-		expect(screen.getByText("Wakacje")).toBeTruthy();
+		expect(screen.getByRole("button", { name: /odtwórz wideo wakacje/i })).toBeTruthy();
 	});
 
 	it("picker reakcji jest wyraźnie oddalony od przycisku komentarzy (reviza usera)", () => {

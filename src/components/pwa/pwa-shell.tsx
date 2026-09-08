@@ -22,6 +22,18 @@ export function PwaShell({ children }: { children: React.ReactNode }) {
 
 	useEffect(() => {
 		if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+		// SW tylko na produkcji: w dev cache'ował bundlę Vite i po hot-reloadach
+		// serwował nieistniejące chunki („Failed to fetch dynamically imported
+		// module"). W dev dodatkowo automatycznie wyrejestrujemy stare workery,
+		// żeby nikt nie musiał robić tego ręcznie w DevTools.
+		if (import.meta.env.DEV) {
+			void navigator.serviceWorker.getRegistrations().then((registrations) => {
+				for (const registration of registrations) {
+					void registration.unregister();
+				}
+			});
+			return;
+		}
 		navigator.serviceWorker.register("/sw.js").catch((_error) => {});
 	}, []);
 

@@ -18,9 +18,11 @@ import { PostDescriptionField } from "@/components/app/post-description-field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Loader } from "@/components/ui/loader";
 import { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from "@/db/instance";
 import { MAX_DESCRIPTION_LENGTH } from "@/db/posts/schema";
 import { reorder } from "@/lib/reorder";
+import { cn } from "@/lib/utils";
 
 const ACCEPTED_IMAGE_TYPES = "image/jpeg,image/png,image/webp,image/heic,image/heif";
 const MAX_IMAGES = 10;
@@ -312,19 +314,28 @@ export function NewPostForm({
 
 			<Button
 				type="submit"
-				className="relative h-11 w-full overflow-hidden sm:h-9"
+				className={cn(
+					"relative h-11 w-full overflow-hidden sm:h-9",
+					// W trakcie publikacji przycisk na niebiesko (Secondary #0c275f),
+					// żeby biały Loader nie zlewał się z zielonym tłem (reviza usera).
+					isSubmitting && "bg-[#0c275f] text-white hover:bg-[#0c275f]/90",
+				)}
 				disabled={!canSubmit}
 			>
 				{isSubmitting ? (
-					<span
-						aria-hidden
-						className="absolute inset-0 origin-left animate-[publish-indeterminate_7s_ease-out_forwards] bg-primary-foreground/20"
-					/>
+					<>
+						<span
+							aria-hidden
+							className="absolute inset-0 origin-left animate-[publish-indeterminate_7s_ease-out_forwards] bg-primary-foreground/20"
+						/>
+						{/* „Opatentowany" Loader — biały (inline style wygrywa z loader.css). */}
+						<Loader loading size={4} color="#FFFFFF" className="relative mr-2" />
+					</>
 				) : null}
 				<span className="relative">
 					{isSubmitting
 						? uploadProgress
-							? `Wideo ${uploadProgress.videoIndex + 1}/${uploadProgress.total} — ${uploadProgress.percent}%`
+							? `Wgrywanie wideo ${uploadProgress.videoIndex + 1}/${uploadProgress.total}…`
 							: "Publikowanie..."
 						: "Opublikuj"}
 				</span>

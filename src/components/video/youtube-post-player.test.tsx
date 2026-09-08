@@ -4,6 +4,7 @@
 // Sprawdzane minimalnie: klik→play/pause toggle, ended→zamrożenie ostatniej
 // klatki + „Odtwórz ponownie" (restart od zera), fullscreen na wrapperze.
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
 import { YoutubePostPlayer } from "./youtube-post-player";
 
 const fakePlayer = {
@@ -42,6 +43,20 @@ beforeEach(() => {
 			return fakePlayer;
 		}),
 	} as unknown as typeof window.YT;
+	// Symuluj przeglądarkę z Fullscreen API (desktop/Android/iOS 16.4+).
+	Object.defineProperty(Element.prototype, "requestFullscreen", {
+		configurable: true,
+		value: vi.fn().mockResolvedValue(undefined),
+	});
+	Object.defineProperty(document, "fullscreenElement", {
+		configurable: true,
+		value: null,
+	});
+});
+
+afterEach(() => {
+	delete (Element.prototype as { requestFullscreen?: unknown }).requestFullscreen;
+	delete (document as { fullscreenElement?: unknown }).fullscreenElement;
 });
 
 describe("YoutubePostPlayer (F4 #198)", () => {
@@ -99,8 +114,8 @@ describe("YoutubePostPlayer (F4 #198)", () => {
 			capturedOptions().events?.onStateChange?.({ data: 0 }); // ended
 		});
 
-		// Zamrożenie: seek tuż przed końcem + pauza (żadnych kafelków YT).
-		expect(fakePlayer.seekTo).toHaveBeenCalledWith(99.95, true);
+		// Bezpiecznik: seek ~0.3s przed końcem + pauza (żadnych kafelków YT).
+		expect(fakePlayer.seekTo).toHaveBeenCalledWith(99.7, true);
 		expect(fakePlayer.pauseVideo).toHaveBeenCalled();
 		const replay = screen.getByRole("button", { name: /odtwórz ponownie/i });
 		expect(replay).toBeDefined();
@@ -110,18 +125,111 @@ describe("YoutubePostPlayer (F4 #198)", () => {
 		expect(fakePlayer.playVideo).toHaveBeenCalled();
 	});
 
-	it("fullscreen requests fullscreen on the player wrapper", async () => {
-		const { container } = render(
-			<YoutubePostPlayer youtubeVideoId="abc123" title="Klip" thumbnailUrl="https://t.jpg" />,
-		);
+	it("progress timer freezes the clip ~0.3s before the end (end screen never shows)", async () => {
+		vi.useFakeTimers();
+		try {
+			render(
+				<YoutubePostPlayer youtubeVideoId="abc123" title="Klip" thumbnailUrl="https://t.jpg" />,
+			);
+			fireEvent.click(screen.getByRole("button", { name: /odtwórz wideo klip/i }));
+			await act(async () => {
+				await Promise.resolve();
+			});
+			act(() => {
+				capturedOptions().events?.onReady?.();
+			});
+			// 99.9/100 s — w strefie zamrożenia (~0.3s przed końcem).
+			fakePlayer.getCurrentTime.mockReturnValue(99.9);
+			fakePlayer.getDuration.mockReturnValue(100);
+			act(() => {
+				vi.advanceTimersByTime(200);
+			});
+
+			expect(fakePlayer.seekTo).toHaveBeenCalledWith(99.7, true);
+			expect(fakePlayer.pauseVideo).toHaveBeenCalled();
+			expect(screen.getByRole("button", { name: /odtwórz ponownie/i })).toBeDefined();
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("fullscreen: requests system fullscreen, UA confirmation toggles immersive UI", async () => {
+		// Player jest kontrolowany — rodzic (VideoDialog) rozszerza się na ekran.
+		function Harness() {
+			const [expanded, setExpanded] = useState(false);
+			return (
+				<YoutubePostPlayer
+					youtubeVideoId="abc123"
+					title="Klip"
+					thumbnailUrl="https://t.jpg"
+					expanded={expanded}
+					onExpandedChange={setExpanded}
+				/>
+			);
+		}
+		const { container } = render(<Harness />);
 		fireEvent.click(screen.getByRole("button", { name: /odtwórz wideo klip/i }));
 		await waitFor(() => expect(window.YT?.Player).toHaveBeenCalled());
 
-		const wrapper = container.querySelector(".aspect-video") as HTMLElement;
-		const fullscreenSpy = vi.fn();
-		(wrapper as HTMLElement & { requestFullscreen: () => void }).requestFullscreen = fullscreenSpy;
-
+		// Wejście: żądanie systemowego fullscreen.
 		fireEvent.click(screen.getByRole("button", { name: /pełny ekran/i }));
-		expect(fullscreenSpy).toHaveBeenCalledTimes(1);
+		const requestSpy = (
+			Element.prototype as unknown as {
+				requestFullscreen: ReturnType<typeof vi.fn>;
+			}
+		).requestFullscreen;
+		expect(requestSpy).toHaveBeenCalledTimes(1);
+
+		// UA potwierdza wejście (zdarzenie fullscreenchange) → tryb immersyjny.
+		const wrapper = container.querySelector(".aspect-video") as HTMLElement;
+		act(() => {
+			Object.defineProperty(document, "fullscreenElement", {
+				configurable: true,
+				value: wrapper,
+			});
+			document.dispatchEvent(new Event("fullscreenchange"));
+		});
+		expect(screen.getAllByRole("button", { name: /zamknij pełny ekran/i }).length).toBeGreaterThan(
+			0,
+		);
+
+		// Wyjście: UA wraca → tryb immersyjny znika, dialog wraca do okna.
+		act(() => {
+			Object.defineProperty(document, "fullscreenElement", {
+				configurable: true,
+				value: null,
+			});
+			document.dispatchEvent(new Event("fullscreenchange"));
+		});
+		expect(screen.queryByRole("button", { name: /zamknij pełny ekran/i })).toBeNull();
+	});
+
+	// Stary iPhone (brak Fullscreen API): apple'owy fullscreen daje dopiero
+	// wbudowany player YT (controls=1); nasz pasek postępu zostaje.
+	describe("fallback — stary iPhone bez Fullscreen API", () => {
+		beforeEach(() => {
+			delete (Element.prototype as { requestFullscreen?: unknown }).requestFullscreen;
+			delete (Element.prototype as { webkitRequestFullscreen?: unknown }).webkitRequestFullscreen;
+			vi.stubGlobal(
+				"navigator",
+				Object.create(navigator, { userAgent: { value: "iPhone; CPU iPhone OS 15_0" } }),
+			);
+		});
+
+		afterEach(() => {
+			vi.unstubAllGlobals();
+		});
+
+		it("hides our fullscreen button (apple fullscreen lives in YT controls), keeps the bar", async () => {
+			render(
+				<YoutubePostPlayer youtubeVideoId="abc123" title="Klip" thumbnailUrl="https://t.jpg" />,
+			);
+			fireEvent.click(screen.getByRole("button", { name: /odtwórz wideo klip/i }));
+			await waitFor(() => expect(window.YT?.Player).toHaveBeenCalled());
+
+			expect(capturedOptions().playerVars?.controls).toBe(1);
+			expect(screen.queryByRole("button", { name: /pełny ekran/i })).toBeNull();
+			expect(screen.getByRole("slider", { name: /postęp wideo/i })).not.toBeNull();
+		});
 	});
 });

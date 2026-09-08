@@ -7,15 +7,22 @@ interface LoaderProps {
 	loading?: boolean;
 	size?: number;
 	className?: string;
+	/** Kolor kropek — inline `--uib-color` (wygrywa z `.loader` w loader.css). */
+	color?: string;
 }
 
-export function Loader({ loading = true, size = 6, className }: LoaderProps) {
+export function Loader({ loading = true, size = 6, className, color }: LoaderProps) {
 	if (!loading) return null;
 	return (
 		<output
 			className={cn("loader", className)}
 			aria-label="Ładowanie"
-			style={{ "--uib-size": `${size * 4}px` } as CSSProperties}
+			style={
+				{
+					"--uib-size": `${size * 4}px`,
+					...(color ? { "--uib-color": color } : {}),
+				} as CSSProperties
+			}
 		>
 			<div className="dot" />
 			<div className="dot" />

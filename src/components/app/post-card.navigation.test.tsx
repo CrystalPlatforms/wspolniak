@@ -31,10 +31,6 @@ vi.mock("@/core/boot-splash", () => ({
 }));
 
 // Miniatura wideo ma własne testy; tutaj wycięta, by nie ciągnąć jej zależności.
-vi.mock("@/components/video/video-thumb", () => ({
-	VideoThumb: ({ title }: { title: string }) => <div data-testid="video-thumb">{title}</div>,
-}));
-
 const NOW = "2026-08-21T12:00:00.000Z";
 
 function makePost(): PostCardPost {

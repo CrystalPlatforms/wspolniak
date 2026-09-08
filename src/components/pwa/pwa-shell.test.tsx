@@ -14,8 +14,9 @@ function mockLocalStorage(): Storage {
 	} as unknown as Storage;
 }
 
-describe("PwaShell", () => {
+describe("PwaShell — rejestracja Service Workera (SW tylko na produkcji)", () => {
 	let registerMock: ReturnType<typeof vi.fn>;
+	let unregisterMock: ReturnType<typeof vi.fn>;
 
 	beforeEach(() => {
 		vi.stubGlobal("localStorage", mockLocalStorage());
@@ -29,13 +30,22 @@ describe("PwaShell", () => {
 		);
 
 		registerMock = vi.fn().mockResolvedValue({});
+		unregisterMock = vi.fn().mockResolvedValue(true);
 		Object.defineProperty(navigator, "serviceWorker", {
 			configurable: true,
-			value: { register: registerMock, ready: new Promise(() => {}) },
+			value: {
+				register: registerMock,
+				ready: new Promise(() => {}),
+				getRegistrations: vi.fn(async () => [
+					{ unregister: unregisterMock },
+					{ unregister: unregisterMock },
+				]),
+			},
 		});
 	});
 
 	afterEach(() => {
+		vi.unstubAllEnvs();
 		vi.unstubAllGlobals();
 		Object.defineProperty(navigator, "serviceWorker", {
 			configurable: true,
@@ -43,7 +53,8 @@ describe("PwaShell", () => {
 		});
 	});
 
-	it("registers /sw.js on mount", async () => {
+	it("registers /sw.js on mount in production", async () => {
+		vi.stubEnv("DEV", false);
 		render(
 			<PwaShell>
 				<div>child</div>
@@ -53,5 +64,17 @@ describe("PwaShell", () => {
 		// useEffect runs synchronously after commit in test env
 		await Promise.resolve();
 		expect(registerMock).toHaveBeenCalledWith("/sw.js");
+	});
+
+	it("unregisters stale workers in dev instead of registering (dev cache fix)", async () => {
+		// Testy vitest działają w trybie DEV — tu właśnie ta gałąź się odpala.
+		render(
+			<PwaShell>
+				<div>child</div>
+			</PwaShell>,
+		);
+
+		await vi.waitFor(() => expect(unregisterMock).toHaveBeenCalledTimes(2));
+		expect(registerMock).not.toHaveBeenCalled();
 	});
 });

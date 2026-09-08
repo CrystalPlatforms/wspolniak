@@ -15,7 +15,11 @@ import {
 	SkeletonMeta,
 } from "@/components/app/post-card-skeleton";
 import { PostWhoReacted } from "@/components/app/post-who-reacted";
-import { YoutubePostPlayer } from "@/components/video/youtube-post-player";
+import {
+	VideoDialog,
+	type VideoDialogData,
+	VideoPosterButton,
+} from "@/components/app/video-player-dialog";
 import { getImageUrl } from "@/images/client";
 import { downloadImage } from "@/lib/download-image";
 
@@ -87,6 +91,8 @@ export function PostView({
 	const canManage = currentUserId === post.authorId || currentUserRole === "admin";
 
 	const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+	/** Wideo otwarte w dialogu (Video v2 F4 #198) — null = zamknięty. */
+	const [dialogVideo, setDialogVideo] = useState<VideoDialogData | null>(null);
 
 	useEffect(() => {
 		onLightboxChange?.(lightboxIndex !== null);
@@ -220,12 +226,7 @@ export function PostView({
 			{post.videos && post.videos.length > 0 && (
 				<div className="space-y-2">
 					{post.videos.map((video) => (
-						<YoutubePostPlayer
-							key={video.youtubeVideoId}
-							youtubeVideoId={video.youtubeVideoId}
-							title={video.title}
-							thumbnailUrl={video.thumbnailUrl}
-						/>
+						<VideoPosterButton key={video.youtubeVideoId} video={video} onOpen={setDialogVideo} />
 					))}
 				</div>
 			)}
@@ -237,6 +238,8 @@ export function PostView({
 				onClose={() => setLightboxIndex(null)}
 				canAddToAlbum={Boolean(currentUserId)}
 			/>
+
+			<VideoDialog video={dialogVideo} onClose={() => setDialogVideo(null)} />
 		</article>
 	);
 }

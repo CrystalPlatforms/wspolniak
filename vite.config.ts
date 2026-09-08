@@ -14,6 +14,22 @@ export default defineConfig({
 		hmr: { overlay: false },
 	},
 	plugins: [
+		{
+			// Przeglądarka cache'uje /node_modules/.vite/deps/* jako „immutable" (Vite dodaje
+			// max-age=31536000, bo URL ma ?v=hash). Po wyczyszczeniu/odbudowie cache deps
+			// chunki mają INNE nazwy i przeglądarka w kółko prosi o stare → 404 → „Failed to
+			// fetch dynamically imported module". W dev odpytujemy serwer zawsze świeżo.
+			name: "dev-no-immutable-deps-cache",
+			apply: "serve",
+			configureServer(server) {
+				server.middlewares.use((req, res, next) => {
+					if (req.url?.includes("/node_modules/.vite/")) {
+						res.setHeader("Cache-Control", "no-store");
+					}
+					next();
+				});
+			},
+		},
 		viteTsConfigPaths({
 			projects: ["./tsconfig.json"],
 		}),

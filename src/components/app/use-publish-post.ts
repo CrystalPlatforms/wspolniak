@@ -87,6 +87,9 @@ export async function uploadVideoPlan(
 			entries.push(item.entry);
 			continue;
 		}
+		// Progress 0% od razu na start wideo — UI pokazuje „Wgrywanie wideo i/N"
+		// zanim pierwszy chunk (do 16 MiB) dotrze przez proxy do YouTube.
+		onProgress({ videoIndex: index, total: plan.length, percent: 0 });
 		try {
 			const uploaded = await upload(
 				{ file: item.file, title: item.title, description: null },

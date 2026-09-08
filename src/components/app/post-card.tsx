@@ -14,7 +14,7 @@ import {
 	SkeletonMeta,
 } from "@/components/app/post-card-skeleton";
 import { PostWhoReacted } from "@/components/app/post-who-reacted";
-import { VideoThumb } from "@/components/video/video-thumb";
+import { VideoDialog, VideoPosterButton } from "@/components/app/video-player-dialog";
 import { useBootSequence } from "@/core/boot-sequence";
 import { getImageUrl } from "@/images/client";
 
@@ -78,6 +78,8 @@ export function PostCard({
 }: PostCardProps) {
 	const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 	const [loadedImages, setLoadedImages] = useState<ReadonlySet<string>>(() => new Set());
+	/** Wideo otwarte w dialogu (Video v2 F4 #198) — null = zamknięty. */
+	const [dialogVideo, setDialogVideo] = useState<PostCardVideo | null>(null);
 
 	const canManage = post.authorId === currentUserId || currentUserRole === "admin";
 	const visibleImages = post.images.slice(0, MAX_FEED_IMAGES);
@@ -194,12 +196,7 @@ export function PostCard({
 			{visible.photos && post.videos && post.videos.length > 0 && (
 				<div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
 					{post.videos.map((video) => (
-						<VideoThumb
-							key={video.youtubeVideoId}
-							youtubeVideoId={video.youtubeVideoId}
-							title={video.title}
-							thumbnailUrl={video.thumbnailUrl}
-						/>
+						<VideoPosterButton key={video.youtubeVideoId} video={video} onOpen={setDialogVideo} />
 					))}
 				</div>
 			)}
@@ -242,6 +239,9 @@ export function PostCard({
 					onClose={() => setLightboxIndex(null)}
 				/>
 			)}
+
+			{/* Video v2 F4 (#198): miniatura otwiera player w dialogu — bez inline playback na karcie. */}
+			<VideoDialog video={dialogVideo} onClose={() => setDialogVideo(null)} />
 		</article>
 	);
 }

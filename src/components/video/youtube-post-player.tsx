@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { Maximize, Play } from "lucide-react";
+import { Maximize, Minimize, Play, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 
 /**
  * Minimalny własny player na YouTube IFrame Player API (Video v2 F4 #198,
  * us stories 16–22): klik na powierzchni przełącza play/pause, pasek postępu
- * pokazuje pozycję i przewija, przycisk pełnego ekranu robi fullscreen na
- * wrapperze. Na `ended` player przewija do ostatniej klatki i pauzuje (zamrożona
- * klatka, zero ekranów końcowych YT) i pokazuje „Odtwórz ponownie". Related
- * videos wyłączone na poziomie embeda (`rel: 0`); watermark YT zostaje widoczny
- * (przezroczysty overlay nie zasłania powierzchni iframe). Wolumin celowo brak.
+ * pokazuje pozycję i przewija (klik + strzałki), pełny ekran to WŁASNY tryb
+ * CSS (działa też na iOS, gdzie iframe nie wspiera requestFullscreen) z
+ * przyciskiem zamknięcia i ESC. Na `ended` player przewija do ostatniej
+ * klatki i pauzuje (zamrożona klatka, zero ekranów końcowych YT) i pokazuje
+ * „Odtwórz ponownie". Related videos wyłączone na poziomie embeda (`rel: 0`);
+ * iframe ma zablokowane zdarzenia wskaźnika, więc paski YouTube (udostępnij/
+ * ustawienia) się nie pokazują — graficzny watermark YT zostaje widoczny.
  */
 
 interface YTPlayer {
@@ -72,9 +75,18 @@ interface YoutubePostPlayerProps {
 	youtubeVideoId: string;
 	title: string;
 	thumbnailUrl: string;
+	/** Tryb pełnoekranowy sterowany z zewnątrz — dialog rozszerza się na ekran. */
+	expanded?: boolean;
+	onExpandedChange?: (expanded: boolean) => void;
 }
 
-export function YoutubePostPlayer({ youtubeVideoId, title, thumbnailUrl }: YoutubePostPlayerProps) {
+export function YoutubePostPlayer({
+	youtubeVideoId,
+	title,
+	thumbnailUrl,
+	expanded = false,
+	onExpandedChange,
+}: YoutubePostPlayerProps) {
 	const wrapperRef = useRef<HTMLDivElement>(null);
 	const mountRef = useRef<HTMLDivElement>(null);
 	const playerRef = useRef<YTPlayer | null>(null);
@@ -83,6 +95,21 @@ export function YoutubePostPlayer({ youtubeVideoId, title, thumbnailUrl }: Youtu
 	const [ended, setEnded] = useState(false);
 	const [progress, setProgress] = useState(0);
 	const [duration, setDuration] = useState(0);
+	const setExpanded = useCallback(
+		(next: boolean) => {
+			onExpandedChange?.(next);
+		},
+		[onExpandedChange],
+	);
+	// Systemowy fullscreen (Android, iOS 16.4+, desktop) — UA sam obsługuje wejście/wyjście.
+	const [nativeFs, setNativeFs] = useState(false);
+	// Stary iPhone (iOS bez Fullscreen API): apple'owy fullscreen jest osiągalny
+	// WYŁĄCZNIE przyciskiem wbudowanego playera YouTube (on gra w <video>) —
+	// więc tam włączamy jego kontrolki. Desktop/Android/reszta iOS: controls=0.
+	const isAppleMobileWithoutFs =
+		typeof navigator !== "undefined" &&
+		/iPad|iPhone|iPod/.test(navigator.userAgent) &&
+		!(typeof Element !== "undefined" && "requestFullscreen" in Element.prototype);
 	const progressTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
 	const stopProgressTimer = useCallback(() => {
@@ -100,18 +127,73 @@ export function YoutubePostPlayer({ youtubeVideoId, title, thumbnailUrl }: Youtu
 			const current = player.getCurrentTime() || 0;
 			const total = player.getDuration() || 0;
 			setDuration(total);
+			// Zamrożenie PRZED fizycznym końcem (reviza: seek 0.05s przed końcem
+			// wypadał poza materiałem i YT pokazywał losową klatkę). Zatrzymanie
+			// ~0.3s przed końcem nie dopuszcza do ekranu końcowego YT wcale.
+			if (total > 0 && current >= total - 0.3) {
+				player.seekTo(Math.max(0, total - 0.3), true);
+				player.pauseVideo();
+				setEnded(true);
+				stopProgressTimer();
+				return;
+			}
 			setProgress(total > 0 ? Math.min(100, (current / total) * 100) : 0);
-		}, 250);
+		}, 200);
 	}, [stopProgressTimer]);
 
-	useEffect(
-		() => () => {
+	useEffect(() => {
+		return () => {
 			stopProgressTimer();
 			playerRef.current?.destroy();
 			playerRef.current = null;
-		},
-		[stopProgressTimer],
-	);
+		};
+	}, [stopProgressTimer]);
+
+	// Własny pełny ekran (CSS): blokada scrolla strony + zamykanie ESC.
+	useEffect(() => {
+		if (!expanded) return;
+		const previousOverflow = document.body.style.overflow;
+		document.body.style.overflow = "hidden";
+		const onKeyDown = (event: KeyboardEvent) => {
+			if (event.key === "Escape") setExpanded(false);
+		};
+		window.addEventListener("keydown", onKeyDown);
+		return () => {
+			document.body.style.overflow = previousOverflow;
+			window.removeEventListener("keydown", onKeyDown);
+		};
+	}, [expanded, setExpanded]);
+
+	// Systemowy fullscreen (Android, iOS 16.4+, desktop) — synchronizacja z gestami UA.
+	useEffect(() => {
+		const sync = () => setNativeFs(document.fullscreenElement === wrapperRef.current);
+		document.addEventListener("fullscreenchange", sync);
+		return () => document.removeEventListener("fullscreenchange", sync);
+	}, []);
+
+	/**
+	 * Wejście: systemowy fullscreen gdy urządzenie go ma (Android, iOS 16.4+,
+	 * desktop). Gdy nie ma (starszy iPhone Safari) — pełnoekranowy tryb w dialogu
+	 * (iOS pozwala natywny fullscreen wyłącznie elementom <video>, a YouTube gra
+	 * w cross-origin iframe). Wyjście z systemowego fullscreen zawsze działa.
+	 */
+	const toggleFullscreen = useCallback(() => {
+		if (document.fullscreenElement) {
+			void document.exitFullscreen();
+			return;
+		}
+		const wrapper = wrapperRef.current;
+		if (!wrapper) return;
+		const webkitWrapper = wrapper as HTMLElement & { webkitRequestFullscreen?: () => void };
+		const request =
+			wrapper.requestFullscreen?.bind(wrapper) ??
+			webkitWrapper.webkitRequestFullscreen?.bind(webkitWrapper);
+		if (request) {
+			request().catch(() => setExpanded(true));
+		} else {
+			setExpanded(true);
+		}
+	}, [setExpanded]);
 
 	const startPlayback = useCallback(async () => {
 		if (started) return;
@@ -121,10 +203,10 @@ export function YoutubePostPlayer({ youtubeVideoId, title, thumbnailUrl }: Youtu
 		playerRef.current = new YT.Player(mountRef.current, {
 			videoId: youtubeVideoId,
 			playerVars: {
-				// rel: 0 — related videos wyłączone na poziomie embeda (#198);
-				// controls: 0 — chrome playera to nasz minimalny pasek pod spodem.
+				// rel: 0 — related videos wyłączone na poziomie embeda (#198).
+				// controls=1 tylko na starych iPhone'ach — apple'owy fullscreen YT.
 				rel: 0,
-				controls: 0,
+				controls: isAppleMobileWithoutFs ? 1 : 0,
 				playsinline: 1,
 				disablekb: 1,
 			},
@@ -141,11 +223,11 @@ export function YoutubePostPlayer({ youtubeVideoId, title, thumbnailUrl }: Youtu
 						setPlaying(false);
 					}
 					if (event.data === YT_STATE_ENDED) {
-						// Zamrożenie ostatniej klatki zamiast ekranu końcowego YT (#198):
-						// sekunda przed końcem + pauza, potem „Odtwórz ponownie".
+						// Bezpiecznik (gdyby timer nie zdążył): klatka ~0.3s przed końcem
+						// zamiast ekranu końcowego YT, potem „Odtwórz ponownie".
 						const player = playerRef.current;
 						const total = player?.getDuration() || 0;
-						player?.seekTo(Math.max(0, total - 0.05), true);
+						player?.seekTo(Math.max(0, total - 0.3), true);
 						player?.pauseVideo();
 						setEnded(true);
 						stopProgressTimer();
@@ -153,7 +235,7 @@ export function YoutubePostPlayer({ youtubeVideoId, title, thumbnailUrl }: Youtu
 				},
 			},
 		});
-	}, [started, youtubeVideoId, startProgressTimer, stopProgressTimer]);
+	}, [started, youtubeVideoId, isAppleMobileWithoutFs, startProgressTimer, stopProgressTimer]);
 
 	const togglePlay = useCallback(() => {
 		const player = playerRef.current;
@@ -201,98 +283,150 @@ export function YoutubePostPlayer({ youtubeVideoId, title, thumbnailUrl }: Youtu
 		[duration, progress],
 	);
 
-	const requestFullscreen = useCallback(() => {
-		const wrapper = wrapperRef.current;
-		if (!wrapper) return;
-		const anyWrapper = wrapper as HTMLElement & {
-			webkitRequestFullscreen?: () => void;
-		};
-		if (wrapper.requestFullscreen) {
-			void wrapper.requestFullscreen();
-		} else if (anyWrapper.webkitRequestFullscreen) {
-			anyWrapper.webkitRequestFullscreen();
-		}
-	}, []);
+	/** Tryb immersyjny: systemowy fullscreen LUB CSS fallback w dialogu. */
+	const immersive = expanded || nativeFs;
 
-	return (
-		<div className="overflow-hidden rounded-lg border border-border bg-card">
-			<div ref={wrapperRef} className="relative aspect-video w-full bg-black">
-				{/* Miejsce na iframe (YT API podmienia ten element przy starcie). */}
-				{started ? <div ref={mountRef} className="absolute inset-0 h-full w-full" /> : null}
-
-				{!started ? (
-					<button
-						type="button"
-						aria-label={`Odtwórz wideo ${title}`}
-						onClick={() => {
-							void startPlayback();
-						}}
-						className="absolute inset-0 block h-full w-full"
-					>
-						<img
-							src={thumbnailUrl}
-							alt={title}
-							className="h-full w-full object-cover"
-							loading="lazy"
-						/>
-						<span className="absolute inset-0 flex items-center justify-center">
-							<span className="flex size-12 items-center justify-center rounded-lg bg-black">
-								<Play className="size-5 fill-primary text-primary" />
-							</span>
-						</span>
-					</button>
-				) : (
-					<>
-						{/* Przezroczysty overlay klikalny — watermark YT pod spodem zostaje widoczny. */}
-						<button
-							type="button"
-							aria-label={playing ? "Pauza" : "Odtwórz"}
-							onClick={togglePlay}
-							className="absolute inset-0 h-full w-full"
-						/>
-						{ended ? (
-							<span className="absolute inset-0 flex items-center justify-center">
-								<button
-									type="button"
-									onClick={replay}
-									className="flex items-center gap-2 rounded-full bg-black/90 px-5 py-3 text-sm font-bold text-white"
-								>
-									<Play className="size-4 fill-primary text-primary" />
-									Odtwórz ponownie
-								</button>
-							</span>
-						) : null}
-					</>
-				)}
-			</div>
-
-			{/* Nasz minimalny pasek: postęp + seek + fullscreen — pod wideo, watermark nietknięty. */}
-			<div className="flex items-center gap-2 p-2">
+	const playerSurface = (
+		<>
+			{/* Miejsce na iframe (YT API podmienia ten element przy starcie).
+			    pointer-events none na iframe: YouTube nie dostaje hovera/klików,
+			    więc NIE pokazuje swoich pasków (udostępnij/ustawienia) — reviza usera. */}
+			{started ? (
 				<div
-					role="slider"
-					aria-label="Postęp wideo"
-					aria-valuemin={0}
-					aria-valuemax={100}
-					aria-valuenow={Math.round(progress)}
-					onClick={seekFromBar}
-					onKeyDown={seekByKeyboard}
-					tabIndex={0}
-					className="h-1.5 flex-1 cursor-pointer overflow-hidden rounded-full bg-muted"
-				>
-					<div
-						className="h-full rounded-full bg-primary transition-[width] duration-200"
-						style={{ width: `${progress}%` }}
-					/>
-				</div>
+					ref={mountRef}
+					// Na starym iPhonie iframe dostaje tapnięcia — YT sam obsługuje pauzę,
+					// pasek i apple'owy fullscreen (nasz overlay by je przechwycił).
+					className={cn(
+						"absolute inset-0 h-full w-full",
+						!isAppleMobileWithoutFs && "[&_iframe]:pointer-events-none",
+					)}
+				/>
+			) : null}
+
+			{!started ? (
 				<button
 					type="button"
-					aria-label="Pełny ekran"
-					onClick={requestFullscreen}
-					className="flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+					aria-label={`Odtwórz wideo ${title}`}
+					onClick={() => {
+						void startPlayback();
+					}}
+					className="absolute inset-0 block h-full w-full"
 				>
-					<Maximize className="size-4" />
+					<img
+						src={thumbnailUrl}
+						alt={title}
+						className="h-full w-full object-cover"
+						loading="lazy"
+					/>
+					<span className="absolute inset-0 flex items-center justify-center">
+						<span className="flex size-12 items-center justify-center rounded-lg bg-black">
+							<Play className="size-5 fill-primary text-primary" />
+						</span>
+					</span>
 				</button>
+			) : isAppleMobileWithoutFs ? // Stary iPhone: ŻADNEGO overlaya — tapnięcia trafiają w YouTube.
+			null : (
+				<>
+					{/* Przezroczysty overlay klikalny — watermark YT pod spodem zostaje widoczny. */}
+					<button
+						type="button"
+						aria-label={playing ? "Pauza" : "Odtwórz"}
+						onClick={togglePlay}
+						className="absolute inset-0 h-full w-full"
+					/>
+					{ended ? (
+						<span className="absolute inset-0 flex items-center justify-center">
+							<button
+								type="button"
+								onClick={replay}
+								className="flex items-center gap-2 rounded-full bg-black/90 px-5 py-3 text-sm font-bold text-white"
+							>
+								<Play className="size-4 fill-primary text-primary" />
+								Odtwórz ponownie
+							</button>
+						</span>
+					) : null}
+				</>
+			)}
+		</>
+	);
+
+	const controlBar = (
+		<div className="flex items-center gap-2 p-2">
+			<div
+				role="slider"
+				aria-label="Postęp wideo"
+				aria-valuemin={0}
+				aria-valuemax={100}
+				aria-valuenow={Math.round(progress)}
+				onClick={seekFromBar}
+				onKeyDown={seekByKeyboard}
+				tabIndex={0}
+				className={cn(
+					"h-1.5 flex-1 cursor-pointer overflow-hidden rounded-full",
+					immersive ? "bg-white/20" : "bg-muted",
+				)}
+			>
+				<div
+					className="h-full rounded-full bg-primary transition-[width] duration-200"
+					style={{ width: `${progress}%` }}
+				/>
 			</div>
+			{!isAppleMobileWithoutFs && (
+				<button
+					type="button"
+					aria-label={immersive ? "Zamknij pełny ekran" : "Pełny ekran"}
+					onClick={toggleFullscreen}
+					className={cn(
+						"flex size-8 shrink-0 items-center justify-center rounded-md transition-colors",
+						immersive
+							? "text-white/80 hover:bg-white/10 hover:text-white"
+							: "text-muted-foreground hover:bg-accent hover:text-foreground",
+					)}
+				>
+					{immersive ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
+				</button>
+			)}
+		</div>
+	);
+
+	// JEDNA struktura DOM dla trybu zwykłego i pełnoekranowego: przełączenie
+	// zmienia tylko KLASY, więc węzeł iframe nie jest przenoszony (przeniesienie
+	// przeładowałoby wideo). W pełnym ekranie player wypełnia dialog (h-full) —
+	// to DIALOG rozszerza się na ekran (transform Radixa blokował fixed w środku).
+	return (
+		<div
+			className={cn(
+				"flex flex-col",
+				expanded
+					? "h-full w-full bg-black"
+					: "overflow-hidden rounded-lg border border-border bg-card",
+			)}
+		>
+			<div
+				ref={wrapperRef}
+				className={cn(
+					"relative w-full overflow-hidden bg-black",
+					expanded
+						? "flex min-h-0 flex-1 items-center justify-center"
+						: "aspect-video rounded-t-lg",
+				)}
+			>
+				{playerSurface}
+			</div>
+			{controlBar}
+			{expanded && (
+				<button
+					type="button"
+					aria-label="Zamknij pełny ekran"
+					onClick={() => {
+						setExpanded(false);
+					}}
+					className="absolute right-3 top-3 z-10 flex size-11 items-center justify-center rounded-full bg-black/70 text-white ring-1 ring-white/30 transition-colors hover:bg-black hover:text-white"
+				>
+					<X className="size-6" />
+				</button>
+			)}
 		</div>
 	);
 }
