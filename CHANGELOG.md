@@ -1,3 +1,10 @@
+## [5.6.1](https://github.com/CrystalPlatforms/wspolniak/compare/v5.6.0...v5.6.1) (2026-09-08)
+
+
+### Bug Fixes
+
+* **video:** player polish — dialog playback everywhere, hybrid fullscreen, last-frame freeze ([#198](https://github.com/CrystalPlatforms/wspolniak/issues/198)) ([093abe9](https://github.com/CrystalPlatforms/wspolniak/commit/093abe9631f925f9bc249b9e7f36b1072c3a7abf)), closes [#0c275f](https://github.com/CrystalPlatforms/wspolniak/issues/0c275f)
+
 # [5.6.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.5.0...v5.6.0) (2026-09-07)
 
 
