@@ -1,3 +1,10 @@
+## [5.6.2](https://github.com/CrystalPlatforms/wspolniak/compare/v5.6.1...v5.6.2) (2026-09-13)
+
+
+### Bug Fixes
+
+* **upload:** per-file 20s timeout + slow-connection warning after 7s ([#199](https://github.com/CrystalPlatforms/wspolniak/issues/199)) ([77230dc](https://github.com/CrystalPlatforms/wspolniak/commit/77230dc14cd69b4e6afa581cd5809cbc65c57fcb))
+
 ## [5.6.1](https://github.com/CrystalPlatforms/wspolniak/compare/v5.6.0...v5.6.1) (2026-09-08)
 
 
