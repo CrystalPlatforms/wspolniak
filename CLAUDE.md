@@ -191,6 +191,19 @@ Pamięć jest lokalna dla każdego dewelopera — jej ścieżka wynika ze ście�
 maszynie, więc nie wpisuj tu ścieżek bezwzględnych. Statusy istotne dla obu deweloperów
 trzymaj w `/docs` lub `plans/`.
 
+### Upload zdjęć — w toku (wrzesień 2026, issue #199 + follow-up)
+
+Naprawa uploadu (issue #199): twardy limit czasu **per plik** — upload zdjęcia 20 s
+(`FILE_UPLOAD_TIMEOUT_MS`), szybkie requesty JSON 7 s (`UPLOAD_TIMEOUT_MS`), a po 7 s
+uploadu pliku UI pokazuje ostrzeżenie „wolne łącze" (`onSlowUpload`), nie przerywając
+uploadu. Wideo nie ma twardego limitu (chunked upload z własnym progresem %).
+
+Dwie funkcje do wdrożenia (TDD Vertical Slice — issue na GitHubie):
+1. **Za duże zdjęcie — detekcja przed publikacją:** podgląd zdjęcia robi się czerwony
+   z wykrzyknikiem na środku; kliknięcie otwiera dialog z błędem.
+2. **Crop/kompresja w dialogu błędu:** opcja obcięcia zdjęcia, która realnie zmniejsza
+   rozmiar pliku. Szczegóły UX do zaprojektowania w trakcie implementacji.
+
 ## Reguły specyficzne dla technologii
 
 Szczegółowe reguły w `.claude/rules/` z scoped `paths:` frontmatter:

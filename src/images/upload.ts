@@ -7,8 +7,21 @@ import { compressImage } from "@/images/compress";
  * błędami zamiast generycznego "Load failed" z przeglądarki.
  */
 
-/** Twardy limit czasu pojedynczego requestu uploadu (ms). */
+/** Twardy limit czasu szybkiego requestu JSON (batch upload-urls, create-post) w ms. */
 export const UPLOAD_TIMEOUT_MS = 7000;
+
+/**
+ * Twardy limit czasu uploadu POJEDYNCZEGO pliku (ms) — większy od UPLOAD_TIMEOUT_MS,
+ * bo duże zdjęcie na wolnym łączu potrzebuje więcej czasu (issue #199).
+ */
+export const FILE_UPLOAD_TIMEOUT_MS = 20_000;
+
+/**
+ * Próg (ms) po którym upload PLIKU woła `onSlowUpload` — ostrzeżenie „wolne łącze"
+ * bez przerywania uploadu (issue #199). Zgadza się z UPLOAD_TIMEOUT_MS, żeby
+ * ostrzeżenie pojawiało się dokładnie tam, gdzie wcześniej leciał twardy błąd.
+ */
+export const SLOW_UPLOAD_WARNING_MS = 7000;
 
 /** Kroki flow — trafiają do szczegółów błędu i raportu nieudanego uploadu. */
 export type UploadStep = "upload-urls" | "compress" | "image-upload" | "create-post";
@@ -33,7 +46,12 @@ export class UploadFlowError extends Error {
 }
 
 /** Tłumaczy surowy błąd fetch/compress na UploadFlowError z polskim komunikatem. */
-function describeUploadError(error: unknown, step: UploadStep, fileName?: string): UploadFlowError {
+function describeUploadError(
+	error: unknown,
+	step: UploadStep,
+	fileName?: string,
+	timeoutMs: number = UPLOAD_TIMEOUT_MS,
+): UploadFlowError {
 	const name = error instanceof Error ? error.name : "";
 	const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
 
@@ -43,8 +61,8 @@ function describeUploadError(error: unknown, step: UploadStep, fileName?: string
 			step,
 			"timeout",
 			fileName
-				? `Przesłanie zdjęcia „${fileName}" trwało zbyt długo (limit ${UPLOAD_TIMEOUT_MS / 1000} s) — połączenie jest zbyt wolne. Spróbuj ponownie lub dodaj mniej zdjęć naraz.`
-				: `Serwer nie odpowiedział w ciągu ${UPLOAD_TIMEOUT_MS / 1000} s — połączenie jest zbyt wolne. Spróbuj ponownie.`,
+				? `Przesłanie zdjęcia „${fileName}" trwało zbyt długo (limit ${timeoutMs / 1000} s) — połączenie jest zbyt wolne. Spróbuj ponownie lub dodaj mniej zdjęć naraz.`
+				: `Serwer nie odpowiedział w ciągu ${timeoutMs / 1000} s — połączenie jest zbyt wolne. Spróbuj ponownie.`,
 			detail,
 			fileName,
 		);
@@ -75,17 +93,41 @@ function describeUploadError(error: unknown, step: UploadStep, fileName?: string
 /**
  * fetch z twardym timeoutem i tłumaczeniem błędów sieci na UploadFlowError.
  * Używany przez uploadImages i createPost (krok `create-post`).
+ * `timeoutMs` domyślnie UPLOAD_TIMEOUT_MS; upload pliku nadaje własny, większy limit.
  */
 export async function uploadFetch(
 	url: string,
 	init: RequestInit,
 	step: UploadStep,
 	fileName?: string,
+	timeoutMs: number = UPLOAD_TIMEOUT_MS,
 ): Promise<Response> {
 	try {
-		return await fetch(url, { ...init, signal: AbortSignal.timeout(UPLOAD_TIMEOUT_MS) });
+		return await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
 	} catch (error) {
-		throw describeUploadError(error, step, fileName);
+		throw describeUploadError(error, step, fileName, timeoutMs);
+	}
+}
+
+/**
+ * Upload POJEDYNCZEGO pliku z twardym limitem FILE_UPLOAD_TIMEOUT_MS (20 s).
+ * Po SLOW_UPLOAD_WARNING_MS (7 s) woła `onSlowUpload` (ostrzeżenie „wolne łącze"),
+ * ale NIE przerywa uploadu — timer to czysty side-effect obok fetcha (issue #199).
+ */
+async function uploadFileWithSlowWarning(
+	url: string,
+	init: RequestInit,
+	fileName: string,
+	onSlowUpload?: (fileName: string) => void,
+): Promise<Response> {
+	let slowTimer: ReturnType<typeof setTimeout> | undefined;
+	if (onSlowUpload) {
+		slowTimer = setTimeout(() => onSlowUpload(fileName), SLOW_UPLOAD_WARNING_MS);
+	}
+	try {
+		return await uploadFetch(url, init, "image-upload", fileName, FILE_UPLOAD_TIMEOUT_MS);
+	} finally {
+		clearTimeout(slowTimer);
 	}
 }
 
@@ -93,13 +135,21 @@ export async function uploadFetch(
  * Uploaduje pliki: jeden batch `POST /upload-urls`, kompresja i upload każdego
  * pliku równolegle (issue #95). Zwraca `cfImageId` w kolejności plików.
  * Błędy (sieć/timeout/http) przepływają jako szczegółowy `UploadFlowError`.
+ * `onSlowUpload` (opcjonalny) — wołany gdy upload PLIKU trwa dłużej niż
+ * SLOW_UPLOAD_WARNING_MS (7 s); NIE przerywa uploadu (issue #199).
  */
-export async function uploadImages(files: File[]): Promise<string[]> {
+export async function uploadImages(
+	files: File[],
+	onSlowUpload?: (fileName: string) => void,
+): Promise<string[]> {
 	if (files.length === 0) return [];
-	return uploadImagesInner(files);
+	return uploadImagesInner(files, onSlowUpload);
 }
 
-async function uploadImagesInner(files: File[]): Promise<string[]> {
+async function uploadImagesInner(
+	files: File[],
+	onSlowUpload?: (fileName: string) => void,
+): Promise<string[]> {
 	const batchRes = await uploadFetch(
 		"/api/app/images/upload-urls",
 		{
@@ -141,11 +191,11 @@ async function uploadImagesInner(files: File[]): Promise<string[]> {
 			}
 			const form = new FormData();
 			form.append("file", compressed);
-			const uploadRes = await uploadFetch(
+			const uploadRes = await uploadFileWithSlowWarning(
 				pair.uploadURL,
 				{ method: "POST", body: form },
-				"image-upload",
 				file.name,
+				onSlowUpload,
 			);
 			if (!uploadRes.ok) {
 				throw new UploadFlowError(

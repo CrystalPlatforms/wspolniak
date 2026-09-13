@@ -44,6 +44,11 @@ interface NewPostFormProps {
 	videoNotConnected?: boolean;
 	/** Wstępnie wypełniony opis (np. szablon „Zaproponuj datę", #163). */
 	initialDescription?: string;
+	/**
+	 * Upload zdjęcia trwa dłużej niż 7 s (issue #199) — pokazujemy ostrzeżenie
+	 * „wolne łącze" bez blokowania publikacji.
+	 */
+	isSlowUpload?: boolean;
 }
 
 interface MediaItem {
@@ -111,6 +116,7 @@ export function NewPostForm({
 	featureFlags = DEFAULT_FEATURE_FLAGS,
 	videoNotConnected = false,
 	initialDescription,
+	isSlowUpload = false,
 }: NewPostFormProps) {
 	const [description, setDescription] = useState(initialDescription ?? "");
 	const [mentions, setMentions] = useState<Mention[]>([]);
@@ -311,6 +317,12 @@ export function NewPostForm({
 					</div>
 				</div>
 			</div>
+
+			{isSubmitting && isSlowUpload ? (
+				<output className="block text-sm text-muted-foreground">
+					Masz wolne połączenie internetowe — przesyłanie zdjęć może potrwać dłużej…
+				</output>
+			) : null}
 
 			<Button
 				type="submit"

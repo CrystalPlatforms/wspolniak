@@ -108,6 +108,20 @@ describe("NewPostForm", () => {
 		expect(onSubmit).toHaveBeenCalledTimes(1);
 	});
 
+	it("pokazuje ostrzeżenie o wolnym łączu gdy isSlowUpload podczas publikacji (issue #199)", () => {
+		render(<NewPostForm onSubmit={vi.fn()} isSubmitting isSlowUpload />);
+
+		expect(screen.getByText(/wolne połączenie internetowe/i)).toBeDefined();
+	});
+
+	it("nie pokazuje ostrzeżenia o wolnym łączu bez publikacji ani bez isSlowUpload", () => {
+		render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} isSlowUpload />);
+		expect(screen.queryByText(/wolne połączenie internetowe/i)).toBeNull();
+
+		render(<NewPostForm onSubmit={vi.fn()} isSubmitting isSlowUpload={false} />);
+		expect(screen.queryByText(/wolne połączenie internetowe/i)).toBeNull();
+	});
+
 	it("disables submit button when submitting", () => {
 		render(<NewPostForm onSubmit={vi.fn()} isSubmitting={true} />);
 

@@ -27,7 +27,8 @@ function NewPostPage() {
 	const navigate = useNavigate();
 	const { featureFlags, session } = Route.useRouteContext();
 	const { calendar } = Route.useSearch();
-	const { publish, isPending, uploadProgress, isError, error, reset } = usePublishPost();
+	const { publish, isPending, uploadProgress, isSlowUpload, isError, error, reset } =
+		usePublishPost();
 	// Ostatni input trzymany do ręcznego ponowienia (issue #135) — forma po błędzie
 	// trzyma stan, ale retry z Alertu musi mieć dane, którymi wołamy publish.
 	const lastInputRef = useRef<PublishPostInput | null>(null);
@@ -80,6 +81,7 @@ function NewPostPage() {
 				}
 				isSubmitting={isPending}
 				uploadProgress={uploadProgress}
+				isSlowUpload={isSlowUpload}
 				videoNotConnected={error instanceof VideoNotConnectedError}
 			/>
 		</div>

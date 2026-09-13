@@ -1,6 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { compressImage } from "@/images/compress";
-import { UploadFlowError, uploadImages } from "@/images/upload";
+import {
+	FILE_UPLOAD_TIMEOUT_MS,
+	UPLOAD_TIMEOUT_MS,
+	UploadFlowError,
+	uploadImages,
+} from "@/images/upload";
 
 vi.mock("@/images/compress", () => ({
 	compressImage: vi.fn(),
@@ -84,7 +89,7 @@ describe("uploadImages", () => {
 
 	it("przekroczenie limitu czasu uploadu → UploadFlowError (timeout) z informacją o wolnym połączeniu", async () => {
 		vi.mocked(compressImage).mockImplementation(async (file) => file); // passthrough
-		// AbortSignal.timeout odrzuca z TimeoutError po 7 s — symulujemy natychmiast
+		// AbortSignal.timeout odrzuca z TimeoutError po limicie (20 s) — symulujemy natychmiast
 		vi.stubGlobal(
 			"fetch",
 			vi.fn(async (url: string) => {
@@ -109,6 +114,101 @@ describe("uploadImages", () => {
 		expect(flowError.step).toBe("image-upload");
 		expect(flowError.message).toContain("zbyt wolne");
 		expect(flowError.message).toContain("duze.jpg");
+	});
+
+	// Założenia (issue #199): limit jest PER KROK, nie globalny — batch upload-urls
+	// i create-post to szybkie JSON requesty (7 s), upload pojedynczego pliku może
+	// trwać dłużej na wolnym łączu (20 s). Weryfikacja przez AbortSignal.timeout
+	// (granica przeglądarki) — sprawdzamy ile ms dostał każdy request.
+	it("twardy limit 20 s dotyczy uploadu pliku; batch upload-urls zostaje na 7 s", async () => {
+		vi.mocked(compressImage).mockImplementation(async (file) => file); // passthrough
+		const timeoutSpy = vi.spyOn(AbortSignal, "timeout");
+		stubFetch((count) =>
+			Array.from({ length: count }, (_, i) => ({
+				cfImageId: `cf-${i + 1}`,
+				uploadURL: `https://upload/cf-${i + 1}`,
+			})),
+		);
+
+		await uploadImages(makeFiles(["a.jpg"]));
+
+		// kolejność wołań: upload-urls (7 s) → image-upload (20 s)
+		expect(timeoutSpy.mock.calls.map((c) => c[0])).toEqual([7_000, 20_000]);
+		timeoutSpy.mockRestore();
+	});
+
+	it("limit czasu pojedynczego uploadu to 20 s — komunikat pokazuje aktualny limit (issue #199)", async () => {
+		vi.mocked(compressImage).mockImplementation(async (file) => file); // passthrough
+		// AbortSignal.timeout odrzuca z TimeoutError po limicie — symulujemy natychmiast
+		vi.stubGlobal(
+			"fetch",
+			vi.fn(async (url: string) => {
+				if (url.startsWith("https://upload/")) {
+					throw Object.assign(new Error("The operation was aborted due to timeout"), {
+						name: "TimeoutError",
+					});
+				}
+				return {
+					ok: true,
+					status: 200,
+					json: async () => ({ data: [{ cfImageId: "cf-1", uploadURL: "https://upload/cf-1" }] }),
+				};
+			}),
+		);
+
+		const error = await uploadImages(makeFiles(["duze.jpg"])).catch((e: unknown) => e);
+
+		// limit per plik: 20 s (batch zostaje na 7 s) — komunikat pokazuje limit tego kroku
+		expect(UPLOAD_TIMEOUT_MS).toBe(7_000);
+		expect(FILE_UPLOAD_TIMEOUT_MS).toBe(20_000);
+		const flowError = error as UploadFlowError;
+		expect(flowError.kind).toBe("timeout");
+		expect(flowError.step).toBe("image-upload");
+		expect(flowError.message).toContain("limit 20 s");
+	});
+
+	it("upload pliku trwający >7 s → onSlowUpload(fileName), ale upload trwa dalej aż do 20 s (issue #199)", async () => {
+		// Założenia: ostrzeżenie to czysty side-effect (callback), NIE przerywa fetcha —
+		// plik ma pełne FILE_UPLOAD_TIMEOUT_MS (20 s) na dokończenie. Próg = 7 s.
+		vi.useFakeTimers();
+		try {
+			vi.mocked(compressImage).mockImplementation(async (file) => file); // passthrough
+			let resolveUpload: ((res: unknown) => void) | undefined;
+			vi.stubGlobal(
+				"fetch",
+				vi.fn(async (url: string) => {
+					if (url.startsWith("https://upload/")) {
+						return new Promise((resolve) => {
+							resolveUpload = resolve;
+						});
+					}
+					return {
+						ok: true,
+						status: 200,
+						json: async () => ({
+							data: [{ cfImageId: "cf-1", uploadURL: "https://upload/cf-1" }],
+						}),
+					};
+				}),
+			);
+
+			const slowCalls: string[] = [];
+			const promise = uploadImages(makeFiles(["duze.jpg"]), (fileName) => {
+				slowCalls.push(fileName);
+			});
+
+			await vi.advanceTimersByTimeAsync(6_999);
+			expect(slowCalls).toEqual([]); // jeszcze przed progiem
+
+			await vi.advanceTimersByTimeAsync(1);
+			expect(slowCalls).toEqual(["duze.jpg"]); // przekroczone 7 s → ostrzeżenie
+
+			// upload kończy się PO ostrzeżeniu — flow dochodzi do sukcesu
+			resolveUpload?.({ ok: true, status: 200 });
+			await expect(promise).resolves.toEqual(["cf-1"]);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it("fetch dostaje sygnał abortu z limitem UPLOAD_TIMEOUT_MS", async () => {

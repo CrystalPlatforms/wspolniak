@@ -205,6 +205,59 @@ describe("runPublishFlow", () => {
 		expect(lastB).toEqual({ videoIndex: 1, total: 2, percent: 100 });
 	});
 
+	it("przekazuje onSlowUpload do createPost — wolny upload pliku ostrzega UI (issue #199)", async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(0);
+		try {
+			vi.mocked(compressImage).mockImplementation(async (file) => file); // passthrough
+			let resolveUpload: ((res: unknown) => void) | undefined;
+			vi.stubGlobal(
+				"fetch",
+				vi.fn(async (url: string) => {
+					if (url.startsWith("https://upload/")) {
+						return new Promise((resolve) => {
+							resolveUpload = resolve;
+						});
+					}
+					if (url.endsWith("/api/app/images/upload-urls")) {
+						return {
+							ok: true,
+							status: 200,
+							json: async () => ({
+								data: [{ cfImageId: "cf-1", uploadURL: "https://upload/cf-1" }],
+							}),
+						};
+					}
+					if (url.endsWith("/api/app/posts")) {
+						return { ok: true, status: 200, json: async () => ({ id: "post-1" }) };
+					}
+					throw new Error(`unexpected fetch: ${url}`);
+				}),
+			);
+
+			const slowCalls: string[] = [];
+			const navigate = vi.fn().mockResolvedValue(undefined);
+			const flow = runPublishFlow({
+				input: makeInput({ files: [new File(["x"], "1.jpg", { type: "image/jpeg" })] }),
+				navigate,
+				queryClient: makeQueryClient(),
+				startedAt: 0,
+				onSlowUpload: (fileName) => slowCalls.push(fileName),
+			});
+
+			await vi.advanceTimersByTimeAsync(7_000);
+			expect(slowCalls).toEqual(["1.jpg"]); // ostrzeżenie po 7 s, upload trwa dalej
+
+			resolveUpload?.({ ok: true, status: 200 });
+			await vi.advanceTimersByTimeAsync(PUBLISH_BAR_DURATION_MS); // POST /posts + pełny pasek
+			await flow;
+
+			expect(navigate).toHaveBeenCalledWith({ to: "/app" }); // flow dokończony mimo wolnego łącza
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
+
 	it("błąd uploadu wideo: rzuca (formularz zostaje z tekstem i listą wideo), post nie powstaje", async () => {
 		const qc = makeQueryClient();
 		const refetchSpy = vi.spyOn(qc, "refetchQueries").mockResolvedValue(undefined);

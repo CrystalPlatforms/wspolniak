@@ -45,8 +45,13 @@ export interface RunPublishFlowOptions {
 	startedAt: number;
 	/** Postęp uploadu wideo („Wideo 1/2 — 45%") — do labelu przycisku. */
 	onUploadProgress?: (p: VideoPublishProgress) => void;
+	/**
+	 * Ostrzeżenie „wolne łącze" — upload zdjęcia trwa dłużej niż 7 s (issue #199).
+	 * Wołane per plik, NIE przerywa uploadu (limit twardego błędu to 20 s na plik).
+	 */
+	onSlowUpload?: (fileName: string) => void;
 	/** Jedyna granica sieci — mockowana w testach, realna w hooku usePublishPost. */
-	createPostFn?: (input: PublishPostInput) => Promise<unknown>;
+	createPostFn?: (input: PublishPostInput & { videos?: unknown }) => Promise<unknown>;
 	/** Granica uploadu wideo (session → chunks → confirm) — mockowana w testach. */
 	uploadVideoFn?: typeof runVideoUpload;
 }
@@ -142,7 +147,8 @@ async function uploadPendingVideos(
  * Błąd na którymokolwiek kroku → rzucany (formularz zostaje z tekstem/zdjęciami, error → Alert).
  */
 export async function runPublishFlow(options: RunPublishFlowOptions): Promise<void> {
-	const create = options.createPostFn ?? createPost;
+	const create =
+		options.createPostFn ?? ((input: PublishPostInput) => createPost(input, options.onSlowUpload));
 	const videoEntries = await uploadPendingVideos(
 		options.input.pendingVideos,
 		options.onUploadProgress ?? (() => {}),
@@ -167,11 +173,15 @@ export async function runPublishFlow(options: RunPublishFlowOptions): Promise<vo
  * Realna funkcja create (granica sieci): kompresuje + uploaduje zdjęcia i tworzy post.
  *
  * Zdjęcia idą przez `uploadImages` (issue #135: batch upload-urls, kompresja w workerze,
- * równoległy upload, twardy timeout 7 s i jasne błędy zamiast "Load failed").
+ * równoległy upload, jasne błędy zamiast "Load failed"; issue #199: twardy limit
+ * per plik 20 s + ostrzeżenie „wolne łącze" po 7 s).
  * `cfImageId` zachowują kolejność plików.
  */
-export async function createPost(input: PublishPostInput & { videos?: unknown }): Promise<unknown> {
-	const cfImageIds = input.files.length > 0 ? await uploadImages(input.files) : [];
+export async function createPost(
+	input: PublishPostInput & { videos?: unknown },
+	onSlowUpload?: (fileName: string) => void,
+): Promise<unknown> {
+	const cfImageIds = input.files.length > 0 ? await uploadImages(input.files, onSlowUpload) : [];
 
 	const res = await uploadFetch(
 		"/api/app/posts",
@@ -226,6 +236,11 @@ export interface UsePublishPostResult {
 	isPending: boolean;
 	/** Postęp uploadu wideo („Wideo 1/2 — 45%") — null gdy poza fazą uploadu. */
 	uploadProgress: VideoPublishProgress | null;
+	/**
+	 * Upload zdjęcia trwa dłużej niż 7 s (issue #199) — UI pokazuje ostrzeżenie
+	 * „wolne łącze". Resetuje się przy nowej publikacji i po jej zakończeniu.
+	 */
+	isSlowUpload: boolean;
 	isError: boolean;
 	error: Error | null;
 	reset: () => void;
@@ -242,12 +257,14 @@ export function usePublishPost(): UsePublishPostResult {
 	const queryClient = useQueryClient();
 	const [isPending, setIsPending] = useState(false);
 	const [uploadProgress, setUploadProgress] = useState<VideoPublishProgress | null>(null);
+	const [isSlowUpload, setIsSlowUpload] = useState(false);
 	const [error, setError] = useState<Error | null>(null);
 
 	const publish = useCallback(
 		async (input: PublishPostInput) => {
 			setError(null);
 			setUploadProgress(null);
+			setIsSlowUpload(false);
 			setIsPending(true);
 			try {
 				await runPublishFlow({
@@ -256,12 +273,14 @@ export function usePublishPost(): UsePublishPostResult {
 					queryClient,
 					startedAt: Date.now(),
 					onUploadProgress: setUploadProgress,
+					onSlowUpload: () => setIsSlowUpload(true),
 				});
 				// sukces: navigate odpaliło się w runPublishFlow, komponent się odmontuje.
 				// Celowo nie zerujemy isPending — pasek ma być pełny aż do samej nawigacji.
 			} catch (e) {
 				setError(e instanceof Error ? e : new Error(String(e)));
 				setUploadProgress(null);
+				setIsSlowUpload(false);
 				setIsPending(false);
 			}
 		},
@@ -272,11 +291,13 @@ export function usePublishPost(): UsePublishPostResult {
 		publish,
 		isPending,
 		uploadProgress,
+		isSlowUpload,
 		isError: error !== null,
 		error,
 		reset: () => {
 			setError(null);
 			setUploadProgress(null);
+			setIsSlowUpload(false);
 			setIsPending(false);
 		},
 	};
