@@ -1,3 +1,10 @@
+## [5.6.3](https://github.com/CrystalPlatforms/wspolniak/compare/v5.6.2...v5.6.3) (2026-09-14)
+
+
+### Bug Fixes
+
+* **upload:** oversized-image flag with shrink dialog + 19 MB limit ([#200](https://github.com/CrystalPlatforms/wspolniak/issues/200)) ([8852031](https://github.com/CrystalPlatforms/wspolniak/commit/8852031df2f5ec022dee12fcbb616cca015f2e7a))
+
 ## [5.6.2](https://github.com/CrystalPlatforms/wspolniak/compare/v5.6.1...v5.6.2) (2026-09-13)
 
 
