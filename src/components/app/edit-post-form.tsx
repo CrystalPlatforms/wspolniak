@@ -10,10 +10,11 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ImagePlus, X } from "lucide-react";
+import { AlertTriangle, ImagePlus, X } from "lucide-react";
 import { type ChangeEvent, type FormEvent, useCallback, useMemo, useRef, useState } from "react";
 import { EditPostVideos, type VideoItem } from "@/components/app/edit-post-videos";
 import type { Mention } from "@/components/app/mention-input";
+import { OversizedImageDialog } from "@/components/app/oversized-image-dialog";
 import { PostDescriptionField } from "@/components/app/post-description-field";
 import type { VideoPlanEntry } from "@/components/app/use-publish-post";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -28,7 +29,7 @@ import { reorder } from "@/lib/reorder";
 
 const ACCEPTED_TYPES = "image/jpeg,image/png,image/webp,image/heic,image/heif";
 const MAX_FILES = 10;
-const MAX_FILE_SIZE_MB = 15;
+const MAX_FILE_SIZE_MB = 19;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 export interface ExistingImage {
@@ -41,6 +42,7 @@ interface ImageItem {
 	url: string;
 	existingId?: string;
 	fileIndex?: number;
+	isOversized?: boolean;
 }
 
 const LISTBOX_ROLE = "listbox";
@@ -76,13 +78,19 @@ function SortablePreview({
 	url,
 	index,
 	isOver,
+	isOversized,
+	fileName,
 	onRemove,
+	onOpenDetails,
 }: {
 	id: string;
 	url: string;
 	index: number;
 	isOver: boolean;
+	isOversized: boolean;
+	fileName: string;
 	onRemove: () => void;
+	onOpenDetails: (id: string) => void;
 }) {
 	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
 		id,
@@ -112,6 +120,20 @@ function SortablePreview({
 				alt={`Podgląd ${index + 1}`}
 				className="aspect-square w-full rounded-md object-cover"
 			/>
+			{isOversized && (
+				<button
+					type="button"
+					aria-label={`Zdjęcie za duże: ${fileName}`}
+					onClick={(e) => {
+						e.stopPropagation();
+						onOpenDetails(id);
+					}}
+					onPointerDown={(e) => e.stopPropagation()}
+					className="absolute inset-0 flex items-center justify-center rounded-md bg-destructive/60"
+				>
+					<AlertTriangle className="size-8 text-destructive-foreground" />
+				</button>
+			)}
 			<button
 				type="button"
 				onClick={(e) => {
@@ -199,21 +221,18 @@ export function EditPostForm({
 
 			setError(null);
 
-			const oversized = incoming.find((f) => f.size > MAX_FILE_SIZE_BYTES);
-			if (oversized) {
-				setError(`Plik "${oversized.name}" przekracza ${MAX_FILE_SIZE_MB} MB`);
-				return;
-			}
-
 			if (items.length + incoming.length > MAX_FILES) {
 				setError(`Maksymalnie ${MAX_FILES} zdjęć na post`);
 				return;
 			}
 
+			// Za duże pliki NIE są odrzucane (issue #200): trafiają na listę jako
+			// oflagowane (czerwony mini z wykrzyknikiem), dialog na klik je naprawia.
 			const newItems: ImageItem[] = incoming.map((f, i) => ({
 				key: `n-${newFiles.length + i}`,
 				url: URL.createObjectURL(f),
 				fileIndex: newFiles.length + i,
+				isOversized: f.size > MAX_FILE_SIZE_BYTES,
 			}));
 
 			setItems((prev) => [...prev, ...newItems]);
@@ -239,12 +258,47 @@ export function EditPostForm({
 		[items],
 	);
 
+	const [oversizedKey, setOversizedKey] = useState<string | null>(null);
+
+	/** Plik otwarty w dialogu „za duże zdjęcie" (issue #200). */
+	const oversizedItem = items.find((item) => item.key === oversizedKey) ?? null;
+	const oversizedFile =
+		oversizedItem?.fileIndex !== undefined ? (newFiles[oversizedItem.fileIndex] ?? null) : null;
+
+	/** Podmiana pliku po zmniejszeniu (issue #200): nowy podgląd, flaga zdjęta. */
+	const replaceNewFile = useCallback((fileIndex: number, nextFile: File) => {
+		setNewFiles((prev) => prev.map((file, i) => (i === fileIndex ? nextFile : file)));
+		setItems((prev) =>
+			prev.map((item) => {
+				if (item.fileIndex !== fileIndex) return item;
+				URL.revokeObjectURL(item.url);
+				return {
+					...item,
+					url: URL.createObjectURL(nextFile),
+					isOversized: nextFile.size > MAX_FILE_SIZE_BYTES,
+				};
+			}),
+		);
+	}, []);
+
 	const handleSubmit = useCallback(
 		(e: FormEvent) => {
 			e.preventDefault();
 			if (description.trim() === "" && items.length === 0 && videoItems.length === 0) {
 				setError("Dodaj tekst, zdjęcie lub wideo");
 				return;
+			}
+			const oversizedItem = items.find((item) => item.isOversized && item.fileIndex !== undefined);
+			if (oversizedItem?.fileIndex !== undefined) {
+				const oversizedFile = newFiles[oversizedItem.fileIndex];
+				if (oversizedFile) {
+					setError(
+						`Zdjęcie „${oversizedFile.name}" jest za duże — kliknij jego podgląd i zmniejsz je, albo usuń je przed publikacją.`,
+					);
+					// otwieramy od razu dialog problematycznego zdjęcia — skrócona ścieżka naprawy
+					setOversizedKey(oversizedItem.key);
+					return;
+				}
 			}
 			if (description.length > MAX_DESCRIPTION_LENGTH) {
 				setError(
@@ -360,7 +414,12 @@ export function EditPostForm({
 												url={item.url}
 												index={i}
 												isOver={overId === item.key}
+												isOversized={item.isOversized ?? false}
+												fileName={
+													item.fileIndex !== undefined ? (newFiles[item.fileIndex]?.name ?? "") : ""
+												}
 												onRemove={() => removeItem(i)}
+												onOpenDetails={setOversizedKey}
 											/>
 										))}
 									</div>
@@ -377,6 +436,22 @@ export function EditPostForm({
 					/>
 				</div>
 			</div>
+
+			{/* Dialog „za duże zdjęcie" (issue #200): błąd + akcja zmniejszenia. */}
+			<OversizedImageDialog
+				file={oversizedFile}
+				limitMb={MAX_FILE_SIZE_MB}
+				open={oversizedItem !== null}
+				onOpenChange={(o) => {
+					if (!o) setOversizedKey(null);
+				}}
+				onShrunk={(shrunkFile) => {
+					if (oversizedItem?.fileIndex !== undefined) {
+						replaceNewFile(oversizedItem.fileIndex, shrunkFile);
+					}
+					setOversizedKey(null);
+				}}
+			/>
 
 			<Button type="submit" className="w-full" disabled={!canSubmit}>
 				<Loader loading={isSubmitting} />

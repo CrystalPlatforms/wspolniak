@@ -1,8 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { NewPostForm } from "./new-post-form";
+
+vi.mock("@/images/shrink", () => ({
+	shrinkImageToLimit: vi.fn(),
+	ShrinkError: class ShrinkError extends Error {
+		name = "ShrinkError";
+	},
+}));
+
+import { shrinkImageToLimit } from "@/images/shrink";
+
+const mockShrink = vi.mocked(shrinkImageToLimit);
 
 function makeFile(name: string) {
 	return new File(["x"], name, { type: "image/jpeg" });
@@ -190,6 +201,97 @@ describe("NewPostForm", () => {
 					files: [fileB, fileC, fileA],
 				}),
 			);
+		});
+	});
+
+	describe("za duże zdjęcie (issue #200)", () => {
+		function fileOfSize(name: string, bytes: number, type = "image/jpeg"): File {
+			return new File([new Uint8Array(bytes)], name, { type });
+		}
+
+		async function uploadFiles(container: HTMLElement, files: File[]): Promise<HTMLInputElement> {
+			const input = container.querySelector("input[type='file']") as HTMLInputElement;
+			await userEvent.upload(input, files);
+			return input;
+		}
+
+		it("dodaje za duży plik jako oflagowany podgląd (czerwony + wykrzyknik), resztę normalnie", async () => {
+			const { container } = render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
+
+			await uploadFiles(container, [
+				fileOfSize("duze.jpg", 20 * 1024 * 1024),
+				fileOfSize("male.jpg", 2 * 1024 * 1024),
+			]);
+
+			// dwa podglądy; za duży ma nakładkę „za duże" z ikoną (svg) i czerwonym tłem
+			const images = screen.getAllByRole("img");
+			expect(images).toHaveLength(2);
+
+			const flag = screen.getByRole("button", { name: /za duże: duze\.jpg/i });
+			expect(flag.className).toContain("bg-destructive");
+			expect(flag.querySelector("svg")).not.toBeNull();
+
+			// mały plik bez flagi
+			expect(screen.queryByRole("button", { name: /za duże: male\.jpg/i })).toBeNull();
+		});
+
+		it("klik oflagowanego podglądu otwiera dialog z błędem (nazwa, rozmiar, limit 19 MB)", async () => {
+			const { container } = render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
+
+			await uploadFiles(container, [fileOfSize("duze.jpg", 20 * 1024 * 1024)]);
+			await userEvent.click(screen.getByRole("button", { name: /za duże: duze\.jpg/i }));
+
+			const dialog = screen.getByRole("dialog");
+			expect(dialog.textContent).toContain("duze.jpg");
+			expect(dialog.textContent).toContain("20 MB");
+			expect(dialog.textContent).toContain("19 MB");
+		});
+
+		it("submit z oflagowanym zdjęciem jest zablokowany z konkretnym komunikatem", async () => {
+			const onSubmit = vi.fn();
+			const { container } = render(<NewPostForm onSubmit={onSubmit} isSubmitting={false} />);
+
+			await uploadFiles(container, [fileOfSize("duze.jpg", 20 * 1024 * 1024)]);
+			await userEvent.click(screen.getByRole("button", { name: /opublikuj/i }));
+
+			expect(screen.getByText(/kliknij jego podgląd/i)).toBeDefined();
+			expect(onSubmit).not.toHaveBeenCalled();
+			expect(screen.getByRole("dialog")).toBeDefined();
+		});
+
+		it("zmniejszenie zdjęcia podmienia plik, zdejmuje flagę i umożliwia publikację", async () => {
+			const onSubmit = vi.fn();
+			const { container } = render(<NewPostForm onSubmit={onSubmit} isSubmitting={false} />);
+
+			await uploadFiles(container, [fileOfSize("duze.jpg", 20 * 1024 * 1024)]);
+			await userEvent.click(screen.getByRole("button", { name: /za duże: duze\.jpg/i }));
+
+			const small = fileOfSize("duze.webp", 400 * 1024, "image/webp");
+			mockShrink.mockResolvedValueOnce(small);
+
+			await userEvent.click(screen.getByRole("button", { name: /zmniejsz zdjęcie/i }));
+
+			// dialog się zamyka, flaga znika, plik podmieniony
+			await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+			await waitFor(() => expect(screen.queryByRole("button", { name: /za duże/i })).toBeNull());
+
+			await userEvent.type(screen.getByLabelText(/^tekst$/i), "test");
+			await userEvent.click(screen.getByRole("button", { name: /opublikuj/i }));
+
+			expect(onSubmit).toHaveBeenCalledTimes(1);
+			const submitted = onSubmit.mock.calls[0]?.[0] as { files: File[] };
+			expect(submitted.files).toHaveLength(1);
+			expect(submitted.files[0]?.size).toBe(400 * 1024);
+		});
+
+		it("limit to 19 MB — 18 MB przechodzi bez flagi, 20 MB jest oflagowane", async () => {
+			const { container } = render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
+
+			await uploadFiles(container, [fileOfSize("mniejsze.jpg", 18 * 1024 * 1024)]);
+			expect(screen.queryByRole("button", { name: /za duże/i })).toBeNull();
+
+			await uploadFiles(container, [fileOfSize("duze.jpg", 20 * 1024 * 1024)]);
+			expect(screen.getByRole("button", { name: /za duże: duze\.jpg/i })).toBeDefined();
 		});
 	});
 });
