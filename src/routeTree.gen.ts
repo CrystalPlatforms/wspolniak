@@ -26,6 +26,8 @@ import { Route as AppSettingsRouteImport } from './routes/app/settings'
 import { Route as AppStatsRouteImport } from './routes/app/stats'
 import { Route as AppVideoRouteImport } from './routes/app/video'
 import { Route as AuthErrorRouteImport } from './routes/auth/error'
+import { Route as DocsIndexRouteImport } from './routes/docs/index'
+import { Route as DocsBigPhotoRouteImport } from './routes/docs/big-photo'
 import { Route as SharedPostIdRouteImport } from './routes/shared-post.$id'
 import { Route as AppAlbumsIndexRouteImport } from './routes/app/albums/index'
 import { Route as AppAlbumsIdRouteImport } from './routes/app/albums/$id'
@@ -118,6 +120,16 @@ const AuthErrorRoute = AuthErrorRouteImport.update({
   path: '/auth/error',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DocsIndexRoute = DocsIndexRouteImport.update({
+  id: '/docs/',
+  path: '/docs/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsBigPhotoRoute = DocsBigPhotoRouteImport.update({
+  id: '/docs/big-photo',
+  path: '/docs/big-photo',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SharedPostIdRoute = SharedPostIdRouteImport.update({
   id: '/shared-post/$id',
   path: '/shared-post/$id',
@@ -166,8 +178,10 @@ export interface FileRoutesByFullPath {
   '/app/stats': typeof AppStatsRoute
   '/app/video': typeof AppVideoRouteWithChildren
   '/auth/error': typeof AuthErrorRoute
+  '/docs/big-photo': typeof DocsBigPhotoRoute
   '/shared-post/$id': typeof SharedPostIdRoute
   '/app/': typeof AppIndexRoute
+  '/docs/': typeof DocsIndexRoute
   '/app/albums/$id': typeof AppAlbumsIdRoute
   '/app/post/$id': typeof AppPostIdRoute
   '/app/video/$id': typeof AppVideoIdRoute
@@ -189,8 +203,10 @@ export interface FileRoutesByTo {
   '/app/stats': typeof AppStatsRoute
   '/app/video': typeof AppVideoRouteWithChildren
   '/auth/error': typeof AuthErrorRoute
+  '/docs/big-photo': typeof DocsBigPhotoRoute
   '/shared-post/$id': typeof SharedPostIdRoute
   '/app': typeof AppIndexRoute
+  '/docs': typeof DocsIndexRoute
   '/app/albums/$id': typeof AppAlbumsIdRoute
   '/app/post/$id': typeof AppPostIdRoute
   '/app/video/$id': typeof AppVideoIdRoute
@@ -215,8 +231,10 @@ export interface FileRoutesById {
   '/app/stats': typeof AppStatsRoute
   '/app/video': typeof AppVideoRouteWithChildren
   '/auth/error': typeof AuthErrorRoute
+  '/docs/big-photo': typeof DocsBigPhotoRoute
   '/shared-post/$id': typeof SharedPostIdRoute
   '/app/': typeof AppIndexRoute
+  '/docs/': typeof DocsIndexRoute
   '/app/albums/$id': typeof AppAlbumsIdRoute
   '/app/post/$id': typeof AppPostIdRoute
   '/app/video/$id': typeof AppVideoIdRoute
@@ -242,8 +260,10 @@ export interface FileRouteTypes {
     | '/app/stats'
     | '/app/video'
     | '/auth/error'
+    | '/docs/big-photo'
     | '/shared-post/$id'
     | '/app/'
+    | '/docs/'
     | '/app/albums/$id'
     | '/app/post/$id'
     | '/app/video/$id'
@@ -265,8 +285,10 @@ export interface FileRouteTypes {
     | '/app/stats'
     | '/app/video'
     | '/auth/error'
+    | '/docs/big-photo'
     | '/shared-post/$id'
     | '/app'
+    | '/docs'
     | '/app/albums/$id'
     | '/app/post/$id'
     | '/app/video/$id'
@@ -290,8 +312,10 @@ export interface FileRouteTypes {
     | '/app/stats'
     | '/app/video'
     | '/auth/error'
+    | '/docs/big-photo'
     | '/shared-post/$id'
     | '/app/'
+    | '/docs/'
     | '/app/albums/$id'
     | '/app/post/$id'
     | '/app/video/$id'
@@ -305,7 +329,9 @@ export interface RootRouteChildren {
   SetupRoute: typeof SetupRoute
   ShareRoute: typeof ShareRoute
   AuthErrorRoute: typeof AuthErrorRoute
+  DocsBigPhotoRoute: typeof DocsBigPhotoRoute
   SharedPostIdRoute: typeof SharedPostIdRoute
+  DocsIndexRoute: typeof DocsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -429,6 +455,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthErrorRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/docs/': {
+      id: '/docs/'
+      path: '/docs'
+      fullPath: '/docs/'
+      preLoaderRoute: typeof DocsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs/big-photo': {
+      id: '/docs/big-photo'
+      path: '/docs/big-photo'
+      fullPath: '/docs/big-photo'
+      preLoaderRoute: typeof DocsBigPhotoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/shared-post/$id': {
       id: '/shared-post/$id'
       path: '/shared-post/$id'
@@ -542,7 +582,9 @@ const rootRouteChildren: RootRouteChildren = {
   SetupRoute: SetupRoute,
   ShareRoute: ShareRoute,
   AuthErrorRoute: AuthErrorRoute,
+  DocsBigPhotoRoute: DocsBigPhotoRoute,
   SharedPostIdRoute: SharedPostIdRoute,
+  DocsIndexRoute: DocsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
