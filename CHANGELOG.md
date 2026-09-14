@@ -1,3 +1,10 @@
+# [5.7.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.6.3...v5.7.0) (2026-09-14)
+
+
+### Features
+
+* **docs:** public documentation section — /docs index + oversized-photo guide ([deba1c9](https://github.com/CrystalPlatforms/wspolniak/commit/deba1c9494e1ab60aca45cc8fe24c37c1aa05c17))
+
 ## [5.6.3](https://github.com/CrystalPlatforms/wspolniak/compare/v5.6.2...v5.6.3) (2026-09-14)
 
 
