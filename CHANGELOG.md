@@ -1,3 +1,10 @@
+# [5.8.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.7.0...v5.8.0) (2026-09-15)
+
+
+### Features
+
+* **ai:** generation endpoint — one-shot engine, improve mode ([#188](https://github.com/CrystalPlatforms/wspolniak/issues/188)) ([c38f8e7](https://github.com/CrystalPlatforms/wspolniak/commit/c38f8e7627664c3a2a55f1ab6630a714f7064815))
+
 # [5.7.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.6.3...v5.7.0) (2026-09-14)
 
 
