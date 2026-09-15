@@ -41,6 +41,43 @@ interface StreamChatInput {
 	reasoningEffort?: "low" | "medium" | "high";
 }
 
+interface CompleteChatInput {
+	apiKey: string;
+	model: string;
+	messages: ChatMessage[];
+}
+
+/**
+ * Jednostrzałowe wywołanie (AL v2 F1 #188) — bez streamingu, wyniki generowania
+ * są krótkie. Zwraca samą treść odpowiedzi (message.content); modele reasoningowe
+ * gpt-oss oddają myślenie w osobnym polu, więc content jest czysty.
+ * Błędy API → GroqError (ten sam mapping co streamChat).
+ */
+export async function completeChat({
+	apiKey,
+	model,
+	messages,
+}: CompleteChatInput): Promise<string> {
+	const response = await fetch(GROQ_CHAT_URL, {
+		method: "POST",
+		headers: {
+			"content-type": "application/json",
+			authorization: `Bearer ${apiKey}`,
+		},
+		body: JSON.stringify({ model, messages }),
+	});
+
+	if (!response.ok) {
+		throw new GroqError(await groqErrorMessage(response), response.status);
+	}
+
+	const json = (await response.json()) as {
+		choices?: { message?: { content?: unknown } }[];
+	};
+	const content = json.choices?.[0]?.message?.content;
+	return typeof content === "string" ? content : "";
+}
+
 export async function* streamChat({
 	apiKey,
 	model,

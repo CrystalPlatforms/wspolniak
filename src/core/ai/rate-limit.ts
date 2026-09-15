@@ -65,10 +65,46 @@ export function consumeAiRateLimit(userId: string, modelId: string): AiRateLimit
 	return { allowed: true };
 }
 
+/**
+ * Limit generowania AL v2 (F1 #188) — osobne okno per user, niezależne od
+ * czatu. Wstępnie 4/min: wywołanie generowania jest małe (persona + tekst
+ * opisu, bez wstrzykiwania postów) — ok. 1,5-2k tokenów z odpowiedzią na
+ * 8k TPM gpt-oss-120b (darmowy tier), z zapasem na czat w tej samej
+ * organizacji. Wartość początkową zatwierdza owner w HITL (issue #188).
+ */
+const GENERATION_LIMIT_PER_MINUTE = 4;
+const generationWindows = new Map<string, WindowEntry>();
+
+/** Czy user może w tej minucie wygenerować; jeżeli tak — zużywa limit. */
+export function consumeAiGeneration(userId: string): AiRateLimitResult {
+	const now = Date.now();
+	const entry = generationWindows.get(userId);
+	if (!entry || entry.expiresAt <= now) {
+		generationWindows.set(userId, { count: 1, expiresAt: now + WINDOW_MS });
+		return { allowed: true };
+	}
+	if (entry.count >= GENERATION_LIMIT_PER_MINUTE) {
+		return { allowed: false, resetAt: new Date(entry.expiresAt).toISOString() };
+	}
+	entry.count += 1;
+	return { allowed: true };
+}
+
+/** Polski komunikat 429 dla generowania — analogia do aiRateLimitMessage. */
+export function aiGenerationRateLimitMessage(resetAt: string): string {
+	const time = new Date(resetAt).toLocaleTimeString("pl-PL", {
+		timeZone: "Europe/Warsaw",
+		hour: "2-digit",
+		minute: "2-digit",
+	});
+	return `Limit generowania na tę minutę został wykorzystany. Spróbuj ponownie o ${time}.`;
+}
+
 /** Izolacja stanu między testami — wołane wyłącznie z testów endpointu. */
 export function resetAiRateLimitsForTests(): void {
 	windows.clear();
 	searchWindows.clear();
+	generationWindows.clear();
 }
 
 /** Polski komunikat 429 bez emoji, z godziną dostępności (Europa/Warszawa). */

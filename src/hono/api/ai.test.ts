@@ -43,6 +43,7 @@ vi.mock("@/core/ai/groq", async (importOriginal) => {
 });
 
 vi.mock("@/db/posts", () => ({
+	MAX_DESCRIPTION_LENGTH: 2000,
 	searchPostsForAi: vi.fn(),
 }));
 

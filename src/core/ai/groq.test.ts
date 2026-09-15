@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { GROQ_CHAT_URL, streamChat } from "./groq";
+import { completeChat, GROQ_CHAT_URL, streamChat } from "./groq";
 import type { ChatToken } from "./stream-protocol";
 
 /**
@@ -170,5 +170,70 @@ describe("streamChat", () => {
 			{ kind: "reasoning", text: " pytanie" },
 			{ kind: "text", text: "Odpowiedź" },
 		]);
+	});
+});
+
+describe("completeChat (F1 #188 — jednostrzałowe generowanie)", () => {
+	it("zwraca samą treść odpowiedzi z message.content", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi
+				.fn()
+				.mockResolvedValue(
+					new Response(
+						JSON.stringify({ choices: [{ message: { content: "Poprawiony opis." } }] }),
+						{ status: 200 },
+					),
+				),
+		);
+
+		const text = await completeChat({
+			apiKey: "test-key",
+			model: "openai/gpt-oss-120b",
+			messages: [{ role: "user", content: "hej" }],
+		});
+
+		expect(text).toBe("Poprawiony opis.");
+	});
+
+	it("wysyła model + messages bez stream:true (one-shot)", async () => {
+		const fetchMock = vi
+			.fn()
+			.mockResolvedValue(
+				new Response(JSON.stringify({ choices: [{ message: { content: "x" } }] }), { status: 200 }),
+			);
+		vi.stubGlobal("fetch", fetchMock);
+
+		await completeChat({
+			apiKey: "test-key",
+			model: "openai/gpt-oss-120b",
+			messages: [{ role: "user", content: "hej" }],
+		});
+
+		const [url, init] = fetchMock.mock.calls[0] ?? [];
+		expect(url).toBe(GROQ_CHAT_URL);
+		const body = JSON.parse((init as RequestInit).body as string) as {
+			model: string;
+			messages: unknown[];
+			stream?: unknown;
+		};
+		expect(body.model).toBe("openai/gpt-oss-120b");
+		expect(body.messages).toHaveLength(1);
+		expect(body.stream).toBeUndefined();
+	});
+
+	it("błąd HTTP → GroqError ze statusem i komunikatem z body.error.message", async () => {
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockResolvedValue(
+				new Response(JSON.stringify({ error: { message: "Rate limit (org xyz)" } }), {
+					status: 429,
+				}),
+			),
+		);
+
+		await expect(
+			completeChat({ apiKey: "k", model: "m", messages: [{ role: "user", content: "x" }] }),
+		).rejects.toMatchObject({ name: "GroqError", status: 429, message: "Rate limit (org xyz)" });
 	});
 });

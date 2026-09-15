@@ -1,14 +1,25 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { z } from "zod";
-import { type ChatMessage, GroqError, streamChat } from "@/core/ai/groq";
+import {
+	GENERATION_MODEL_ID,
+	GENERATION_MODES,
+	improvePostDescriptionMessages,
+} from "@/core/ai/generation-prompts";
+import { type ChatMessage, completeChat, GroqError, streamChat } from "@/core/ai/groq";
 import { buildSystemPrompt } from "@/core/ai/knowledge";
 import { type AiModel, DEFAULT_MODEL_ID, getModelById } from "@/core/ai/models";
-import { aiRateLimitMessage, consumeAiPostSearch, consumeAiRateLimit } from "@/core/ai/rate-limit";
+import {
+	aiGenerationRateLimitMessage,
+	aiRateLimitMessage,
+	consumeAiGeneration,
+	consumeAiPostSearch,
+	consumeAiRateLimit,
+} from "@/core/ai/rate-limit";
 import { type ChatToken, encodeToken, type PostPreview } from "@/core/ai/stream-protocol";
 import { ThinkParser } from "@/core/ai/think-parser";
 import { getAiAccessState, setUserAiOptIn } from "@/db/identity/queries";
 import { getFeatureFlags } from "@/db/instance/queries";
-import { type AiPostMatch, searchPostsForAi } from "@/db/posts";
+import { type AiPostMatch, MAX_DESCRIPTION_LENGTH, searchPostsForAi } from "@/db/posts";
 import { createHono } from "@/hono/factory";
 import { authMiddleware } from "@/hono/middleware/auth";
 import { getImageUrl } from "@/images/client";
@@ -45,6 +56,16 @@ const chatRequestSchema = z.object({
 });
 
 const optInSchema = z.object({ optIn: z.boolean() });
+
+/**
+ * F1 #188 — tryby generowania AL v2. Tekst = opis do poprawy; max =
+ * MAX_DESCRIPTION_LENGTH (poprawiamy istniejący opis posta, który tego
+ * limitu nigdy nie przekracza).
+ */
+const generateRequestSchema = z.object({
+	mode: z.enum(GENERATION_MODES),
+	text: z.string().min(1).max(MAX_DESCRIPTION_LENGTH),
+});
 
 const aiEndpoint = createHono();
 
@@ -142,6 +163,60 @@ aiEndpoint.post("/chat", async (c) => {
 	return ndjsonResponse(tokens);
 });
 
+// POST /generate — F1 #188: jednostrzałowe generowanie AL v2 (wynik krótki →
+// JSON zamiast strumienia). Ten sam łańcuch bramek co /chat (sesja → master →
+// blocked → opt-in). Model na sztywno gpt-oss-120b (jakość > szybkość),
+// payload = persona + sam tekst (zero metadanych). Raw błędy Groqa (z id
+// organizacji!) nigdy nie wychodzą do klienta — tylko zmapowane komunikaty.
+aiEndpoint.post("/generate", async (c) => {
+	const parsed = generateRequestSchema.safeParse(await c.req.json().catch(() => null));
+	if (!parsed.success) {
+		return c.json({ error: "Nieprawidłowe zapytanie" }, 400);
+	}
+
+	const user = c.get("user");
+	const [flags, aiState] = await Promise.all([getFeatureFlags(), getAiAccessState(user.userId)]);
+
+	if (!flags.ai) {
+		return c.json({ error: "AL jest obecnie wyłączony." }, 403);
+	}
+	if (aiState.aiBlocked) {
+		return c.json({ error: "AL został dla Ciebie wyłączony przez administratora." }, 403);
+	}
+	if (!aiState.aiOptIn) {
+		return c.json({ error: "Włącz AL w Ustawieniach, aby korzystać z funkcji AI." }, 403);
+	}
+
+	// Klucz z env — missing-secret daje czytelny komunikat zamiast 500 z Groqa.
+	const apiKey = c.env.GROQ_API_KEY;
+	if (!apiKey) {
+		return c.json({ error: "Brak klucza GROQ_API_KEY — skonfiguruj sekret na Cloudflare." }, 500);
+	}
+
+	// Osobne okno generowania (nie dzieli się z czatem); 429 niesie polski
+	// komunikat + resetAt — klient F2 pokaże go inline.
+	const limit = consumeAiGeneration(user.userId);
+	if (!limit.allowed) {
+		const resetAt = limit.resetAt as string;
+		return c.json({ error: aiGenerationRateLimitMessage(resetAt), resetAt }, 429);
+	}
+
+	try {
+		const text = await completeChat({
+			apiKey,
+			model: GENERATION_MODEL_ID,
+			messages: improvePostDescriptionMessages(parsed.data.text),
+		});
+		return c.json({ data: { text } });
+	} catch (error) {
+		if (error instanceof GroqError) {
+			// 429 z Groqa = TPM organizacji — komunikat jak w czacie, status 429.
+			return c.json({ error: aiFailureMessage(error) }, error.status === 429 ? 429 : 502);
+		}
+		throw error;
+	}
+});
+
 /**
  * Tokeny z Groqa → odpowiedź NDJSON (linia = token). Myślenie z osobnego pola
  * delty przelata bez zmian; zwykłą treść przepuszczamy przez ThinkParser,
@@ -152,7 +227,6 @@ aiEndpoint.post("/chat", async (c) => {
  */
 /** Marker decyzji w fazie myślenia — testy rozpoznają po niej fazę myślenia. */
 export const THINK_DECISION_INSTRUCTION = "SZUKAJ albo BEZPOSTÓW";
-
 /** Profil reasoningu → parametr Groq: high pełne myślenie, trimmed zredukowane, Qwen bez parametru. */
 function reasoningEffortFor(model: AiModel): "high" | "low" | undefined {
 	return model.reasoning === "high" ? "high" : model.reasoning === "trimmed" ? "low" : undefined;

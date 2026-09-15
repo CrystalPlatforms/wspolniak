@@ -14,7 +14,7 @@ export {
 	updatePost,
 } from "./queries";
 export type { PostVideoEntry } from "./schema";
-export { MAX_POST_VIDEOS, postVideoSchema } from "./schema";
+export { MAX_DESCRIPTION_LENGTH, MAX_POST_VIDEOS, postVideoSchema } from "./schema";
 export type { AiPostMatch } from "./search-ai";
 export { searchPostsForAi } from "./search-ai";
 export { postImages, posts } from "./table";
