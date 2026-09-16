@@ -1,3 +1,16 @@
+# [5.9.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.8.0...v5.9.0) (2026-09-16)
+
+
+### Bug Fixes
+
+* **ui:** sidebar logo paths after asset move to public/logos ([70a0b2a](https://github.com/CrystalPlatforms/wspolniak/commit/70a0b2ad3d8ffdc7ae8d48cc2f1726cf895c1ee9))
+
+
+### Features
+
+* **ai:** generation limit from Groq only — drop app-level window ([#189](https://github.com/CrystalPlatforms/wspolniak/issues/189)) ([38fb45f](https://github.com/CrystalPlatforms/wspolniak/commit/38fb45f02e31b6c824625947e4d2ff1574d63904))
+* **ai:** gradient AI button — improve description on posts ([#189](https://github.com/CrystalPlatforms/wspolniak/issues/189)) ([64286b3](https://github.com/CrystalPlatforms/wspolniak/commit/64286b3ab6cdd131670d1b901f5be1c8ad8bdb6b))
+
 # [5.8.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.7.0...v5.8.0) (2026-09-15)
 
 
