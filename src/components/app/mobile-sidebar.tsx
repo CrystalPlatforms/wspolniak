@@ -95,7 +95,9 @@ export function MobileSidebar({
 	// Kropka „new" przy „Albumy" (#176): najnowszy album vs timestamp widzianych.
 	const hasNewAlbums = useAlbumsNewDot();
 	const logoSrc =
-		resolvedTheme === "dark" ? "/logo/WspolniakLogoTrans.png" : "/logo/WspolniakLogoTransLIGHT.png";
+		resolvedTheme === "dark"
+			? "/logos/WspolniakLogoTrans.png"
+			: "/logos/WspolniakLogoTransLIGHT.png";
 
 	return (
 		<Sheet open={open} onOpenChange={setOpen}>

@@ -78,7 +78,9 @@ export function DesktopSidebar({
 	const hasNewAlbums = useAlbumsNewDot();
 
 	const logoSrc =
-		resolvedTheme === "dark" ? "/logo/WspolniakLogoTrans.png" : "/logo/WspolniakLogoTransLIGHT.png";
+		resolvedTheme === "dark"
+			? "/logos/WspolniakLogoTrans.png"
+			: "/logos/WspolniakLogoTransLIGHT.png";
 
 	const bootRevealed = useBootReveal();
 
