@@ -4,11 +4,42 @@
 // drop, × na istniejącym wymaga potwierdzenia i woła onVideoDelete DOKŁADNIE RAZ
 // (YouTube delete po stronie route, fire-and-forget). Zapis wysyła videoPlan —
 // existing 1:1, kolejność listy = kolejność odtwarzania.
-import { render, screen, waitFor } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { render as rtlRender, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+// Pole opisu renderuje GradientAiButton (F2 #189), który czyta stan AL
+// z react-query — testy formularza dostarczają providera i zamykają dostęp
+// (effective: false), żeby przycisk pozostał ukryty; zachowanie przycisku
+// testuje gradient-ai-button.test.tsx.
+import type { ReactElement, ReactNode } from "react";
 import { afterEach, vi } from "vitest";
 import type { PostVideoEntry } from "@/db/posts/schema";
 import { EditPostForm } from "./edit-post-form";
+
+function render(ui: ReactElement, options?: Parameters<typeof rtlRender>[1]) {
+	return rtlRender(ui, { wrapper, ...options });
+}
+
+function wrapper({ children }: { children: ReactNode }) {
+	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+	return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+}
+
+vi.stubGlobal(
+	"fetch",
+	vi.fn().mockImplementation((url: string) => {
+		if (String(url).includes("/api/ai/access")) {
+			return Promise.resolve({
+				ok: true,
+				json: () =>
+					Promise.resolve({
+						data: { master: false, aiOptIn: false, aiBlocked: false, effective: false },
+					}),
+			});
+		}
+		return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: null }) });
+	}),
+);
 
 vi.mock("@/images/shrink", () => ({
 	shrinkImageToLimit: vi.fn(),

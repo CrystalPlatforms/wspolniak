@@ -1,8 +1,39 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { fireEvent, render as rtlRender, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import type { ReactElement, ReactNode } from "react";
 
 import { NewPostForm } from "./new-post-form";
+
+// Pole opisu renderuje GradientAiButton (F2 #189), który czyta stan AL
+// z react-query — testy formularza dostarczają providera i zamykają dostęp
+// (effective: false), żeby przycisk pozostał ukryty; zachowanie przycisku
+// testuje gradient-ai-button.test.tsx.
+function render(ui: ReactElement, options?: Parameters<typeof rtlRender>[1]) {
+	return rtlRender(ui, { wrapper, ...options });
+}
+
+function wrapper({ children }: { children: ReactNode }) {
+	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+	return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+}
+
+vi.stubGlobal(
+	"fetch",
+	vi.fn().mockImplementation((url: string) => {
+		if (String(url).includes("/api/ai/access")) {
+			return Promise.resolve({
+				ok: true,
+				json: () =>
+					Promise.resolve({
+						data: { master: false, aiOptIn: false, aiBlocked: false, effective: false },
+					}),
+			});
+		}
+		return Promise.resolve({ ok: true, json: () => Promise.resolve({ data: null }) });
+	}),
+);
 
 vi.mock("@/images/shrink", () => ({
 	shrinkImageToLimit: vi.fn(),

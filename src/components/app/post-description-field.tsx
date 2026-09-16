@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { lazy, Suspense, useState } from "react";
+import { GradientAiButton } from "@/components/app/ai/gradient-ai-button";
 import { type Mention, MentionInput } from "@/components/app/mention-input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -86,6 +87,10 @@ export function PostDescriptionField({
 					className="min-h-36 resize-y"
 				/>
 			)}
+
+			{/* AL (F2 #189) — „Popraw opis": widoczny przy treści i skutecznym
+			    dostępie; sukces podmienia treść pola, błąd pokazuje sam przycisk. */}
+			<GradientAiButton text={value} onImproved={onChange} />
 		</div>
 	);
 }
