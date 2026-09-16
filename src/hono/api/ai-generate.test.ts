@@ -7,8 +7,8 @@
  *   streamingu (wyniki są krótkie). Sukces: 200 { data: { text } }.
  * - Gating identyczny jak /chat (#179): brak sesji → 401; master off → 403;
  *   aiBlocked → 403; brak opt-in → 403 (kształty odpowiedzi jak w czacie).
- * - Rate limit generowania per user, OSOBNE okno (nie dzieli się z czatem);
- *   429 niesie polski komunikat + resetAt (ISO).
+ * - Aplikacyjny limit generowania USUNIĘTY (#189): 429 wystawia wyłącznie
+ *   Groq (TPM organizacji) → 429 z komunikatem „Limit został osiągnięty…".
  * - Prywatność payloadu: do Groqa lecą DOKŁADNIE 2 wiadomości — system persona
  *   + user z samym przesłanym tekstem; zero metadanych postów, komentarzy,
  *   obrazów (searchPostsForAi nie może zostać wołany). Model: gpt-oss-120b
@@ -272,7 +272,8 @@ describe("POST /api/ai/generate — mapowanie błędów Groqa (#188)", () => {
 		const res = await requestGenerate(api, ENV);
 		expect(res.status).toBe(429);
 		const json = (await res.json()) as { error: string };
-		expect(json.error).toContain("Osiągnąłeś limit korzystania");
+		// 429 wystawia sam Groq (TPM organizacji) — jedyny komunikat o limicie.
+		expect(json.error).toContain("Limit został osiągnięty, zaczekaj chwilę");
 		expect(JSON.stringify(json)).not.toContain("org_abc123");
 		expect(JSON.stringify(json)).not.toContain("Rate limit reached for organization");
 	});
@@ -292,50 +293,18 @@ describe("POST /api/ai/generate — mapowanie błędów Groqa (#188)", () => {
 	});
 });
 
-describe("POST /api/ai/generate — limit generowania (#188)", () => {
-	it("4 wywołania przechodzą, 5. dostaje 429 z polskim komunikatem + resetAt", async () => {
+describe("POST /api/ai/generate — bez aplikacyjnego limitu (#189)", () => {
+	it("aplikacyjny limit generowania nie istnieje — kolejne wywołania przechodzą (429 wystawia tylko Groq)", async () => {
 		allowAi();
 		const api = createApi();
-		for (let i = 0; i < 4; i++) {
+
+		// Dawniej 4/min; teraz endpoint nie trzyma własnego okna — granicę TPM
+		// egzekwuje wyłącznie Groq (mapowane wyżej na 429 z polskim komunikatem).
+		for (let i = 0; i < 6; i++) {
 			const res = await requestGenerate(api, ENV);
 			expect(res.status).toBe(200);
+			const json = (await res.json()) as { data?: { text?: string } };
+			expect(json.data?.text).toBeDefined();
 		}
-
-		const limited = await requestGenerate(api, ENV);
-		expect(limited.status).toBe(429);
-		const json = (await limited.json()) as { error: string; resetAt?: string };
-		expect(json.error).toContain("Limit generowania");
-		expect(json.resetAt).toBeDefined();
-		expect(() => new Date(json.resetAt as string).toISOString()).not.toThrow();
-	});
-
-	it("limit generowania NIE dzieli okna z czatem — po wyczerpaniu czat działa", async () => {
-		allowAi();
-		const { streamChat } = await import("@/core/ai/groq");
-		vi.mocked(streamChat).mockImplementation(async function* () {
-			yield { kind: "text", text: "Odpowiedź AL." };
-		});
-
-		const api = createApi();
-		for (let i = 0; i < 4; i++) {
-			const res = await requestGenerate(api, ENV);
-			expect(res.status).toBe(200);
-		}
-		const limited = await requestGenerate(api, ENV);
-		expect(limited.status).toBe(429);
-
-		const chatRes = await api.request(
-			"/api/ai/chat",
-			{
-				method: "POST",
-				headers: { ...memberHeaders(), "Content-Type": "application/json" },
-				body: JSON.stringify({
-					messages: [{ role: "user", content: "Cześć, co to Wspólniak?" }],
-				}),
-			},
-			ENV,
-		);
-		expect(chatRes.status).toBe(200);
-		expect(await chatRes.text()).toContain("Odpowiedź AL.");
 	});
 });

@@ -8,13 +8,7 @@ import {
 import { type ChatMessage, completeChat, GroqError, streamChat } from "@/core/ai/groq";
 import { buildSystemPrompt } from "@/core/ai/knowledge";
 import { type AiModel, DEFAULT_MODEL_ID, getModelById } from "@/core/ai/models";
-import {
-	aiGenerationRateLimitMessage,
-	aiRateLimitMessage,
-	consumeAiGeneration,
-	consumeAiPostSearch,
-	consumeAiRateLimit,
-} from "@/core/ai/rate-limit";
+import { aiRateLimitMessage, consumeAiPostSearch, consumeAiRateLimit } from "@/core/ai/rate-limit";
 import { type ChatToken, encodeToken, type PostPreview } from "@/core/ai/stream-protocol";
 import { ThinkParser } from "@/core/ai/think-parser";
 import { getAiAccessState, setUserAiOptIn } from "@/db/identity/queries";
@@ -66,6 +60,12 @@ const generateRequestSchema = z.object({
 	mode: z.enum(GENERATION_MODES),
 	text: z.string().min(1).max(MAX_DESCRIPTION_LENGTH),
 });
+
+/**
+ * Jedyny komunikat o limicie w generowaniu (#189) — 429 wystawia wyłącznie
+ * Groq (TPM organizacji), aplikacja nie trzyma własnego okna.
+ */
+const GENERATION_LIMIT_MESSAGE = "Limit został osiągnięty, zaczekaj chwilę.";
 
 const aiEndpoint = createHono();
 
@@ -193,14 +193,6 @@ aiEndpoint.post("/generate", async (c) => {
 		return c.json({ error: "Brak klucza GROQ_API_KEY — skonfiguruj sekret na Cloudflare." }, 500);
 	}
 
-	// Osobne okno generowania (nie dzieli się z czatem); 429 niesie polski
-	// komunikat + resetAt — klient F2 pokaże go inline.
-	const limit = consumeAiGeneration(user.userId);
-	if (!limit.allowed) {
-		const resetAt = limit.resetAt as string;
-		return c.json({ error: aiGenerationRateLimitMessage(resetAt), resetAt }, 429);
-	}
-
 	try {
 		const text = await completeChat({
 			apiKey,
@@ -210,8 +202,13 @@ aiEndpoint.post("/generate", async (c) => {
 		return c.json({ data: { text } });
 	} catch (error) {
 		if (error instanceof GroqError) {
-			// 429 z Groqa = TPM organizacji — komunikat jak w czacie, status 429.
-			return c.json({ error: aiFailureMessage(error) }, error.status === 429 ? 429 : 502);
+			// Limit wystawia wyłącznie Groq (TPM organizacji, 429) — aplikacja nie
+			// trzyma własnego okna generowania (#189). Raw błędy Groqa (z id
+			// organizacji!) nigdy nie wychodzą do klienta.
+			return c.json(
+				{ error: error.status === 429 ? GENERATION_LIMIT_MESSAGE : aiFailureMessage(error) },
+				error.status === 429 ? 429 : 502,
+			);
 		}
 		throw error;
 	}
