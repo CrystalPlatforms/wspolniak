@@ -17,8 +17,16 @@ export const GENERATION_MODEL_ID = "openai/gpt-oss-120b";
  * Tryby endpointa /generate — kolejne fazy v2 dochodzą tutaj (F4–F5).
  * `propose-post-description` (F3 #190): na wejściu data URL zdjęcia, na
  * wyjściu propozycja opisu; potok dwuetapowy vision → polish.
+ * `improve-comment` (F4 #191): poprawa komentarza — wariant WYRAŹNIE krótszy
+ * niż postowy. `album-title` (F5 #192): tytuł albumu z samych nazw plików
+ * i dat — bez obrazów (prywatność: bajty lecą tylko w propose).
  */
-export const GENERATION_MODES = ["improve-post-description", "propose-post-description"] as const;
+export const GENERATION_MODES = [
+	"improve-post-description",
+	"propose-post-description",
+	"improve-comment",
+	"album-title",
+] as const;
 export type GenerationMode = (typeof GENERATION_MODES)[number];
 
 /**
@@ -38,6 +46,31 @@ Zasady:
 - Zwykły tekst: bez emoji, bez tabel, bez nagłówków markdownowych.
 - Zachowujesz fakty oryginału i nie dodajesz nowych (kto, co, gdzie, kiedy); poprawiasz interpunkcję, gramatykę i styl.
 - Nie zmieniasz imion, nazw i markdownowych linków do użytkowników (np. [Kasia](u2)).
+- Sekrety techniczne (klucze API, tokeny, hasła) nie istnieją w Twojej wiedzy i nigdy ich nie podajesz.`,
+		},
+		{ role: "user", content: text },
+	];
+}
+
+/**
+ * Tryb improve-comment (F4 #191): dostaje szkic komentarza (max 1000 znaków,
+ * limit kompozytora) i zwraca poprawioną wersję — wariant WYRAŹNIE krótszy
+ * i bardziej zwięzły niż postowy (komentarze są naturalnie krótkie — decyzja
+ * z PRD). Oznaczenia @Imię zostają nietknięte.
+ */
+export function improveCommentMessages(text: string): ChatMessage[] {
+	return [
+		{
+			role: "system",
+			content: `Jesteś AL — asystentem AI w Wspólniaku, prywatnej rodzinnej aplikacji do dzielenia się zdjęciami. Poprawiasz szkice komentarzy pisane przez członków rodziny.
+
+Zasady:
+- Zawsze odpowiadasz po polsku.
+- Zwracasz WYŁĄCZNIE poprawiony komentarz — bez wstępów typu „Oto poprawiony komentarz:".
+- KOMENTARZ MA BYĆ KRÓTSZY NIŻ ORYGINAŁ: skracasz bezlitośnie, wyrzucasz powtórzenia i wyliczanki; cel to zwięzłość, nie rozwlekość — maksymalnie 2 zdania.
+- Zachowujesz fakty oryginału i nie dodajesz nowych; poprawiasz interpunkcję, gramatykę i styl.
+- Nie zmieniasz oznaczeń użytkowników w formie @Imię (np. @Kasia) — zostają dokładnie tak, jak były.
+- Zwykły tekst: bez emoji, bez tabel, bez formatowania markdownowego.
 - Sekrety techniczne (klucze API, tokeny, hasła) nie istnieją w Twojej wiedzy i nigdy ich nie podajesz.`,
 		},
 		{ role: "user", content: text },
@@ -98,5 +131,40 @@ Zasady:
 - Sekrety techniczne (klucze API, tokeny, hasła) nie istnieją w Twojej wiedzy i nigdy ich nie podajesz.`,
 		},
 		{ role: "user", content: scene },
+	];
+}
+
+/** Podstawa propozycji tytułu albumu — wyłącznie metadane plików (zero bajtów). */
+export interface AlbumTitleFile {
+	/** Nazwa pliku z urządzenia (często zawiera datę, np. IMG_20260820_153022.jpg). */
+	name: string;
+	/** Data pliku (lastModified) w formacie ISO. */
+	date: string;
+}
+
+/**
+ * Tryb album-title (F5 #192): dostaje wyłącznie nazwy plików i daty wybranych
+ * zdjęć (PRYWATNOŚĆ: żadnych bajtów obrazów, żadnych URL-i — zdjęcia nie
+ * opuszczają platformy w tym trybie) i zwraca krótki polski tytuł albumu.
+ */
+export function albumTitleMessages(files: AlbumTitleFile[]): ChatMessage[] {
+	const listing = files
+		.map((file) => `- ${file.name}${file.date ? ` (data: ${file.date})` : ""}`)
+		.join("\n");
+	return [
+		{
+			role: "system",
+			content: `Jesteś AL — asystentem AI w Wspólniaku, prywatnej rodzinnej aplikacji do dzielenia się zdjęciami. Proponujesz krótki tytuł albumu na podstawie nazw plików i dat wybranych zdjęć — samych zdjęć nie widzisz i ich nie potrzebujesz.
+
+Zasady:
+- Zawsze odpowiadasz po polsku.
+- Zwracasz WYŁĄCZNIE tytuł — jedną krótką frazę, bez wstępów typu „Oto tytuł:" i bez cudzysłowów.
+- Tytuł ma maksymalnie 4 słowa, konkretny i ciepły, jak nazwa albumu w galerii rodzinnej (np. „Urodziny Babci", „Wakacje nad morzem", „Wycieczka po górach").
+- Wskazówki bierzesz z nazw plików (często zawierają daty, np. IMG_20260820_153022.jpg albo 2026-08-20) i z dat plików — z nich wynikają pory roku, święta i okazje; gdy nie ma wskazówek, zaproponuj neutralny tytuł (np. „Wspólne chwile").
+- Nie wymyślasz imion, nazwisk ani miejscowości spoza danych wejściowych.
+- Zwykły tekst: bez emoji, bez tabel, bez formatowania markdownowego.
+- Sekrety techniczne (klucze API, tokeny, hasła) nie istnieją w Twojej wiedzy i nigdy ich nie podajesz.`,
+		},
+		{ role: "user", content: `Zdjęcia wybrane do albumu:\n${listing}` },
 	];
 }

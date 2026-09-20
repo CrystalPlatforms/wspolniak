@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { X } from "lucide-react";
 import { useRef, useState } from "react";
+import { GradientAiButton } from "@/components/app/ai/gradient-ai-button";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -141,7 +142,10 @@ export function AlbumCreateDialog({
 
 					{mode === "create" && (
 						<div className="space-y-2">
-							<Label htmlFor="album-title">Tytuł</Label>
+							<div className="flex items-center justify-between gap-2">
+								<Label htmlFor="album-title">Tytuł</Label>
+								<GradientAiButton target="album-title" files={files} onResult={setTitle} />
+							</div>
 							<Input
 								id="album-title"
 								value={title}
@@ -174,7 +178,7 @@ export function AlbumCreateDialog({
 							Dodaj zdjęcia {files.length > 0 ? `(${files.length})` : ""}
 						</Button>
 						{previews.length > 0 && (
-							<div className="grid grid-cols-3 gap-2">
+							<div className="grid max-h-64 grid-cols-3 gap-2 overflow-y-auto">
 								{previews.map((preview, index) => (
 									<div
 										key={preview}

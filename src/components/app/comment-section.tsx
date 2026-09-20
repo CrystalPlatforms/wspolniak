@@ -2,6 +2,7 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { MessageCircleIcon } from "lucide-react";
 import { useState } from "react";
+import { GradientAiButton } from "@/components/app/ai/gradient-ai-button";
 import { CommentItem } from "@/components/app/comment-item";
 import { type Mention, MentionInput } from "@/components/app/mention-input";
 import { optimisticCommentMutation } from "@/components/app/optimistic-comments";
@@ -146,6 +147,7 @@ export function CommentSection({
 					maxLength={1000}
 					rows={2}
 				/>
+				<GradientAiButton target="comment" text={newComment} onResult={setNewComment} />
 				<div className="flex items-center justify-between">
 					<span className="text-xs text-muted-foreground">{newComment.length}/1000</span>
 					<Button

@@ -15,7 +15,9 @@
  */
 
 import {
+	albumTitleMessages,
 	GENERATION_MODES,
+	improveCommentMessages,
 	improvePostDescriptionMessages,
 	polishPostDescriptionMessages,
 	proposePostDescriptionVisionMessages,
@@ -90,5 +92,50 @@ describe("improvePostDescriptionMessages (regresja F1)", () => {
 		const [system, user] = improvePostDescriptionMessages("koty w ogródku");
 		expect(system?.content).toContain("po polsku");
 		expect(user?.content).toBe("koty w ogródku");
+	});
+});
+
+describe("improveCommentMessages (F4 #191)", () => {
+	it("wariant comment prosi o KRÓTSZY tekst niż postowy (AC #191)", () => {
+		const [commentSystem, commentUser] = improveCommentMessages("hej co tam");
+		const [postSystem] = improvePostDescriptionMessages("hej co tam");
+		// Postowy poprawia styl, ale nie prosi o skracanie…
+		expect(postSystem?.content).not.toContain("KRÓTSZY");
+		// …commentowy ma twardą instrukcję skracania + limit zdań.
+		expect(commentSystem?.content).toContain("KRÓTSZY NIŻ ORYGINAŁ");
+		expect(commentSystem?.content).toContain("maksymalnie 2 zdania");
+		// Persona PL i sam szkic na wejściu.
+		expect(commentSystem?.content).toContain("po polsku");
+		expect(commentUser?.content).toBe("hej co tam");
+	});
+
+	it("pilnuje oznaczeń @Imię nietkniętych", () => {
+		const [system] = improveCommentMessages("@Kasia super zdjęcie");
+		expect(system?.content).toContain("@Imię");
+	});
+});
+
+describe("albumTitleMessages (F5 #192)", () => {
+	const FILES = [
+		{ name: "IMG_20260820_153022.jpg", date: "2026-08-20T13:30:22.000Z" },
+		{ name: "20260821_101530.jpg", date: "2026-08-21T08:15:30.000Z" },
+	];
+
+	it("system: persona PL, tytuł max 4 słowa, zwykły tekst bez emoji", () => {
+		const [system] = albumTitleMessages(FILES);
+		expect(system?.role).toBe("system");
+		expect(system?.content).toContain("po polsku");
+		expect(system?.content).toContain("4 słowa");
+		expect(system?.content.toLowerCase()).toContain("emoji");
+		expect(system?.content).toContain("cudzysłowów");
+	});
+
+	it("user: listing plików; zero obrazów i URL-i w całym payloadzie", () => {
+		const [, user] = albumTitleMessages(FILES);
+		const payload = JSON.stringify(albumTitleMessages(FILES));
+		expect(user?.content).toContain("IMG_20260820_153022.jpg");
+		expect(user?.content).toContain("2026-08-20T13:30:22.000Z");
+		expect(payload).not.toMatch(/data:image/);
+		expect(payload).not.toMatch(/https?:\/\//);
 	});
 });

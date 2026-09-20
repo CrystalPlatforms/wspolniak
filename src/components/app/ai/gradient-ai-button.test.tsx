@@ -52,10 +52,21 @@ function mockFetch(opts: {
 	});
 }
 
-function renderButton(props: Partial<Parameters<typeof GradientAiButton>[0]> = {}) {
-	return render(<GradientAiButton text="Mój opis" onResult={vi.fn()} {...props} />, {
-		wrapper: createWrapper(),
-	});
+function renderButton(
+	props: Partial<{
+		target: "post-description";
+		text: string;
+		file?: File | null;
+		onResult: (text: string) => void;
+		disabled?: boolean;
+	}> = {},
+) {
+	return render(
+		<GradientAiButton target="post-description" text="Mój opis" onResult={vi.fn()} {...props} />,
+		{
+			wrapper: createWrapper(),
+		},
+	);
 }
 
 afterEach(() => {

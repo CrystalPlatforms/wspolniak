@@ -407,3 +407,110 @@ describe("POST /api/ai/generate — tryb propose (F3 #190)", () => {
 		expect(polish?.messages.at(-1)?.content).toBe("Stol na tarasie.");
 	});
 });
+
+describe("POST /api/ai/generate — tryb improve-comment (F4 #191)", () => {
+	const COMMENT_BODY = { mode: "improve-comment", text: "koty w ogródku byly super i fajne bylo" };
+
+	it("happy path: gpt-oss-120b, persona + sam tekst, wynik w { data: { text } }", async () => {
+		allowAi();
+		mockCompleteChat.mockResolvedValue("Koty były super.");
+		const api = createApi();
+		const res = await requestGenerate(api, ENV, COMMENT_BODY);
+		expect(res.status).toBe(200);
+		const json = (await res.json()) as { data: { text: string } };
+		expect(json.data.text).toBe("Koty były super.");
+
+		expect(mockCompleteChat).toHaveBeenCalledTimes(1);
+		const call = mockCompleteChat.mock.calls[0]?.[0];
+		expect(call?.model).toBe("openai/gpt-oss-120b");
+		expect(call?.messages).toHaveLength(2);
+		const system = call?.messages[0];
+		const user = call?.messages[1];
+		expect(system?.role).toBe("system");
+		expect(system?.content).toContain("po polsku");
+		// Wariant comment: twarda instrukcja skracania.
+		expect(system?.content).toContain("KRÓTSZY NIŻ ORYGINAŁ");
+		expect(user?.role).toBe("user");
+		expect(user?.content).toBe("koty w ogródku byly super i fajne bylo");
+	});
+
+	it("gating jak improve: master off → 403, Groq nie wołany", async () => {
+		const api = createApi();
+		const res = await requestGenerate(api, ENV, COMMENT_BODY);
+		expect(res.status).toBe(403);
+		expect(mockCompleteChat).not.toHaveBeenCalled();
+	});
+
+	it("400 dla tekstu powyżej limitu kompozytora (1000)", async () => {
+		allowAi();
+		const api = createApi();
+		const res = await requestGenerate(api, ENV, {
+			mode: "improve-comment",
+			text: "a".repeat(1001),
+		});
+		expect(res.status).toBe(400);
+		expect(mockCompleteChat).not.toHaveBeenCalled();
+	});
+});
+
+describe("POST /api/ai/generate — tryb album-title (F5 #192)", () => {
+	const ALBUM_BODY = {
+		mode: "album-title",
+		files: [
+			{ name: "IMG_20260820_153022.jpg", date: "2026-08-20T13:30:22.000Z" },
+			{ name: "wakacje.jpg", date: "2026-08-21T08:15:30.000Z" },
+		],
+	};
+
+	it("happy path: gpt-oss-120b dostaje WYŁĄCZNIE nazwy plików i daty", async () => {
+		allowAi();
+		mockCompleteChat.mockResolvedValue("Wakacje nad morzem");
+		const api = createApi();
+		const res = await requestGenerate(api, ENV, ALBUM_BODY);
+		expect(res.status).toBe(200);
+		const json = (await res.json()) as { data: { text: string } };
+		expect(json.data.text).toBe("Wakacje nad morzem");
+
+		expect(mockCompleteChat).toHaveBeenCalledTimes(1);
+		const call = mockCompleteChat.mock.calls[0]?.[0];
+		expect(call?.model).toBe("openai/gpt-oss-120b");
+		expect(call?.messages).toHaveLength(2);
+		const payload = JSON.stringify(call);
+		// Prywatność (AC #192): payload przenosi tylko metadane plików —
+		// zero bajtów obrazów, zero URL-i.
+		expect(payload).not.toMatch(/data:image/);
+		expect(payload).not.toMatch(/https?:\/\//);
+		expect(payload).toContain("IMG_20260820_153022.jpg");
+		expect(payload).toContain("2026-08-20T13:30:22.000Z");
+		expect(payload).toContain("wakacje.jpg");
+	});
+
+	it("gating jak improve: master off → 403, Groq nie wołany", async () => {
+		const api = createApi();
+		const res = await requestGenerate(api, ENV, ALBUM_BODY);
+		expect(res.status).toBe(403);
+		expect(mockCompleteChat).not.toHaveBeenCalled();
+	});
+
+	it("400 bez plików (min 1)", async () => {
+		allowAi();
+		const api = createApi();
+		const res = await requestGenerate(api, ENV, { mode: "album-title", files: [] });
+		expect(res.status).toBe(400);
+		expect(mockCompleteChat).not.toHaveBeenCalled();
+	});
+
+	it("400 powyżej 200 plików", async () => {
+		allowAi();
+		const api = createApi();
+		const res = await requestGenerate(api, ENV, {
+			mode: "album-title",
+			files: Array.from({ length: 201 }, (_, i) => ({
+				name: `f${i}.jpg`,
+				date: "2026-08-20T13:30:22.000Z",
+			})),
+		});
+		expect(res.status).toBe(400);
+		expect(mockCompleteChat).not.toHaveBeenCalled();
+	});
+});

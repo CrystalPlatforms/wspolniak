@@ -2,18 +2,33 @@
 // Dialog tworzenia albumu (#170): uploadImages = granica sieci (mock), POST
 // /api/app/albums = granica sieci (fetch stub). Walidacja kliencka: tytuł +
 // ≥1 zdjęcie blokują submit PRZED jakimkolwiek wołaniem sieciowym.
+// F5 #192: dostęp do AL mockowany na granicy (useAiAccess) — domyślnie bez
+// skutecznego dostępu, więc przycisk „Zaproponuj tytuł" nie zaburza asercji.
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, vi } from "vitest";
+import { afterEach, beforeEach, vi } from "vitest";
 import { AlbumCreateDialog } from "./album-create-dialog";
 
-vi.mock("@/images/upload", () => ({
-	uploadImages: vi.fn(),
-}));
+vi.mock("@/core/ai/use-ai-access", () => ({ useAiAccess: vi.fn() }));
+vi.mock("@/images/upload", () => ({ uploadImages: vi.fn() }));
 
+import { useAiAccess } from "@/core/ai/use-ai-access";
 import { uploadImages } from "@/images/upload";
 
 const mockUploadImages = vi.mocked(uploadImages);
+const mockUseAiAccess = vi.mocked(useAiAccess);
+
+const ACCESS_DENIED = {
+	data: { master: true, aiOptIn: true, aiBlocked: false, effective: false },
+} as ReturnType<typeof useAiAccess>;
+
+const ACCESS_GRANTED = {
+	data: { master: true, aiOptIn: true, aiBlocked: false, effective: true },
+} as ReturnType<typeof useAiAccess>;
+
+beforeEach(() => {
+	mockUseAiAccess.mockReturnValue(ACCESS_DENIED);
+});
 
 function renderDialog(
 	overrides: { onCreated?: (album: { id: string; title: string }) => void } = {},
@@ -124,6 +139,18 @@ describe("AlbumCreateDialog", () => {
 			// Konkretna przyczyna serwera trafia do komunikatu (wzorzec #135).
 			expect(screen.getByRole("alert").textContent).toContain("Validation failed");
 		});
+	});
+	it("F5 #192: z dostępem do AL przycisk tytułu jest widoczny i wygaszony bez zdjęć", async () => {
+		mockUseAiAccess.mockReturnValue(ACCESS_GRANTED);
+		const fetchSpy = vi.fn();
+		vi.stubGlobal("fetch", fetchSpy);
+		renderDialog();
+
+		// Widoczny od razu, ale wygaszony — nie wybrano jeszcze zdjęć.
+		const suggest = await screen.findByRole("button", { name: /zaproponuj tytuł/i });
+		expect(suggest.hasAttribute("disabled")).toBe(true);
+		// Bez kliknięcia: zero wołań sieciowych.
+		expect(fetchSpy).not.toHaveBeenCalled();
 	});
 });
 

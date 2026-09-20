@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { z } from "zod";
-import { GENERATION_MODEL_ID, improvePostDescriptionMessages } from "@/core/ai/generation-prompts";
+import {
+	type AlbumTitleFile,
+	albumTitleMessages,
+	GENERATION_MODEL_ID,
+	improveCommentMessages,
+	improvePostDescriptionMessages,
+} from "@/core/ai/generation-prompts";
 import { type ChatMessage, completeChat, GroqError, streamChat } from "@/core/ai/groq";
 import { buildSystemPrompt } from "@/core/ai/knowledge";
 import {
@@ -54,9 +60,12 @@ const chatRequestSchema = z.object({
 const optInSchema = z.object({ optIn: z.boolean() });
 
 /**
- * F1 #188 + F3 #190 — tryby generowania AL v2 jako unia dyskryminowana.
- * improve: tekst opisu (max MAX_DESCRIPTION_LENGTH). propose: data URL zdjęcia
- * (regex + cap VISION_IMAGE_MAX_CHARS ≈ limit obrazu Groqa).
+ * F1 #188 + F3 #190 + F4 #191 + F5 #192 — tryby generowania AL v2 jako unia
+ * dyskryminowana. improve: tekst opisu (max MAX_DESCRIPTION_LENGTH); comment:
+ * szkic komentarza (max 1000 = limit kompozytora komentarzy); propose: data
+ * URL zdjęcia (regex + cap VISION_IMAGE_MAX_CHARS ≈ limit obrazu Groqa);
+ * album-title: WYŁĄCZNIE metadane plików (nazwa + data) — zero bajtów i
+ * URL-i, zdjęcia nie opuszczają platformy w tym trybie.
  */
 const generateRequestSchema = z.discriminatedUnion("mode", [
 	z.object({
@@ -64,11 +73,27 @@ const generateRequestSchema = z.discriminatedUnion("mode", [
 		text: z.string().min(1).max(MAX_DESCRIPTION_LENGTH),
 	}),
 	z.object({
+		mode: z.literal("improve-comment"),
+		text: z.string().min(1).max(1000),
+	}),
+	z.object({
 		mode: z.literal("propose-post-description"),
 		image: z
 			.string()
 			.regex(/^data:image\/(png|jpeg|webp);base64,/)
 			.max(VISION_IMAGE_MAX_CHARS),
+	}),
+	z.object({
+		mode: z.literal("album-title"),
+		files: z
+			.array(
+				z.object({
+					name: z.string().min(1).max(255),
+					date: z.string().min(1).max(40),
+				}),
+			)
+			.min(1)
+			.max(200),
 	}),
 ]);
 
@@ -205,17 +230,36 @@ aiEndpoint.post("/generate", async (c) => {
 	}
 
 	try {
-		// F3 #190: propose = potok vision→polish (src/core/ai/propose.ts);
-		// improve = bezpośrednie jednostrzałowe wywołanie. Mapowanie błędów
-		// wspólne dla obu trybów.
-		const text =
-			parsed.data.mode === "propose-post-description"
-				? await proposePostDescription(apiKey, parsed.data.image)
-				: await completeChat({
-						apiKey,
-						model: GENERATION_MODEL_ID,
-						messages: improvePostDescriptionMessages(parsed.data.text),
-					});
+		// Dispatch po trybie (F1 #188, F3 #190, F4 #191, F5 #192): propose =
+		// potok vision→polish (src/core/ai/propose.ts); pozostałe tryby =
+		// jednostrzałowe completeChat z promptem właściwym dla trybu.
+		// Mapowanie błędów wspólne dla wszystkich trybów.
+		let text: string;
+		switch (parsed.data.mode) {
+			case "propose-post-description":
+				text = await proposePostDescription(apiKey, parsed.data.image);
+				break;
+			case "improve-comment":
+				text = await completeChat({
+					apiKey,
+					model: GENERATION_MODEL_ID,
+					messages: improveCommentMessages(parsed.data.text),
+				});
+				break;
+			case "album-title":
+				text = await completeChat({
+					apiKey,
+					model: GENERATION_MODEL_ID,
+					messages: albumTitleMessages(parsed.data.files as AlbumTitleFile[]),
+				});
+				break;
+			default:
+				text = await completeChat({
+					apiKey,
+					model: GENERATION_MODEL_ID,
+					messages: improvePostDescriptionMessages(parsed.data.text),
+				});
+		}
 		return c.json({ data: { text } });
 	} catch (error) {
 		if (error instanceof GroqError) {

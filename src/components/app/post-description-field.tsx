@@ -98,7 +98,12 @@ export function PostDescriptionField({
 			    treści, „Zaproponuj opis" przy pustym polu i zdjęciu (proposeFile;
 			    edit-form go nie podaje → samo improve). Sukces podmienia treść
 			    pola, błąd pokazuje inline komunikat. */}
-			<GradientAiButton text={value} file={proposeFile} onResult={onChange} />
+			<GradientAiButton
+				target="post-description"
+				text={value}
+				file={proposeFile}
+				onResult={onChange}
+			/>
 		</div>
 	);
 }
