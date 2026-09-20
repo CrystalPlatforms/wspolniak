@@ -1,3 +1,10 @@
+# [5.11.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.10.0...v5.11.0) (2026-09-20)
+
+
+### Features
+
+* **ai:** improve on comments + AI album titles — AL v2 F4-F6 ([#191](https://github.com/CrystalPlatforms/wspolniak/issues/191) [#192](https://github.com/CrystalPlatforms/wspolniak/issues/192) [#193](https://github.com/CrystalPlatforms/wspolniak/issues/193)) ([9b6b484](https://github.com/CrystalPlatforms/wspolniak/commit/9b6b484f65d9a0505c67df2d645cff2ffe776f42))
+
 # [5.10.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.9.0...v5.10.0) (2026-09-20)
 
 
