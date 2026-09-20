@@ -1,3 +1,10 @@
+# [5.12.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.11.0...v5.12.0) (2026-09-20)
+
+
+### Features
+
+* **ui:** AL v2 revamps — always-on WYSIWYG with mentions, album pages, splash ([#187](https://github.com/CrystalPlatforms/wspolniak/issues/187)) ([4b70bbc](https://github.com/CrystalPlatforms/wspolniak/commit/4b70bbc2ed0ad6bf13f3765e47a935c015b0f6b8))
+
 # [5.11.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.10.0...v5.11.0) (2026-09-20)
 
 
