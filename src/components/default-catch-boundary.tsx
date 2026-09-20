@@ -19,9 +19,11 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
 	// biome-ignore lint/suspicious/noConsole: surface route errors for debugging
 	console.error(error);
 
-	// Format error details for display
-	const errorMessage = error?.message || "An unexpected error occurred";
-	const errorStack = error?.stack || "";
+	// Format error details for display (nowszy typ ErrorComponentProps nie
+	// gwarantuje Error — zawężamy zamiast sięgać po własności na ślepo)
+	const errorInstance = error instanceof Error ? error : undefined;
+	const errorMessage = errorInstance?.message ?? "An unexpected error occurred";
+	const errorStack = errorInstance?.stack ?? "";
 	const hasStack = errorStack.length > 0;
 
 	const handleReportError = () => {
