@@ -69,6 +69,28 @@ export const AI_MODELS: AiModel[] = [
 
 export const DEFAULT_MODEL_ID = "openai/gpt-oss-20b";
 
+/**
+ * Model vision AL v2 (F3 #190) — id zweryfikowane NA ŻYWO 2026-09-20: llama-4
+ * scout/maverick usunięte z Groqa (sonda: model_not_found), `groq/compound`
+ * zablokowany na poziomie projektu; jedyny model przyjmujący obrazy na tym
+ * koncie to qwen3.8-27b (sonda: 32×32 px PNG → „Czerwony"). To ten sam model co
+ * AL Pro w czacie; finalna akceptacja = HITL z prawdziwym zdjęciem.
+ */
+export const VISION_MODEL_ID = "qwen/qwen3.8-27b";
+
+/**
+ * Twardy sufit rozmiaru obrazu w żądaniu propose (F3 #190): Groq ogranicza obraz
+ * do 4 MB po base64 → data URL ≤ 4 000 000 znaków (klient i tak pomniejsza
+ * zdjęcie do ~2,8 MB surowych bajtów przed wysłaniem).
+ */
+export const VISION_IMAGE_MAX_CHARS = 4_000_000;
+
+/**
+ * Cel pomniejszenia zdjęcia u klienta przed wysłaniem do vision (F3 #190):
+ * ~3 MB surowych bajtów → ~4 MB base64, w granicach VISION_IMAGE_MAX_CHARS.
+ */
+export const VISION_SHRINK_TARGET_BYTES = 3_000_000;
+
 /** Id → definicja modelu; undefined dla obcego id (klient nie wybiera dowolnie). */
 export function getModelById(id: string): AiModel | undefined {
 	return AI_MODELS.find((model) => model.id === id);

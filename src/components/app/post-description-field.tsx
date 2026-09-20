@@ -29,6 +29,11 @@ interface PostDescriptionFieldProps {
 	placeholder?: string;
 	/** Gdy false, pole jest zwykłym tekstem (bez switcha i edytora). */
 	markdownEnabled?: boolean;
+	/**
+	 * Pierwsze przypięte zdjęcie (kompozytor tworzenia) — włącza wariant
+	 * „Zaproponuj opis", gdy pole jest puste (F3 #190). Edit-form nie podaje.
+	 */
+	proposeFile?: File | null;
 }
 
 export function PostDescriptionField({
@@ -38,6 +43,7 @@ export function PostDescriptionField({
 	id = "description",
 	placeholder,
 	markdownEnabled = true,
+	proposeFile,
 }: PostDescriptionFieldProps) {
 	const [richTextOn, setRichTextOn] = useState(false);
 	// Formatowanie widać tylko gdy dozwolone (markdown) i wspierane (desktop).
@@ -88,9 +94,11 @@ export function PostDescriptionField({
 				/>
 			)}
 
-			{/* AL (F2 #189) — „Popraw opis": widoczny przy treści i skutecznym
-			    dostępie; sukces podmienia treść pola, błąd pokazuje sam przycisk. */}
-			<GradientAiButton text={value} onImproved={onChange} />
+			{/* AL (F2/F3 #189/#190): para przycisków — „Popraw opis" aktywny przy
+			    treści, „Zaproponuj opis" przy pustym polu i zdjęciu (proposeFile;
+			    edit-form go nie podaje → samo improve). Sukces podmienia treść
+			    pola, błąd pokazuje inline komunikat. */}
+			<GradientAiButton text={value} file={proposeFile} onResult={onChange} />
 		</div>
 	);
 }

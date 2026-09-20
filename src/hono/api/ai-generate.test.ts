@@ -308,3 +308,102 @@ describe("POST /api/ai/generate — bez aplikacyjnego limitu (#189)", () => {
 		}
 	});
 });
+
+describe("POST /api/ai/generate — tryb propose (F3 #190)", () => {
+	const VISION_DATA_URL = "data:image/jpeg;base64,QUJDREVGRw==";
+	const SCENE = "Na tarasie stół i dwie osoby piją kawę.";
+	it("happy path: vision → polish, obraz tylko w 1. wywołaniu, zero URL-i w payloadach", async () => {
+		allowAi();
+		mockCompleteChat.mockResolvedValueOnce(SCENE).mockResolvedValueOnce("Kawa na tarasie.");
+		const api = createApi();
+		const res = await requestGenerate(api, ENV, {
+			mode: "propose-post-description",
+			image: VISION_DATA_URL,
+		});
+		expect(res.status).toBe(200);
+		const json = (await res.json()) as { data: { text: string } };
+		expect(json.data.text).toBe("Kawa na tarasie.");
+		expect(mockCompleteChat).toHaveBeenCalledTimes(2);
+		const vision = mockCompleteChat.mock.calls[0]?.[0];
+		expect(vision?.model).toBe("qwen/qwen3.8-27b");
+		expect(JSON.stringify(vision)).toContain(VISION_DATA_URL);
+		expect(JSON.stringify(vision)).not.toContain("http://");
+		expect(JSON.stringify(vision)).not.toContain("https://");
+
+		// Wywołanie 2 — polish: gpt-oss-120b dostaje samą scenę (bez obrazu).
+		const polish = mockCompleteChat.mock.calls[1]?.[0];
+		expect(polish?.model).toBe("openai/gpt-oss-120b");
+		expect(polish?.messages.at(-1)?.content).toBe(SCENE);
+		expect(JSON.stringify(polish)).not.toContain("image_url");
+	});
+	const PROPOSE_BODY = { mode: "propose-post-description", image: VISION_DATA_URL };
+
+	it("gating jak improve: master off → 403, Groq nie wołany", async () => {
+		const api = createApi();
+		const res = await requestGenerate(api, ENV, PROPOSE_BODY);
+		expect(res.status).toBe(403);
+		expect(mockCompleteChat).not.toHaveBeenCalled();
+	});
+	it("400 dla obrazu spoza formatu data:image (np. zdalny URL)", async () => {
+		allowAi();
+		const api = createApi();
+		const res = await requestGenerate(api, ENV, {
+			mode: "propose-post-description",
+			image: "http://example.com/x.jpg",
+		});
+		expect(res.status).toBe(400);
+		expect(mockCompleteChat).not.toHaveBeenCalled();
+	});
+	it("400 dla obrazu powyżej VISION_IMAGE_MAX_CHARS", async () => {
+		allowAi();
+		const api = createApi();
+		const BIG = `data:image/jpeg;base64,${"A".repeat(4_000_001)}`;
+		const res = await requestGenerate(api, ENV, { mode: "propose-post-description", image: BIG });
+		expect(res.status).toBe(400);
+		expect(mockCompleteChat).not.toHaveBeenCalled();
+	});
+	it("pusta scena z vision → 502 z polskim komunikatem, polish nie wołany", async () => {
+		allowAi();
+		mockCompleteChat.mockResolvedValueOnce("");
+		const api = createApi();
+		const res = await requestGenerate(api, ENV, PROPOSE_BODY);
+		expect(res.status).toBe(502);
+		const json = (await res.json()) as { error: string };
+		expect(json.error).toContain("problemy techniczne");
+		expect(mockCompleteChat).toHaveBeenCalledTimes(1);
+	});
+	it("429 z Groqa (krok vision) → 429 z polskim komunikatem, bez id organizacji", async () => {
+		allowAi();
+		mockCompleteChat.mockRejectedValueOnce(
+			new GroqError("Rate limit reached for organization org_abc123 on model ...", 429),
+		);
+		const api = createApi();
+		const res = await requestGenerate(api, ENV, PROPOSE_BODY);
+		expect(res.status).toBe(429);
+		const json = (await res.json()) as { error: string };
+		expect(json.error).toContain("Limit został osiągnięty, zaczekaj chwilę");
+		expect(JSON.stringify(json)).not.toContain("org_abc123");
+	});
+	it("błąd 500 w kroku polish → 502 z ogólnym polskim komunikatem", async () => {
+		allowAi();
+		mockCompleteChat.mockResolvedValueOnce(SCENE);
+		mockCompleteChat.mockRejectedValueOnce(
+			new GroqError("Internal provider error: token abc123 leaked", 500),
+		);
+		const api = createApi();
+		const res = await requestGenerate(api, ENV, PROPOSE_BODY);
+		expect(res.status).toBe(502);
+		const json = (await res.json()) as { error: string };
+		expect(json.error).toContain("problemy techniczne");
+		expect(JSON.stringify(json)).not.toContain("abc123");
+	});
+	it("scena czyszczona z tagow think przed krokiem polish", async () => {
+		allowAi();
+		mockCompleteChat.mockResolvedValueOnce("<think>rozwa</think>Stol na tarasie.");
+		const api = createApi();
+		const res = await requestGenerate(api, ENV, PROPOSE_BODY);
+		expect(res.status).toBe(200);
+		const polish = mockCompleteChat.mock.calls[1]?.[0];
+		expect(polish?.messages.at(-1)?.content).toBe("Stol na tarasie.");
+	});
+});

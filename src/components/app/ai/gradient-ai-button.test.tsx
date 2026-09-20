@@ -4,14 +4,17 @@
 //   w trakcie ładowania stanu dostępu i przy błędzie przycisk jest ukryty.
 // - Przycisk pojawia się dopiero, gdy pole ma treść (po trim).
 // - Klik → POST /api/ai/generate { mode: "improve-post-description", text };
-//   sukces { data: { text } } → onImproved(poprawiony); błąd { error } (PL)
-//   lub upadek sieci → inline komunikat po polsku, onImproved NIE wołany.
+//   sukces { data: { text } } → onResult(poprawiony); błąd { error } (PL)
+//   lub upadek sieci → inline komunikat po polsku, onResult NIE wołany.
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { afterEach, vi } from "vitest";
+import { shrinkImageToLimit } from "@/images/shrink";
 import { GradientAiButton } from "./gradient-ai-button";
+
+vi.mock("@/images/shrink", () => ({ shrinkImageToLimit: vi.fn() }));
 
 function createWrapper() {
 	const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -50,7 +53,7 @@ function mockFetch(opts: {
 }
 
 function renderButton(props: Partial<Parameters<typeof GradientAiButton>[0]> = {}) {
-	return render(<GradientAiButton text="Mój opis" onImproved={vi.fn()} {...props} />, {
+	return render(<GradientAiButton text="Mój opis" onResult={vi.fn()} {...props} />, {
 		wrapper: createWrapper(),
 	});
 }
@@ -62,6 +65,8 @@ afterEach(() => {
 });
 
 describe("GradientAiButton", () => {
+	const FILE = new File(["foto"], "foto.jpg", { type: "image/jpeg" });
+	const onResult = vi.fn();
 	it("nie renderuje się bez skutecznego dostępu do AL", async () => {
 		vi.stubGlobal("fetch", mockFetch({ effective: false }));
 
@@ -82,15 +87,12 @@ describe("GradientAiButton", () => {
 		expect(container.childElementCount).toBe(0);
 	});
 
-	it("nie renderuje się, gdy pole nie ma treści", async () => {
+	it("przy pustym polu: Popraw opis widoczny, ale WYGASZONY (F3 HITL)", async () => {
 		vi.stubGlobal("fetch", mockFetch({ effective: true }));
-		const { container } = renderButton({ text: "   " });
+		renderButton({ text: "   " });
 
-		// Dostęp jest, ale pole puste — przycisk „Popraw opis" nie ma po co być.
-		await vi.waitFor(() =>
-			expect(screen.queryByRole("button", { name: /popraw opis/i })).toBeNull(),
-		);
-		expect(container.childElementCount).toBe(0);
+		const button = await screen.findByRole("button", { name: /popraw opis/i });
+		expect(button.hasAttribute("disabled")).toBe(true);
 	});
 
 	it("renderuje się przy skutecznym dostępie i treści w polu", async () => {
@@ -101,9 +103,9 @@ describe("GradientAiButton", () => {
 		expect(await screen.findByRole("button", { name: /popraw opis/i })).toBeDefined();
 	});
 
-	it("po kliknięciu pokazuje busy, a poprawiony tekst trafia do onImproved", async () => {
+	it("po kliknięciu pokazuje busy, a poprawiony tekst trafia do onResult", async () => {
 		const user = userEvent.setup();
-		const onImproved = vi.fn();
+		const onResult = vi.fn();
 		const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
 			if (init?.method === "POST" && url.includes("/api/ai/generate")) {
 				return new Promise((resolve) =>
@@ -128,7 +130,7 @@ describe("GradientAiButton", () => {
 		});
 		vi.stubGlobal("fetch", fetchMock);
 
-		renderButton({ onImproved });
+		renderButton({ onResult });
 		const button = await screen.findByRole("button", { name: /popraw opis/i });
 		await user.click(button);
 
@@ -136,8 +138,8 @@ describe("GradientAiButton", () => {
 		const busy = screen.getByRole("button", { name: /poprawiam/i });
 		expect(busy.hasAttribute("disabled")).toBe(true);
 
-		// Po sukcesie: poprawiony tekst ląduje w onImproved, przycisk wraca do idle.
-		await vi.waitFor(() => expect(onImproved).toHaveBeenCalledWith("Lepszy opis"));
+		// Po sukcesie: poprawiony tekst ląduje w onResult, przycisk wraca do idle.
+		await vi.waitFor(() => expect(onResult).toHaveBeenCalledWith("Lepszy opis"));
 		await vi.waitFor(() => {
 			const idle = screen.getByRole("button", { name: /popraw opis/i });
 			expect(idle.hasAttribute("disabled")).toBe(false);
@@ -154,7 +156,7 @@ describe("GradientAiButton", () => {
 
 	it("błąd endpointa → polski komunikat inline, treść nietknięta", async () => {
 		const user = userEvent.setup();
-		const onImproved = vi.fn();
+		const onResult = vi.fn();
 		vi.stubGlobal(
 			"fetch",
 			mockFetch({
@@ -167,15 +169,15 @@ describe("GradientAiButton", () => {
 			}),
 		);
 
-		renderButton({ onImproved });
+		renderButton({ onResult });
 		await user.click(await screen.findByRole("button", { name: /popraw opis/i }));
 
 		// Inline alert z polskim komunikatem z endpointu…
 		expect((await screen.findByRole("alert")).textContent).toContain(
 			"AL ma teraz problemy techniczne. Spróbuj ponownie za chwilę.",
 		);
-		// …treść pola nietknięta (onImproved nie wołany), przycisk znów aktywny.
-		expect(onImproved).not.toHaveBeenCalled();
+		// …treść pola nietknięta (onResult nie wołany), przycisk znów aktywny.
+		expect(onResult).not.toHaveBeenCalled();
 		await vi.waitFor(() =>
 			expect(screen.getByRole("button", { name: /popraw opis/i }).hasAttribute("disabled")).toBe(
 				false,
@@ -185,7 +187,7 @@ describe("GradientAiButton", () => {
 
 	it("upadek sieci → ogólny polski komunikat", async () => {
 		const user = userEvent.setup();
-		const onImproved = vi.fn();
+		const onResult = vi.fn();
 		vi.stubGlobal("fetch", mockFetch({ effective: true }));
 		const realFetch = globalThis.fetch;
 		globalThis.fetch = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
@@ -193,15 +195,26 @@ describe("GradientAiButton", () => {
 			return realFetch(url as string, init);
 		});
 
-		renderButton({ onImproved });
+		renderButton({ onResult });
 		await user.click(await screen.findByRole("button", { name: /popraw opis/i }));
 
 		expect((await screen.findByRole("alert")).textContent).toContain(
 			"Nie udało się poprawić opisu. Spróbuj ponownie.",
 		);
-		expect(onImproved).not.toHaveBeenCalled();
+		expect(onResult).not.toHaveBeenCalled();
 	});
 
+	const PROPOSE_DEFAULTS = { text: "", file: FILE, onResult };
+
+	it("zdjęcie + puste pole: oba widoczne — Zaproponuj aktywny, Popraw wygaszony", async () => {
+		vi.stubGlobal("fetch", mockFetch({ effective: true }));
+		renderButton(PROPOSE_DEFAULTS);
+
+		const propose = await screen.findByRole("button", { name: /zaproponuj opis/i });
+		expect(propose.hasAttribute("disabled")).toBe(false);
+		const improve = screen.getByRole("button", { name: /popraw opis/i });
+		expect(improve.hasAttribute("disabled")).toBe(true);
+	});
 	it("respektuje zewnętrzne wyłączenie (disabled)", async () => {
 		vi.stubGlobal("fetch", mockFetch({ effective: true }));
 
@@ -209,5 +222,82 @@ describe("GradientAiButton", () => {
 
 		const button = await screen.findByRole("button", { name: /popraw opis/i });
 		expect(button.hasAttribute("disabled")).toBe(true);
+	});
+
+	it("bez zdjęcia: Zaproponuj widoczny, ale WYGASZONY", async () => {
+		vi.stubGlobal("fetch", mockFetch({ effective: true }));
+		renderButton({ text: "", file: null, onResult });
+		const propose = await screen.findByRole("button", { name: /zaproponuj opis/i });
+		expect(propose.hasAttribute("disabled")).toBe(true);
+	});
+	it("treść w polu: Zaproponuj WYGASZONY, Popraw aktywny", async () => {
+		vi.stubGlobal("fetch", mockFetch({ effective: true }));
+		renderButton({ text: "Coś już jest", file: FILE, onResult });
+		const propose = await screen.findByRole("button", { name: /zaproponuj opis/i });
+		expect(propose.hasAttribute("disabled")).toBe(true);
+		const improve = screen.getByRole("button", { name: /popraw opis/i });
+		expect(improve.hasAttribute("disabled")).toBe(false);
+	});
+	it("klik → POST propose z data URL, wynik trafia do onResult", async () => {
+		onResult.mockClear();
+		const user = userEvent.setup();
+		const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+			if (init?.method === "POST" && url.includes("/api/ai/generate")) {
+				return Promise.resolve({
+					ok: true,
+					status: 200,
+					json: () => Promise.resolve({ data: { text: "Zdjęcie pokazuje ogród." } }),
+				});
+			}
+			return Promise.resolve({
+				ok: true,
+				json: () =>
+					Promise.resolve({
+						data: { master: true, aiOptIn: true, aiBlocked: false, effective: true },
+					}),
+			});
+		});
+		vi.stubGlobal("fetch", fetchMock);
+		renderButton(PROPOSE_DEFAULTS);
+		await user.click(await screen.findByRole("button", { name: /zaproponuj opis/i }));
+		await vi.waitFor(() => expect(onResult).toHaveBeenCalledWith("Zdjęcie pokazuje ogród."));
+		const call = fetchMock.mock.calls.find(
+			([u, i]) => i?.method === "POST" && String(u).includes("/api/ai/generate"),
+		);
+		const body = JSON.parse(call?.[1]?.body as string) as { mode: string; image: string };
+		expect(body.mode).toBe("propose-post-description");
+		expect(body.image).toMatch(/^data:image\//);
+	});
+	it("błąd endpointa w propose → polski alert, onResult nietknięty", async () => {
+		onResult.mockClear();
+		const user = userEvent.setup();
+		vi.stubGlobal(
+			"fetch",
+			mockFetch({
+				effective: true,
+				generate: {
+					ok: false,
+					status: 502,
+					body: { error: "Limit został osiągnięty, zaczekaj chwilę." },
+				},
+			}),
+		);
+		renderButton(PROPOSE_DEFAULTS);
+		await user.click(await screen.findByRole("button", { name: /zaproponuj opis/i }));
+		expect((await screen.findByRole("alert")).textContent).toContain("Limit został osiągnięty");
+		expect(onResult).not.toHaveBeenCalled();
+	});
+	it("duże zdjęcie → pomniejszone przez shrink przed POST", async () => {
+		const user = userEvent.setup();
+		const BIG_FILE = new File(["x".repeat(3_000_001)], "big.jpg", { type: "image/jpeg" });
+		const SHRUNK = new File(["mały"], "big.jpg", { type: "image/jpeg" });
+
+		vi.mocked(shrinkImageToLimit).mockClear();
+		vi.mocked(shrinkImageToLimit).mockResolvedValue(SHRUNK);
+		vi.stubGlobal("fetch", mockFetch({ effective: true }));
+		renderButton({ text: "", file: BIG_FILE, onResult });
+		await user.click(await screen.findByRole("button", { name: /zaproponuj opis/i }));
+		await vi.waitFor(() => expect(vi.mocked(shrinkImageToLimit)).toHaveBeenCalled());
+		await vi.waitFor(() => expect(onResult).toHaveBeenCalled());
 	});
 });

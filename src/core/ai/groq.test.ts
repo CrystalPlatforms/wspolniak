@@ -222,6 +222,42 @@ describe("completeChat (F1 #188 — jednostrzałowe generowanie)", () => {
 		expect(body.stream).toBeUndefined();
 	});
 
+	it("przyjmuje wiadomość vision — treść jako części text + image_url z data URL, wysłane 1:1 (F3 #190)", async () => {
+		const fetchMock = vi.fn().mockResolvedValue(
+			new Response(JSON.stringify({ choices: [{ message: { content: "Czerwony." } }] }), {
+				status: 200,
+			}),
+		);
+		vi.stubGlobal("fetch", fetchMock);
+
+		// Data URL musi przejść do body bez zmian — Groq dostaje wyłącznie bajty
+		// (base64), nigdy zdalny URL (prywatność v2, decyzja z carvu).
+		const DATA_URL = "data:image/jpeg;base64,QUJD";
+		await completeChat({
+			apiKey: "test-key",
+			model: "qwen/qwen3.8-27b",
+			messages: [
+				{
+					role: "user",
+					content: [
+						{ type: "text", text: "Opisz zdjęcie." },
+						{ type: "image_url", image_url: { url: DATA_URL } },
+					],
+				},
+			],
+		});
+
+		const [, init] = fetchMock.mock.calls[0] ?? [];
+		const body = JSON.parse((init as RequestInit).body as string) as {
+			messages: { content: unknown }[];
+		};
+		expect(body.messages[0]?.content).toEqual([
+			{ type: "text", text: "Opisz zdjęcie." },
+			{ type: "image_url", image_url: { url: DATA_URL } },
+		]);
+		expect(JSON.stringify(body)).not.toContain("http");
+	});
+
 	it("błąd HTTP → GroqError ze statusem i komunikatem z body.error.message", async () => {
 		vi.stubGlobal(
 			"fetch",

@@ -2,61 +2,85 @@
 import { Sparkles } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { VISION_SHRINK_TARGET_BYTES } from "@/core/ai/models";
 import { useAiAccess } from "@/core/ai/use-ai-access";
+import { shrinkImageToLimit } from "@/images/shrink";
 
-/** Komunikat awaryjny, gdy endpoint nie odpowie zreadowalnym błędem (sieć itp.). */
-const FALLBACK_ERROR = "Nie udało się poprawić opisu. Spróbuj ponownie.";
+/** Komunikat awaryjny improve, gdy endpoint nie odpowie zreadowalnym błędem. */
+const FALLBACK_IMPROVE = "Nie udało się poprawić opisu. Spróbuj ponownie.";
+/** Komunikat awaryjny propose (sieć, pomniejszenie, parsowanie odpowiedzi). */
+const FALLBACK_PROPOSE = "Nie udało się zaproponować opisu. Spróbuj ponownie.";
+
+/** Gradient identycznościowy AL („jasnozielony → butelkowy") — wspólny dla pary. */
+const GRADIENT_CLASS = "bg-linear-to-r from-[#8bc34a] to-[#006a4e] text-white hover:opacity-90";
+
+type AiButtonKind = "improve" | "propose";
 
 /**
- * Wspólny gradientowy przycisk AL (F2 #189) — element identycznościowy AL v2
- * („jasnozielony → butelkowy" gradient z oryginalnego PRD), przyszłe fazy
- * (F3–F5) go reużyją. Ukryty CAŁKOWICIE (nie tylko wyłączony) dla userów bez
- * skutecznego dostępu do AL — to samo źródło prawdy co wejścia do czatu
- * (`useAiAccess`): brak danych (ładowanie) i błąd zapytania = ukryty.
- * Przycisk pojawia się dopiero, gdy pole ma treść.
- *
- * Klik → POST /api/ai/generate (tryb improve-post-description); sukces ląduje
- * w `onImproved` (rodzic podmienia treść pola), porażka → inline komunikat
- * po polsku, treść nietknięta.
+ * Para gradientowych przycisków AL (F2 #189 improve + F3 #190 propose) — oba
+ * WIDOCZNE jednocześnie (decyzja HITL 2026-09-20), aktywny jest ten, który ma
+ * sens: „Popraw opis" przy treści w polu, „Zaproponuj opis" przy pustym polu
+ * i przypiętym zdjęciu. Bez zdjęcia albo z treścią wygaszony jest propose,
+ * bez treści — improve. Cała para znika dla userów bez skutecznego dostępu do
+ * AL (`useAiAccess`) i dopóki stan dostępu jest nieznany.
+ * `file === undefined` = tryb propose nieobecny (formularz edycji) — wtedy
+ * renderujemy samo improve.
  */
 export function GradientAiButton({
 	text,
-	onImproved,
+	file,
+	onResult,
 	disabled = false,
 }: {
 	text: string;
-	onImproved: (text: string) => void;
+	/** Podstawa propozycji (pierwsze zdjęcie); undefined = bez propose. */
+	file?: File | null;
+	onResult: (text: string) => void;
 	/** Zewnętrzne wyłączenie (np. podczas submitu formularza). */
 	disabled?: boolean;
 }) {
 	const { data: access } = useAiAccess();
 	const [improving, setImproving] = useState(false);
+	const [proposing, setProposing] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	if (access?.effective !== true || text.trim().length === 0) return null;
+	if (access?.effective !== true) return null;
 
-	async function handleImprove() {
+	const hasText = text.trim().length > 0;
+	const busy = improving || proposing;
+	const proposeAvailable = file !== undefined;
+
+	async function run(kind: AiButtonKind) {
 		setError(null);
-		setImproving(true);
+		if (kind === "improve") setImproving(true);
+		else setProposing(true);
 		try {
+			const body =
+				kind === "improve"
+					? { mode: "improve-post-description", text }
+					: {
+							mode: "propose-post-description",
+							image: await readAsDataUrl(await shrinkForPropose(file)),
+						};
 			const res = await fetch("/api/ai/generate", {
 				method: "POST",
 				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ mode: "improve-post-description", text }),
+				body: JSON.stringify(body),
 			});
 			const json = (await res.json().catch(() => null)) as {
 				data?: { text?: string };
 				error?: string;
 			} | null;
 			if (!res.ok || !json?.data?.text) {
-				setError(json?.error ?? FALLBACK_ERROR);
+				setError(json?.error ?? (kind === "improve" ? FALLBACK_IMPROVE : FALLBACK_PROPOSE));
 				return;
 			}
-			onImproved(json.data.text);
+			onResult(json.data.text);
 		} catch {
-			setError(FALLBACK_ERROR);
+			setError(kind === "improve" ? FALLBACK_IMPROVE : FALLBACK_PROPOSE);
 		} finally {
-			setImproving(false);
+			if (kind === "improve") setImproving(false);
+			else setProposing(false);
 		}
 	}
 
@@ -70,16 +94,42 @@ export function GradientAiButton({
 			<Button
 				type="button"
 				size="sm"
-				disabled={disabled || improving}
-				onClick={handleImprove}
-				// Gradient identycznościowy AL („jasnozielony → butelkowy", oryginalny
-				// PRD) — celowo stały w obu motywach; to znak rozpoznawczy „tu działa
-				// AI", nie semantyczny kolor UI.
-				className="bg-linear-to-r from-[#8bc34a] to-[#006a4e] text-white hover:opacity-90"
+				disabled={disabled || busy || !hasText}
+				onClick={() => run("improve")}
+				className={GRADIENT_CLASS}
 			>
 				<Sparkles className="size-4" />
 				{improving ? "Poprawiam…" : "Popraw opis"}
 			</Button>
+			{proposeAvailable && (
+				<Button
+					type="button"
+					size="sm"
+					disabled={disabled || busy || hasText || !file}
+					onClick={() => run("propose")}
+					className={GRADIENT_CLASS}
+				>
+					<Sparkles className="size-4" />
+					{proposing ? "Proponuję…" : "Zaproponuj opis"}
+				</Button>
+			)}
 		</div>
 	);
+}
+
+/** Surowy plik → data URL base64 (payload vision: tylko bajty, zero URL-i). */
+function readAsDataUrl(file: File): Promise<string> {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(reader.result as string);
+		reader.onerror = () => reject(reader.error ?? new Error("readAsDataUrl failed"));
+		reader.readAsDataURL(file);
+	});
+}
+
+/** Zdjęcia powyżej celu pomniejszamy — base64 musi zmieścić się w limicie Groqa. */
+async function shrinkForPropose(file: File | null | undefined): Promise<File> {
+	if (!file) throw new Error("brak zdjęcia do propozycji");
+	if (file.size <= VISION_SHRINK_TARGET_BYTES) return file;
+	return shrinkImageToLimit(file, VISION_SHRINK_TARGET_BYTES);
 }

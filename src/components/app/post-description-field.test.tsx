@@ -119,4 +119,47 @@ describe("PostDescriptionField", () => {
 		expect(screen.queryByTestId("mdx-editor")).toBeNull();
 		richTextEnv.supports = true;
 	});
+
+	it("proposeFile + puste pole → Zaproponuj opis; z treścią → Popraw opis (F3 #190)", async () => {
+		const file = new File(["foto"], "foto.jpg", { type: "image/jpeg" });
+		// ten test wymaga skutecznego dostępu do AL — nadpisuje modułowy stub
+		vi.stubGlobal(
+			"fetch",
+			vi.fn().mockImplementation((url: string) => {
+				if (String(url).includes("/api/ai/access")) {
+					return Promise.resolve({
+						ok: true,
+						json: () =>
+							Promise.resolve({
+								data: { master: true, aiOptIn: true, aiBlocked: false, effective: true },
+							}),
+					});
+				}
+				return Promise.resolve({
+					ok: true,
+					json: () => Promise.resolve({ data: { text: "Propozycja." } }),
+				});
+			}),
+		);
+		const { rerender } = render(
+			<PostDescriptionField value="" onChange={vi.fn()} proposeFile={file} />,
+			{
+				wrapper: createWrapper(),
+			},
+		);
+		const propose = await screen.findByRole("button", { name: /zaproponuj opis/i });
+		expect(propose.hasAttribute("disabled")).toBe(false);
+		const improveEmpty = screen.getByRole("button", { name: /popraw opis/i });
+		expect(improveEmpty.hasAttribute("disabled")).toBe(true);
+		// treść w polu → stany się odbijają: Popraw aktywny, Zaproponuj wygaszony
+		rerender(<PostDescriptionField value="Już coś" onChange={vi.fn()} proposeFile={file} />);
+		await vi.waitFor(() =>
+			expect(
+				screen.getByRole("button", { name: /zaproponuj opis/i }).hasAttribute("disabled"),
+			).toBe(true),
+		);
+		expect(screen.getByRole("button", { name: /popraw opis/i }).hasAttribute("disabled")).toBe(
+			false,
+		);
+	});
 });

@@ -14,9 +14,28 @@ import type { ChatToken } from "./stream-protocol";
 
 export const GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions";
 
+/**
+ * Jedna część treści wiadomości multimodalnej (F3 #190): tekst albo obraz
+ * (data URL base64 — do Groqa lecą wyłącznie bajty, nigdy zdalny URL).
+ */
+export type ChatContentPart =
+	| { type: "text"; text: string }
+	| { type: "image_url"; image_url: { url: string } };
+
 export interface ChatMessage {
 	role: "system" | "user" | "assistant";
 	content: string;
+}
+
+/**
+ * Wiadomość z częściami multimodalnymi (F3 #190) — używana WYŁĄCZNIE przez tryb
+ * vision w /generate (opis sceny ze zdjęcia). Czat (streamChat) zostaje czysto
+ * tekstowy; Groq przyjmuje format OpenAI-compatible, obraz = data URL base64
+ * (do Groqa lecą wyłącznie bajty, nigdy zdalny URL).
+ */
+export interface VisionChatMessage {
+	role: "system" | "user";
+	content: string | ChatContentPart[];
 }
 
 /** Błąd API Groq — status HTTP + komunikat z body ({error:{message}}). */
@@ -44,7 +63,8 @@ interface StreamChatInput {
 interface CompleteChatInput {
 	apiKey: string;
 	model: string;
-	messages: ChatMessage[];
+	/** Tekst albo (wyłącznie tryb vision) wiadomości z częściami image_url. */
+	messages: (ChatMessage | VisionChatMessage)[];
 }
 
 /**

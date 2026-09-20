@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { z } from "zod";
-import {
-	GENERATION_MODEL_ID,
-	GENERATION_MODES,
-	improvePostDescriptionMessages,
-} from "@/core/ai/generation-prompts";
+import { GENERATION_MODEL_ID, improvePostDescriptionMessages } from "@/core/ai/generation-prompts";
 import { type ChatMessage, completeChat, GroqError, streamChat } from "@/core/ai/groq";
 import { buildSystemPrompt } from "@/core/ai/knowledge";
-import { type AiModel, DEFAULT_MODEL_ID, getModelById } from "@/core/ai/models";
+import {
+	type AiModel,
+	DEFAULT_MODEL_ID,
+	getModelById,
+	VISION_IMAGE_MAX_CHARS,
+} from "@/core/ai/models";
+import { proposePostDescription } from "@/core/ai/propose";
 import { aiRateLimitMessage, consumeAiPostSearch, consumeAiRateLimit } from "@/core/ai/rate-limit";
 import { type ChatToken, encodeToken, type PostPreview } from "@/core/ai/stream-protocol";
 import { ThinkParser } from "@/core/ai/think-parser";
@@ -52,14 +54,23 @@ const chatRequestSchema = z.object({
 const optInSchema = z.object({ optIn: z.boolean() });
 
 /**
- * F1 #188 — tryby generowania AL v2. Tekst = opis do poprawy; max =
- * MAX_DESCRIPTION_LENGTH (poprawiamy istniejący opis posta, który tego
- * limitu nigdy nie przekracza).
+ * F1 #188 + F3 #190 — tryby generowania AL v2 jako unia dyskryminowana.
+ * improve: tekst opisu (max MAX_DESCRIPTION_LENGTH). propose: data URL zdjęcia
+ * (regex + cap VISION_IMAGE_MAX_CHARS ≈ limit obrazu Groqa).
  */
-const generateRequestSchema = z.object({
-	mode: z.enum(GENERATION_MODES),
-	text: z.string().min(1).max(MAX_DESCRIPTION_LENGTH),
-});
+const generateRequestSchema = z.discriminatedUnion("mode", [
+	z.object({
+		mode: z.literal("improve-post-description"),
+		text: z.string().min(1).max(MAX_DESCRIPTION_LENGTH),
+	}),
+	z.object({
+		mode: z.literal("propose-post-description"),
+		image: z
+			.string()
+			.regex(/^data:image\/(png|jpeg|webp);base64,/)
+			.max(VISION_IMAGE_MAX_CHARS),
+	}),
+]);
 
 /**
  * Jedyny komunikat o limicie w generowaniu (#189) — 429 wystawia wyłącznie
@@ -194,11 +205,17 @@ aiEndpoint.post("/generate", async (c) => {
 	}
 
 	try {
-		const text = await completeChat({
-			apiKey,
-			model: GENERATION_MODEL_ID,
-			messages: improvePostDescriptionMessages(parsed.data.text),
-		});
+		// F3 #190: propose = potok vision→polish (src/core/ai/propose.ts);
+		// improve = bezpośrednie jednostrzałowe wywołanie. Mapowanie błędów
+		// wspólne dla obu trybów.
+		const text =
+			parsed.data.mode === "propose-post-description"
+				? await proposePostDescription(apiKey, parsed.data.image)
+				: await completeChat({
+						apiKey,
+						model: GENERATION_MODEL_ID,
+						messages: improvePostDescriptionMessages(parsed.data.text),
+					});
 		return c.json({ data: { text } });
 	} catch (error) {
 		if (error instanceof GroqError) {

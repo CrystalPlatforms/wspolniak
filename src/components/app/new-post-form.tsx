@@ -296,12 +296,14 @@ export function NewPostForm({
 				<Label htmlFor="description" className="sr-only">
 					Tekst
 				</Label>
+				{/* F3 #190: podstawa „Zaproponuj opis" = pierwsze przypięte zdjęcie. */}
 				<PostDescriptionField
 					id="description"
 					value={description}
 					onChange={setDescription}
 					onMentionsChange={setMentions}
 					markdownEnabled={featureFlags.markdown}
+					proposeFile={media.find((item) => item.file)?.file ?? null}
 				/>
 			</div>
 
