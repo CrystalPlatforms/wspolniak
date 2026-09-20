@@ -1,3 +1,15 @@
+# [5.10.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.9.0...v5.10.0) (2026-09-20)
+
+
+### Bug Fixes
+
+* **dev:** align TanStack family versions — silence dev-only hydration mismatch ([8522bc2](https://github.com/CrystalPlatforms/wspolniak/commit/8522bc2dfd956b704e9b93be0828da91e0c3fdd5))
+
+
+### Features
+
+* **ai:** propose description from photo — vision pipeline ([#190](https://github.com/CrystalPlatforms/wspolniak/issues/190)) ([42a2af2](https://github.com/CrystalPlatforms/wspolniak/commit/42a2af27d97aaa5533ba04409c680a10886445e7))
+
 # [5.9.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.8.0...v5.9.0) (2026-09-16)
 
 
