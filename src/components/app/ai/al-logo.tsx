@@ -10,13 +10,18 @@ import logoRaw from "./al-logo.svg?raw";
  * oczy błądzą same na każdej platformie. Mask id unikalny per instancja
  * (useId); atrybuty width/height nadpisane na 100%, żeby SVG skalowało
  * się do kontenera (wbite 250×250 wystawało poza div i zasłaniało tekst).
+ * `animated={false}` (reviza #187): wyłącza animację — małe przyciski AL
+ * mają statyczne logo.
  */
-export function AlLogo({ className }: { className?: string }) {
+export function AlLogo({ className, animated = true }: { className?: string; animated?: boolean }) {
 	const maskId = `al-mask-${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
 
-	const markup = logoRaw
+	let markup = logoRaw
 		.replaceAll("bot-mask-lgf1i3", maskId)
 		.replace('width="250" height="250"', 'width="100%" height="100%" style="display:block"');
+	if (!animated) {
+		markup = markup.replace("</style>", ".oeil0,.oeil1{animation:none !important}</style>");
+	}
 
 	return (
 		<div

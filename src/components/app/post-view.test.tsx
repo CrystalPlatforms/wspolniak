@@ -11,6 +11,7 @@ vi.mock("@tanstack/react-router", () => ({
 			{children as ReactNode}
 		</a>
 	),
+	useNavigate: () => vi.fn(),
 }));
 
 function createWrapper() {

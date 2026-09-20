@@ -47,7 +47,8 @@ export function MobileNav({
 
 				<Link to="/app/new" className="flex flex-col items-center gap-1.5">
 					<Button size="lg" className="h-14 w-14 rounded-full px-0">
-						<Plus className="h-6 w-6" />
+						{/* size-* omija nadpisanie [&_svg]:size-4 z Buttona (h-12 nie działało). */}
+						<Plus className="size-12" />
 					</Button>
 					<span className="text-xs text-muted-foreground">Dodaj</span>
 				</Link>

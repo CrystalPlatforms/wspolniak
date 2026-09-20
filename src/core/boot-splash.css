@@ -15,7 +15,10 @@
 }
 
 .boot-splash-loader {
-	--uib-size: 56px;
+	/* Reviza #187: loader (uib-dot-loader) dołącza PO napisie — płynny fade-in
+	   bez migania w pierwszych klatkach (animacja loadera gra niezależnie). */
+	opacity: 0;
+	animation: splash-loader-in 320ms ease-out 380ms forwards;
 }
 
 .boot-splash-title {
@@ -24,4 +27,30 @@
 	font-weight: 700;
 	letter-spacing: 0.02em;
 	color: #fafafa;
+	animation: splash-title-in 200ms ease-out both;
+}
+
+@keyframes splash-title-in {
+	from {
+		opacity: 0;
+		transform: translateY(4px);
+	}
+	to {
+		opacity: 1;
+		transform: none;
+	}
+}
+
+@keyframes splash-loader-in {
+	to {
+		opacity: 1;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.boot-splash-loader,
+	.boot-splash-title {
+		animation: none;
+		opacity: 1;
+	}
 }

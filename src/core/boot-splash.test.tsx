@@ -45,7 +45,8 @@ describe("boot splash", () => {
 				const { container } = render(<FreshSplash />);
 
 				expect(screen.getByText("Wspólniak")).toBeTruthy();
-				const dots = container.querySelectorAll(".loader .dot");
+				// Reviza #187: uib-dot-loader (crs-assets) — 6 kroppek.
+				const dots = container.querySelectorAll(".boot-splash-loader .uib-dot");
 				expect(dots.length).toBe(6);
 			} finally {
 				nowSpy.mockRestore();

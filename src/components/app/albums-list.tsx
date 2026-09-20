@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { Plus } from "lucide-react";
-import { useState } from "react";
-import { AlbumActionsMenu } from "@/components/app/album-actions-menu";
-import { AlbumCreateDialog } from "@/components/app/album-create-dialog";
 import { Button } from "@/components/ui/button";
 import { getImageUrl } from "@/images/client";
 
@@ -31,22 +28,15 @@ async function fetchAlbums(): Promise<AlbumsResponse> {
 	return (await res.json()) as AlbumsResponse;
 }
 
-interface AlbumsListProps {
-	/** Sesja — menu „⋯" widzi tylko twórca albumu albo admin (#173). */
-	currentUserId: string;
-	currentUserRole: string;
-}
-
 /**
  * Sekcja „Albumy" (#170): siatka kafelków (okładka = pierwsze zdjęcie, tytuł,
  * licznik) w kolejności z API (newest-first). Od #173 na kafelku twórcy/admina
  * jest menu „⋯" (zmiana nazwy, usunięcie albumu).
  */
-export function AlbumsList({ currentUserId, currentUserRole }: AlbumsListProps) {
-	const queryClient = useQueryClient();
-	const [createOpen, setCreateOpen] = useState(false);
+/** Reviza #187: menu „⋯" z kafelka usunięte — zarządzanie idzie z widoku albumu. */
+export function AlbumsList() {
+	const navigate = useNavigate();
 	const { data, isPending } = useQuery({ queryKey: ALBUMS_LIST_KEY, queryFn: fetchAlbums });
-	const isAdmin = currentUserRole === "admin";
 
 	const tiles = data?.data ?? [];
 	const imageAccountHash = data?.meta.imageAccountHash ?? "";
@@ -67,7 +57,12 @@ export function AlbumsList({ currentUserId, currentUserRole }: AlbumsListProps) 
 			<div className="mb-6 flex items-center gap-2">
 				<h1 className="text-2xl font-bold text-foreground">Albumy</h1>
 				<div className="flex-1" />
-				<Button variant="ghost" size="lg" title="Nowy album" onClick={() => setCreateOpen(true)}>
+				<Button
+					variant="ghost"
+					size="lg"
+					title="Nowy album"
+					onClick={() => navigate({ to: "/app/new-album" })}
+				>
 					<Plus className="size-6" />
 				</Button>
 			</div>
@@ -78,6 +73,7 @@ export function AlbumsList({ currentUserId, currentUserRole }: AlbumsListProps) 
 				</div>
 			) : (
 				<div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+					{" "}
 					{tiles.map((tile) => (
 						<div key={tile.id} className="group relative">
 							<Link to="/app/albums/$id" params={{ id: tile.id }} className="block">
@@ -100,27 +96,10 @@ export function AlbumsList({ currentUserId, currentUserRole }: AlbumsListProps) 
 									{tile.videoCount > 0 && ` · ${tile.videoCount} wideo`}
 								</p>
 							</Link>
-							{(tile.creatorId === currentUserId || isAdmin) && (
-								<div className="absolute right-1 top-1">
-									<AlbumActionsMenu
-										albumId={tile.id}
-										albumTitle={tile.title}
-										triggerClassName="size-7 rounded-full bg-background/80 hover:bg-background"
-									/>
-								</div>
-							)}
 						</div>
 					))}
 				</div>
 			)}
-
-			<AlbumCreateDialog
-				open={createOpen}
-				onOpenChange={setCreateOpen}
-				onCreated={() => {
-					queryClient.invalidateQueries({ queryKey: ALBUMS_LIST_KEY });
-				}}
-			/>
 		</>
 	);
 }

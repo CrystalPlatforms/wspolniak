@@ -147,22 +147,30 @@ export function CommentSection({
 					maxLength={1000}
 					rows={2}
 				/>
-				<GradientAiButton target="comment" text={newComment} onResult={setNewComment} />
 				<div className="flex items-center justify-between">
 					<span className="text-xs text-muted-foreground">{newComment.length}/1000</span>
-					<Button
-						className="h-11 sm:h-8"
-						onClick={() => {
-							mutation.reset();
-							// Tylko wspomnienia, których `@imię` nadal figuruje w tekście.
-							const validMentions = mentions.filter((m) => newComment.includes(`@${m.name}`));
-							mutation.mutate({ body: newComment, mentions: validMentions });
-						}}
-						disabled={mutation.isPending || !newComment.trim()}
-					>
-						<Loader loading={mutation.isPending} />
-						{mutation.isPending ? "Wysyłanie..." : "Skomentuj"}
-					</Button>
+					<div className="flex items-center gap-2">
+						{/* AL (#187): „Popraw opis" obok „Skomentuj", ten sam rozmiar. */}
+						<GradientAiButton
+							target="comment"
+							text={newComment}
+							onResult={setNewComment}
+							buttonClass="h-11 sm:h-8"
+						/>
+						<Button
+							className="h-11 sm:h-8"
+							onClick={() => {
+								mutation.reset();
+								// Tylko wspomnienia, których `@imię` nadal figuruje w tekście.
+								const validMentions = mentions.filter((m) => newComment.includes(`@${m.name}`));
+								mutation.mutate({ body: newComment, mentions: validMentions });
+							}}
+							disabled={mutation.isPending || !newComment.trim()}
+						>
+							<Loader loading={mutation.isPending} />
+							{mutation.isPending ? "Wysyłanie..." : "Skomentuj"}
+						</Button>
+					</div>
 				</div>
 			</div>
 		</section>

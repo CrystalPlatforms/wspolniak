@@ -12,12 +12,15 @@ import { afterEach, vi } from "vitest";
 import { AlbumsList } from "./albums-list";
 
 // Kafelki linkują do /app/albums/$id (TanStack Router) — w testach passthrough na <a>.
+const mockNavigate = vi.fn();
+
 vi.mock("@tanstack/react-router", () => ({
 	Link: ({ to, className, children, ...rest }: Record<string, unknown> & { to: string }) => (
 		<a href={to} className={className as string | undefined} {...(rest as object)}>
 			{children as ReactNode}
 		</a>
 	),
+	useNavigate: () => mockNavigate,
 }));
 
 function createWrapper() {
@@ -65,7 +68,7 @@ describe("AlbumsList", () => {
 		const Wrapper = createWrapper();
 		render(
 			<Wrapper>
-				<AlbumsList currentUserId="u1" currentUserRole="member" />
+				<AlbumsList />
 			</Wrapper>,
 		);
 
@@ -85,7 +88,7 @@ describe("AlbumsList", () => {
 		const Wrapper = createWrapper();
 		render(
 			<Wrapper>
-				<AlbumsList currentUserId="u1" currentUserRole="member" />
+				<AlbumsList />
 			</Wrapper>,
 		);
 
@@ -106,7 +109,7 @@ describe("AlbumsList", () => {
 		const Wrapper = createWrapper();
 		render(
 			<Wrapper>
-				<AlbumsList currentUserId="u1" currentUserRole="member" />
+				<AlbumsList />
 			</Wrapper>,
 		);
 
@@ -126,7 +129,7 @@ describe("AlbumsList — liczniki per kind (#172)", () => {
 				{ id: "a1", title: "Miks", photoCount: 3, videoCount: 1, coverImageId: "cf-1" },
 			]),
 		);
-		render(<AlbumsList currentUserId="u1" currentUserRole="member" />, {
+		render(<AlbumsList />, {
 			wrapper: createWrapper(),
 		});
 
@@ -142,7 +145,7 @@ describe("AlbumsList — liczniki per kind (#172)", () => {
 				{ id: "a2", title: "Tylko zdjęcia", photoCount: 2, videoCount: 0, coverImageId: "cf-2" },
 			]),
 		);
-		render(<AlbumsList currentUserId="u1" currentUserRole="member" />, {
+		render(<AlbumsList />, {
 			wrapper: createWrapper(),
 		});
 

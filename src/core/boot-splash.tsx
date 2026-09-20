@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { useEffect, useState } from "react";
+import { Loader } from "@/components/ui/uib-loader";
 import "./boot-splash.css";
 
 /** Minimalny czas życia splasha w milisekundach (liczony od startu nawigacji). */
@@ -136,15 +138,12 @@ export function BootSplash() {
 	if (hidden) return null;
 	return (
 		<div className="boot-splash">
-			<output className="loader boot-splash-loader" aria-label="Ładowanie">
-				<div className="dot" />
-				<div className="dot" />
-				<div className="dot" />
-				<div className="dot" />
-				<div className="dot" />
-				<div className="dot" />
-			</output>
+			{/* Reviza #187: najpierw napis, CHWILĘ PÓŹNIEJ loader (uib-dot-loader,
+			    fade-in CSS) — zero migania przed pierwszą klatką. */}
 			<p className="boot-splash-title">Wspólniak</p>
+			<div className="boot-splash-loader">
+				<Loader />
+			</div>
 		</div>
 	);
 }

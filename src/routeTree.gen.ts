@@ -21,6 +21,7 @@ import { Route as AppCalendarRouteImport } from './routes/app/calendar'
 import { Route as AppChatRouteImport } from './routes/app/chat'
 import { Route as AppLibRouteImport } from './routes/app/lib'
 import { Route as AppNewRouteImport } from './routes/app/new'
+import { Route as AppNewAlbumRouteImport } from './routes/app/new-album'
 import { Route as AppNewVideoRouteImport } from './routes/app/new-video'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
 import { Route as AppStatsRouteImport } from './routes/app/stats'
@@ -33,6 +34,7 @@ import { Route as AppAlbumsIndexRouteImport } from './routes/app/albums/index'
 import { Route as AppAlbumsIdRouteImport } from './routes/app/albums/$id'
 import { Route as AppPostIdRouteImport } from './routes/app/post.$id'
 import { Route as AppVideoIdRouteImport } from './routes/app/video.$id'
+import { Route as AppAlbumsIdEditRouteImport } from './routes/app/albums.$id_.edit'
 import { Route as AppPostIdEditRouteImport } from './routes/app/post.$id_.edit'
 
 const IndexRoute = IndexRouteImport.update({
@@ -95,6 +97,11 @@ const AppNewRoute = AppNewRouteImport.update({
   path: '/new',
   getParentRoute: () => AppRoute,
 } as any)
+const AppNewAlbumRoute = AppNewAlbumRouteImport.update({
+  id: '/new-album',
+  path: '/new-album',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppNewVideoRoute = AppNewVideoRouteImport.update({
   id: '/new-video',
   path: '/new-video',
@@ -155,6 +162,11 @@ const AppVideoIdRoute = AppVideoIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => AppVideoRoute,
 } as any)
+const AppAlbumsIdEditRoute = AppAlbumsIdEditRouteImport.update({
+  id: '/$id_/edit',
+  path: '/$id/edit',
+  getParentRoute: () => AppAlbumsRoute,
+} as any)
 const AppPostIdEditRoute = AppPostIdEditRouteImport.update({
   id: '/post/$id_/edit',
   path: '/post/$id/edit',
@@ -173,6 +185,7 @@ export interface FileRoutesByFullPath {
   '/app/chat': typeof AppChatRoute
   '/app/lib': typeof AppLibRoute
   '/app/new': typeof AppNewRoute
+  '/app/new-album': typeof AppNewAlbumRoute
   '/app/new-video': typeof AppNewVideoRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/stats': typeof AppStatsRoute
@@ -186,6 +199,7 @@ export interface FileRoutesByFullPath {
   '/app/post/$id': typeof AppPostIdRoute
   '/app/video/$id': typeof AppVideoIdRoute
   '/app/albums/': typeof AppAlbumsIndexRoute
+  '/app/albums/$id/edit': typeof AppAlbumsIdEditRoute
   '/app/post/$id/edit': typeof AppPostIdEditRoute
 }
 export interface FileRoutesByTo {
@@ -198,6 +212,7 @@ export interface FileRoutesByTo {
   '/app/chat': typeof AppChatRoute
   '/app/lib': typeof AppLibRoute
   '/app/new': typeof AppNewRoute
+  '/app/new-album': typeof AppNewAlbumRoute
   '/app/new-video': typeof AppNewVideoRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/stats': typeof AppStatsRoute
@@ -211,6 +226,7 @@ export interface FileRoutesByTo {
   '/app/post/$id': typeof AppPostIdRoute
   '/app/video/$id': typeof AppVideoIdRoute
   '/app/albums': typeof AppAlbumsIndexRoute
+  '/app/albums/$id/edit': typeof AppAlbumsIdEditRoute
   '/app/post/$id/edit': typeof AppPostIdEditRoute
 }
 export interface FileRoutesById {
@@ -226,6 +242,7 @@ export interface FileRoutesById {
   '/app/chat': typeof AppChatRoute
   '/app/lib': typeof AppLibRoute
   '/app/new': typeof AppNewRoute
+  '/app/new-album': typeof AppNewAlbumRoute
   '/app/new-video': typeof AppNewVideoRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/stats': typeof AppStatsRoute
@@ -239,6 +256,7 @@ export interface FileRoutesById {
   '/app/post/$id': typeof AppPostIdRoute
   '/app/video/$id': typeof AppVideoIdRoute
   '/app/albums/': typeof AppAlbumsIndexRoute
+  '/app/albums/$id_/edit': typeof AppAlbumsIdEditRoute
   '/app/post/$id_/edit': typeof AppPostIdEditRoute
 }
 export interface FileRouteTypes {
@@ -255,6 +273,7 @@ export interface FileRouteTypes {
     | '/app/chat'
     | '/app/lib'
     | '/app/new'
+    | '/app/new-album'
     | '/app/new-video'
     | '/app/settings'
     | '/app/stats'
@@ -268,6 +287,7 @@ export interface FileRouteTypes {
     | '/app/post/$id'
     | '/app/video/$id'
     | '/app/albums/'
+    | '/app/albums/$id/edit'
     | '/app/post/$id/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -280,6 +300,7 @@ export interface FileRouteTypes {
     | '/app/chat'
     | '/app/lib'
     | '/app/new'
+    | '/app/new-album'
     | '/app/new-video'
     | '/app/settings'
     | '/app/stats'
@@ -293,6 +314,7 @@ export interface FileRouteTypes {
     | '/app/post/$id'
     | '/app/video/$id'
     | '/app/albums'
+    | '/app/albums/$id/edit'
     | '/app/post/$id/edit'
   id:
     | '__root__'
@@ -307,6 +329,7 @@ export interface FileRouteTypes {
     | '/app/chat'
     | '/app/lib'
     | '/app/new'
+    | '/app/new-album'
     | '/app/new-video'
     | '/app/settings'
     | '/app/stats'
@@ -320,6 +343,7 @@ export interface FileRouteTypes {
     | '/app/post/$id'
     | '/app/video/$id'
     | '/app/albums/'
+    | '/app/albums/$id_/edit'
     | '/app/post/$id_/edit'
   fileRoutesById: FileRoutesById
 }
@@ -420,6 +444,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppNewRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/new-album': {
+      id: '/app/new-album'
+      path: '/new-album'
+      fullPath: '/app/new-album'
+      preLoaderRoute: typeof AppNewAlbumRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/new-video': {
       id: '/app/new-video'
       path: '/new-video'
@@ -504,6 +535,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppVideoIdRouteImport
       parentRoute: typeof AppVideoRoute
     }
+    '/app/albums/$id_/edit': {
+      id: '/app/albums/$id_/edit'
+      path: '/$id/edit'
+      fullPath: '/app/albums/$id/edit'
+      preLoaderRoute: typeof AppAlbumsIdEditRouteImport
+      parentRoute: typeof AppAlbumsRoute
+    }
     '/app/post/$id_/edit': {
       id: '/app/post/$id_/edit'
       path: '/post/$id/edit'
@@ -517,11 +555,13 @@ declare module '@tanstack/react-router' {
 interface AppAlbumsRouteChildren {
   AppAlbumsIdRoute: typeof AppAlbumsIdRoute
   AppAlbumsIndexRoute: typeof AppAlbumsIndexRoute
+  AppAlbumsIdEditRoute: typeof AppAlbumsIdEditRoute
 }
 
 const AppAlbumsRouteChildren: AppAlbumsRouteChildren = {
   AppAlbumsIdRoute: AppAlbumsIdRoute,
   AppAlbumsIndexRoute: AppAlbumsIndexRoute,
+  AppAlbumsIdEditRoute: AppAlbumsIdEditRoute,
 }
 
 const AppAlbumsRouteWithChildren = AppAlbumsRoute._addFileChildren(
@@ -548,6 +588,7 @@ interface AppRouteChildren {
   AppChatRoute: typeof AppChatRoute
   AppLibRoute: typeof AppLibRoute
   AppNewRoute: typeof AppNewRoute
+  AppNewAlbumRoute: typeof AppNewAlbumRoute
   AppNewVideoRoute: typeof AppNewVideoRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppStatsRoute: typeof AppStatsRoute
@@ -565,6 +606,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppChatRoute: AppChatRoute,
   AppLibRoute: AppLibRoute,
   AppNewRoute: AppNewRoute,
+  AppNewAlbumRoute: AppNewAlbumRoute,
   AppNewVideoRoute: AppNewVideoRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppStatsRoute: AppStatsRoute,

@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
+import { createFileRoute } from "@tanstack/react-router";
 import { useRef } from "react";
 import { calendarProposalTemplate } from "@/components/app/calendar-proposal";
 import { NewPostForm } from "@/components/app/new-post-form";
@@ -24,7 +23,6 @@ export const Route = createFileRoute("/app/new")({
 });
 
 function NewPostPage() {
-	const navigate = useNavigate();
 	const { featureFlags, session } = Route.useRouteContext();
 	const { calendar } = Route.useSearch();
 	const { publish, isPending, uploadProgress, isSlowUpload, isError, error, reset } =
@@ -47,18 +45,7 @@ function NewPostPage() {
 
 	return (
 		<div className="max-w-2xl bg-background px-4 py-6 pb-50 sm:pb-6">
-			<div className="mb-6 flex items-center gap-4">
-				<button
-					type="button"
-					onClick={() => navigate({ to: "/app" })}
-					className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-					title="Wróć do feeda"
-				>
-					<ArrowLeft className="h-5 w-5" />
-				</button>
-				<h1 className="text-2xl font-bold text-foreground">Nowy post</h1>
-			</div>
-
+			{/* Reviza #187: nagłówek (strzałka + tytuł + przyciski AL) rysuje NewPostForm. */}
 			<UploadErrorAlert
 				error={isError ? error : null}
 				onRetry={async () => {

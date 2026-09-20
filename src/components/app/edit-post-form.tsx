@@ -19,9 +19,8 @@ import { PostDescriptionField } from "@/components/app/post-description-field";
 import type { VideoPlanEntry } from "@/components/app/use-publish-post";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Loader } from "@/components/ui/loader";
-import { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from "@/db/instance";
+import type { FeatureFlags } from "@/db/instance";
 import type { PostVideoEntry } from "@/db/posts/schema";
 import { MAX_DESCRIPTION_LENGTH } from "@/db/posts/schema";
 import { getImageUrl } from "@/images/client";
@@ -159,7 +158,6 @@ export function EditPostForm({
 	onSubmit,
 	onVideoDelete,
 	isSubmitting,
-	featureFlags = DEFAULT_FEATURE_FLAGS,
 }: EditPostFormProps) {
 	const [description, setDescription] = useState(initialDescription ?? "");
 	const [videoItems, setVideoItems] = useState<VideoItem[]>(() =>
@@ -359,15 +357,10 @@ export function EditPostForm({
 			)}
 
 			<div className="space-y-2">
-				<Label htmlFor="description" className="sr-only">
-					Tekst
-				</Label>
 				<PostDescriptionField
-					id="description"
 					value={description}
 					onChange={setDescription}
 					onMentionsChange={setMentions}
-					markdownEnabled={featureFlags.markdown}
 				/>
 			</div>
 

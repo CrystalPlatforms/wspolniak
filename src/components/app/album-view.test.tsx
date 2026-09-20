@@ -186,7 +186,7 @@ describe("AlbumView — Dodaj zdjęcia i wideo (#171/#172)", () => {
 		video: { id: "yt-1", title: "Fiesta", thumbnailUrl: "https://img.example/yt-1" },
 	};
 
-	it("renders the Dodaj zdjęcia action inside the header menu (#171, revizja #175)", async () => {
+	it("nie pokazuje już pozycji Dodaj zdjęcia w menu (reviza #187 — podstrona /app/new-album)", async () => {
 		vi.stubGlobal("fetch", mockAlbumApi());
 		render(<AlbumView albumId="album-1" currentUserId="u1" currentUserRole="member" />, {
 			wrapper: createWrapper(),
@@ -197,7 +197,7 @@ describe("AlbumView — Dodaj zdjęcia i wideo (#171/#172)", () => {
 		});
 		await openActionsMenu();
 
-		expect(screen.getByRole("menuitem", { name: /Dodaj zdjęcia/i })).not.toBeNull();
+		expect(screen.queryByRole("menuitem", { name: /Dodaj zdjęcia/i })).toBeNull();
 	});
 
 	it("renders a video tile with play linking to the video page; lightbox is photos only (#172)", async () => {
@@ -278,7 +278,7 @@ describe("AlbumView — akcje pobierania w menu (F6 #175, revizja usera)", () =>
 		});
 		await openActionsMenu();
 
-		const zipItem = screen.getByRole("menuitem", { name: /pobierz zdjęcia/i });
+		const zipItem = screen.getByRole("menuitem", { name: /pobierz zawartość/i });
 		expect(zipItem.getAttribute("href")).toContain("/photos.zip");
 	});
 
@@ -296,7 +296,7 @@ describe("AlbumView — akcje pobierania w menu (F6 #175, revizja usera)", () =>
 		});
 		await openActionsMenu();
 
-		expect(screen.getByRole("menuitem", { name: /pobierz zdjęcia/i })).toBeTruthy();
+		expect(screen.getByRole("menuitem", { name: /pobierz zawartość/i })).toBeTruthy();
 		expect(screen.queryByRole("menuitem", { name: /pobierz wideo/i })).toBeNull();
 	});
 
@@ -314,10 +314,11 @@ describe("AlbumView — akcje pobierania w menu (F6 #175, revizja usera)", () =>
 		});
 		await openActionsMenu();
 
-		expect(screen.queryByRole("menuitem", { name: /pobierz zdjęcia/i })).toBeNull();
+		expect(screen.queryByRole("menuitem", { name: /pobierz zawartość/i })).toBeNull();
 		expect(screen.queryByRole("menuitem", { name: /pobierz wideo/i })).toBeNull();
-		// Akcja dodawania zostaje w menu również dla pustego albumu.
-		expect(screen.getByRole("menuitem", { name: /dodaj zdjęcia/i })).toBeTruthy();
+		// Reviza #187: pozycja „Dodaj zdjęcia" zniknęła z menu — tworzenie
+		// treści albumu idzie przez podstronę /app/new-album.
+		expect(screen.queryByRole("menuitem", { name: /dodaj zdjęcia/i })).toBeNull();
 	});
 
 	it("shows the videos item when the album has a video", async () => {
@@ -353,6 +354,6 @@ describe("AlbumView — akcje pobierania w menu (F6 #175, revizja usera)", () =>
 		await openActionsMenu();
 
 		expect(screen.getByRole("menuitem", { name: /pobierz wideo/i })).toBeTruthy();
-		expect(screen.queryByRole("menuitem", { name: /pobierz zdjęcia/i })).toBeNull();
+		expect(screen.queryByRole("menuitem", { name: /pobierz zawartość/i })).toBeNull();
 	});
 });

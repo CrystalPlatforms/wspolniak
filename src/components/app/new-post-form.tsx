@@ -10,17 +10,25 @@ import {
 } from "@dnd-kit/core";
 import { rectSortingStrategy, SortableContext, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { AlertTriangle, ImagePlus, X } from "lucide-react";
-import { type ChangeEvent, type FormEvent, useCallback, useMemo, useRef, useState } from "react";
+import { AlertTriangle, ArrowLeft, ImagePlus, X } from "lucide-react";
+import {
+	type ChangeEvent,
+	type FormEvent,
+	type ReactNode,
+	useCallback,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
+import { GradientAiButton } from "@/components/app/ai/gradient-ai-button";
 import { ComposerVideoPicker, type PendingVideo } from "@/components/app/composer-video-picker";
 import type { Mention } from "@/components/app/mention-input";
 import { OversizedImageDialog } from "@/components/app/oversized-image-dialog";
 import { PostDescriptionField } from "@/components/app/post-description-field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Loader } from "@/components/ui/loader";
-import { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from "@/db/instance";
+import type { FeatureFlags } from "@/db/instance";
 import { MAX_DESCRIPTION_LENGTH } from "@/db/posts/schema";
 import { reorder } from "@/lib/reorder";
 import { cn } from "@/lib/utils";
@@ -50,6 +58,8 @@ interface NewPostFormProps {
 	 * „wolne łącze" bez blokowania publikacji.
 	 */
 	isSlowUpload?: boolean;
+	/** Reviza #187: nagłówek (strzałka + „Nowy post") rysuje sama forma. */
+	onBack?: () => void;
 }
 
 interface MediaItem {
@@ -131,14 +141,42 @@ function SortablePreview({
 	);
 }
 
+/** Pierwsze przypięte zdjęcie = podstawa „Zaproponuj opis" (F3 #190). */
+function firstMediaFile(media: MediaItem[]): File | null {
+	return media.find((item) => item.file)?.file ?? null;
+}
+
+/**
+ * Reviza #187: nagłówek kompozytora — strzałka powrotu, tytuł i slot na
+ * parę przycisków AL (po prawej, na wysokości tytułu).
+ */
+function ComposerHeader({ onBack, aiSlot }: { onBack?: () => void; aiSlot: ReactNode }) {
+	return (
+		<div className="mb-2 flex items-center gap-4">
+			{onBack && (
+				<button
+					type="button"
+					onClick={onBack}
+					className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+					title="Wróć do feeda"
+				>
+					<ArrowLeft className="h-5 w-5" />
+				</button>
+			)}
+			<h1 className="text-2xl font-bold text-foreground">Nowy post</h1>
+			<div className="ml-auto">{aiSlot}</div>
+		</div>
+	);
+}
+
 export function NewPostForm({
 	onSubmit,
 	isSubmitting,
 	uploadProgress = null,
-	featureFlags = DEFAULT_FEATURE_FLAGS,
 	videoNotConnected = false,
 	initialDescription,
 	isSlowUpload = false,
+	onBack,
 }: NewPostFormProps) {
 	const [description, setDescription] = useState(initialDescription ?? "");
 	const [mentions, setMentions] = useState<Mention[]>([]);
@@ -286,6 +324,20 @@ export function NewPostForm({
 
 	return (
 		<form onSubmit={handleSubmit} className="space-y-4">
+			{/* Reviza #187: nagłówek strony w formie — para przycisków AL stoi
+			    na wysokości tytułu „Nowy post", nad inputem i formatowaniem. */}
+			<ComposerHeader
+				onBack={onBack}
+				aiSlot={
+					<GradientAiButton
+						target="post-description"
+						text={description}
+						file={firstMediaFile(media)}
+						onResult={setDescription}
+					/>
+				}
+			/>
+
 			{error && (
 				<Alert variant="destructive">
 					<AlertDescription>{error}</AlertDescription>
@@ -293,17 +345,14 @@ export function NewPostForm({
 			)}
 
 			<div className="space-y-2">
-				<Label htmlFor="description" className="sr-only">
-					Tekst
-				</Label>
-				{/* F3 #190: podstawa „Zaproponuj opis" = pierwsze przypięte zdjęcie. */}
+				{/* F3 #190: podstawa „Zaproponuj opis" = pierwsze przypięte zdjęcie.
+				    Reviza #187: para AL wyłączona tutaj — stoi przy nagłówku formy. */}
 				<PostDescriptionField
-					id="description"
 					value={description}
 					onChange={setDescription}
 					onMentionsChange={setMentions}
-					markdownEnabled={featureFlags.markdown}
 					proposeFile={media.find((item) => item.file)?.file ?? null}
+					showAiButtons={false}
 				/>
 			</div>
 

@@ -1,23 +1,19 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { lazy, Suspense, useState } from "react";
+import { lazy, Suspense } from "react";
 import { GradientAiButton } from "@/components/app/ai/gradient-ai-button";
-import { type Mention, MentionInput } from "@/components/app/mention-input";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { useSupportsRichText } from "@/hooks/use-supports-rich-text";
+import type { Mention } from "@/components/app/mention-input";
 
 /**
  * Pole opisu posta (deep module) — wspólny wrapper dla kompozytora tworzenia
- * i edycji. Domyślnie zwykłe pole tekstowe (bez formatowania). Włączenie switcha
- * „Formatowanie" doładuje leniwie edytor WYSIWYG (osobny chunk — strona bez
- * włączonego formatowania nie pobiera biblioteki edytora).
+ * i edycji. Reviza #187: formatowanie (WYSIWYG) jest ZAWSZE włączone — bez
+ * switcha, na każdym urządzeniu (mobile/PWA też), z obsługą @mentions i
+ * przycisków AL na tym samym markdownie (źródło prawdy: string value).
  *
- * Formatowanie jest dostępne TYLKO na desktopie w przeglądarce — na mobile i
- * w PWA (zainstalowana aplikacja) switch w ogóle się nie pojawia (zob.
- * {@link useSupportsRichText}), bo WYSIWYG jest ciężki i nieporęczny na telefonie.
+ * Edytor ładowany leniwie (osobny chunk z CSS), ale podpięty od razu —
+ * użytkownik pisze w WYSIWYG od pierwszego znaku.
  *
- * Mały interface (value / onChange / onMentionsChange) ukrywa stan switcha i
- * granicę Suspense. Komentarze używają gołego `MentionInput` (zwykły tekst).
+ * Mały interface (value / onChange / onMentionsChange) ukrywa konfigurację
+ * MDXEditora i mechanizm podpowiedzi mencji.
  */
 const WysiwygEditor = lazy(() => import("./wysiwyg-editor"));
 
@@ -25,85 +21,57 @@ interface PostDescriptionFieldProps {
 	value: string;
 	onChange: (value: string) => void;
 	onMentionsChange?: (mentions: Mention[]) => void;
-	id?: string;
 	placeholder?: string;
-	/** Gdy false, pole jest zwykłym tekstem (bez switcha i edytora). */
-	markdownEnabled?: boolean;
 	/**
 	 * Pierwsze przypięte zdjęcie (kompozytor tworzenia) — włącza wariant
 	 * „Zaproponuj opis", gdy pole jest puste (F3 #190). Edit-form nie podaje.
 	 */
 	proposeFile?: File | null;
+	/**
+	 * Reviza #187: pary przycisków AL nie renderujemy w polu, gdy rodzic
+	 * pokazuje je w innym miejscu (kompozytor tworzenia — rząd nagłówka).
+	 */
+	showAiButtons?: boolean;
 }
 
 export function PostDescriptionField({
 	value,
 	onChange,
 	onMentionsChange,
-	id = "description",
 	placeholder,
-	markdownEnabled = true,
 	proposeFile,
+	showAiButtons = true,
 }: PostDescriptionFieldProps) {
-	const [richTextOn, setRichTextOn] = useState(false);
-	// Formatowanie widać tylko gdy dozwolone (markdown) i wspierane (desktop).
-	const supportsRichText = useSupportsRichText();
-	const canFormat = markdownEnabled && supportsRichText;
-	const showEditor = canFormat && richTextOn;
-
 	return (
 		<div className="space-y-2">
-			{canFormat && (
-				<div className="flex items-center gap-2">
-					<Switch
-						id="post-format-toggle"
-						aria-labelledby="post-format-toggle-label"
-						checked={richTextOn}
-						onCheckedChange={setRichTextOn}
-					/>
-					<Label
-						id="post-format-toggle-label"
-						htmlFor="post-format-toggle"
-						className="text-sm text-muted-foreground"
-					>
-						Formatowanie
-					</Label>
-				</div>
-			)}
-
-			{showEditor ? (
-				<Suspense
-					fallback={
-						<div className="min-h-36 rounded-md border border-input bg-background p-3 text-sm text-muted-foreground">
-							Ładowanie edytora…
-						</div>
-					}
-				>
-					<WysiwygEditor value={value} onChange={onChange} />
-				</Suspense>
-			) : (
-				<MentionInput
-					id={id}
+			<Suspense
+				fallback={
+					<div className="min-h-36 rounded-md border border-input bg-background p-3 text-sm text-muted-foreground">
+						Ładowanie edytora…
+					</div>
+				}
+			>
+				<WysiwygEditor
 					value={value}
 					onChange={onChange}
 					onMentionsChange={onMentionsChange}
-					placeholder={placeholder ?? "Co się wydarzyło? (@aby kogoś oznaczyć)"}
-					maxLength={2000}
-					rows={6}
-					className="min-h-36 resize-y"
+					placeholder={placeholder}
 				/>
-			)}
+			</Suspense>
 
 			{/* AL (F2/F3 #189/#190): para przycisków — „Popraw opis" aktywny przy
 			    treści, „Zaproponuj opis" przy pustym polu i zdjęciu (proposeFile;
 			    edit-form go nie podaje → samo improve). Sukces podmienia treść
-			    pola, błąd pokazuje inline komunikat. */}
-			<GradientAiButton
-				target="post-description"
-				text={value}
-				file={proposeFile}
-				onResult={onChange}
-			/>
+			    pola (sync przez value → setMarkdown w edytorze). Reviza #187:
+			    kompozytor tworzenia wyłącza parę tutaj i renderuje ją przy nagłówku. */}
+			{showAiButtons && (
+				<GradientAiButton
+					target="post-description"
+					text={value}
+					file={proposeFile}
+					onResult={onChange}
+				/>
+			)}
 		</div>
 	);
 }

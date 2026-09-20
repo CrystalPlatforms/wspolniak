@@ -46,20 +46,56 @@ import { shrinkImageToLimit } from "@/images/shrink";
 
 const mockShrink = vi.mocked(shrinkImageToLimit);
 
+// Reviza #187: edytor WYSIWYG zawsze włączony — mockujemy go jako input
+// (value = markdown, onChange = edycja), żeby testować flow formularza.
+vi.mock("@mdxeditor/editor", () => ({
+	MDXEditor: ({
+		markdown,
+		onChange,
+	}: {
+		markdown: string;
+		onChange?: (markdown: string) => void;
+	}) => (
+		<input
+			data-testid="mdx-editor"
+			data-markdown={markdown}
+			value={markdown}
+			aria-label="Opis posta"
+			onChange={(e) => onChange?.(e.target.value)}
+		/>
+	),
+	markdownShortcutPlugin: () => ({}),
+	headingsPlugin: () => ({}),
+	listsPlugin: () => ({}),
+	linkPlugin: () => ({}),
+	linkDialogPlugin: () => ({}),
+	quotePlugin: () => ({}),
+	tablePlugin: () => ({}),
+	toolbarPlugin: () => ({}),
+	UndoRedo: () => null,
+	BoldItalicUnderlineToggles: () => null,
+	StrikeThroughSupSubToggles: () => null,
+	BlockTypeSelect: () => null,
+	ListsToggle: () => null,
+	CreateLink: () => null,
+	InsertTable: () => null,
+	Separator: () => null,
+}));
+
 function makeFile(name: string) {
 	return new File(["x"], name, { type: "image/jpeg" });
 }
 
 describe("NewPostForm", () => {
-	it("renders file picker and description input", () => {
+	it("renders file picker and description input", async () => {
 		render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
 
-		expect(screen.getByLabelText(/^tekst$/i)).toBeDefined();
+		expect(await screen.findByLabelText(/opis posta/i)).toBeDefined();
 		expect(screen.getByRole("button", { name: /zdjęcia/i })).toBeDefined();
 		expect(screen.getByRole("button", { name: /opublikuj/i })).toBeDefined();
 	});
 
-	it("prefills the description from initialDescription (Zaproponuj datę, #163)", () => {
+	it("prefills the description from initialDescription (Zaproponuj datę, #163)", async () => {
 		render(
 			<NewPostForm
 				onSubmit={vi.fn()}
@@ -68,19 +104,15 @@ describe("NewPostForm", () => {
 			/>,
 		);
 
-		const field = screen.getByLabelText(/^tekst$/i) as HTMLTextAreaElement;
+		const field = (await screen.findByLabelText(/opis posta/i)) as HTMLInputElement;
 		expect(field.value).toContain("Witam, tu Tomek");
 	});
 
-	it("shows the formatting switch (default OFF) when markdown is enabled", () => {
+	it("ed description is a WYSIWYG editor — switch is gone (reviza #187)", async () => {
 		render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
 
-		// Slice 1: stara plain-text toolbar B/I/S zastąpiona switchem → WYSIWYG (leniwie).
-		const toggle = screen.getByRole("switch", { name: /formatowanie/i });
-		expect(toggle).toBeDefined();
-		expect(toggle.getAttribute("aria-checked")).toBe("false");
-		// Domyślnie OFF → zwykłe pole tekstowe, bez przycisków formatowania.
-		expect(screen.queryByRole("button", { name: /pogrubienie/i })).toBeNull();
+		expect(await screen.findByTestId("mdx-editor")).toBeDefined();
+		expect(screen.queryByRole("switch", { name: /formatowanie/i })).toBeNull();
 	});
 
 	it("renders the composer video picker button (F2 #194)", () => {
@@ -96,7 +128,7 @@ describe("NewPostForm", () => {
 		expect(screen.getByText(/podłącz youtube w panelu admina/i)).toBeDefined();
 	});
 
-	it("hides the formatting switch when the markdown feature is disabled", () => {
+	it("editor stays WYSIWYG regardless of feature flags (reviza #187)", async () => {
 		render(
 			<NewPostForm
 				onSubmit={vi.fn()}
@@ -111,6 +143,7 @@ describe("NewPostForm", () => {
 			/>,
 		);
 
+		expect(screen.getByTestId("mdx-editor")).toBeDefined();
 		expect(screen.queryByRole("switch", { name: /formatowanie/i })).toBeNull();
 	});
 
@@ -124,12 +157,12 @@ describe("NewPostForm", () => {
 		expect(fileInput.multiple).toBe(true);
 	});
 
-	it("blokuje publikację tekstu >2000 znaków z konkretnym komunikatem (zanim poleci do serwera)", () => {
+	it("blokuje publikację tekstu >2000 znaków z konkretnym komunikatem (zanim poleci do serwera)", async () => {
 		const onSubmit = vi.fn();
 		render(<NewPostForm onSubmit={onSubmit} isSubmitting={false} />);
 
 		const long = "a".repeat(2001);
-		const description = screen.getByLabelText(/^tekst$/i);
+		const description = await screen.findByLabelText(/opis posta/i);
 		fireEvent.change(description, { target: { value: long } });
 		fireEvent.click(screen.getByRole("button", { name: /publikuj/i }));
 
@@ -137,12 +170,12 @@ describe("NewPostForm", () => {
 		expect(onSubmit).not.toHaveBeenCalled();
 	});
 
-	it("pozwala opublikować dokładnie 2000 znaków", () => {
+	it("pozwala opublikować dokładnie 2000 znaków", async () => {
 		const onSubmit = vi.fn();
 		render(<NewPostForm onSubmit={onSubmit} isSubmitting={false} />);
 
 		const exact = "a".repeat(2000);
-		const description = screen.getByLabelText(/^tekst$/i);
+		const description = await screen.findByLabelText(/opis posta/i);
 		fireEvent.change(description, { target: { value: exact } });
 		fireEvent.click(screen.getByRole("button", { name: /publikuj/i }));
 
@@ -224,7 +257,7 @@ describe("NewPostForm", () => {
 			fireEvent.pointerUp(window, { pointerId: 1 });
 
 			// Submit the form
-			await userEvent.type(screen.getByLabelText(/^tekst$/i), "test");
+			await userEvent.type(await screen.findByLabelText(/opis posta/i), "test");
 			await userEvent.click(screen.getByRole("button", { name: /opublikuj/i }));
 
 			expect(onSubmit).toHaveBeenCalledWith(
@@ -306,7 +339,7 @@ describe("NewPostForm", () => {
 			await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 			await waitFor(() => expect(screen.queryByRole("button", { name: /za duże/i })).toBeNull());
 
-			await userEvent.type(screen.getByLabelText(/^tekst$/i), "test");
+			await userEvent.type(await screen.findByLabelText(/opis posta/i), "test");
 			await userEvent.click(screen.getByRole("button", { name: /opublikuj/i }));
 
 			expect(onSubmit).toHaveBeenCalledTimes(1);

@@ -3,9 +3,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Images, Play } from "lucide-react";
-import { useState } from "react";
+import { type ReactNode, useState } from "react";
 import { AlbumActionsMenu } from "@/components/app/album-actions-menu";
-import { AlbumCreateDialog } from "@/components/app/album-create-dialog";
 import { AlbumItemMenu } from "@/components/app/album-item-menu";
 import { ImageLightbox } from "@/components/app/image-lightbox";
 import { getImageUrl } from "@/images/client";
@@ -51,6 +50,11 @@ interface AlbumViewProps {
 	/** Sesja — akcje zarządzania tylko dla twórcy/admina (#173). */
 	currentUserId: string;
 	currentUserRole: string;
+	/**
+	 * Reviza #187: slot na przycisk wstecz — tytuł stoi w JEDNEJ linii
+	 * ze strzałką i akcjami nagłówka.
+	 */
+	backButton?: ReactNode;
 }
 
 /**
@@ -59,7 +63,7 @@ interface AlbumViewProps {
  * twórca/admin ma menu „⋯" w nagłówku (zmiana nazwy, usunięcie albumu)
  * oraz menu per element (okładka / usuń z albumu).
  */
-export function AlbumView({ albumId, currentUserId, currentUserRole }: AlbumViewProps) {
+export function AlbumView({ albumId, currentUserId, currentUserRole, backButton }: AlbumViewProps) {
 	const queryClient = useQueryClient();
 	const navigate = useNavigate();
 	const { data, isPending, isError } = useQuery({
@@ -67,7 +71,6 @@ export function AlbumView({ albumId, currentUserId, currentUserRole }: AlbumView
 		queryFn: () => fetchAlbumDetail(albumId),
 	});
 	const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-	const [addOpen, setAddOpen] = useState(false);
 	const isAdmin = currentUserRole === "admin";
 
 	async function setCover(itemId: string) {
@@ -140,18 +143,19 @@ export function AlbumView({ albumId, currentUserId, currentUserRole }: AlbumView
 		<div>
 			<div className="mb-6">
 				<div className="flex flex-wrap items-center gap-2">
+					{backButton}
 					<h1 className="text-2xl font-bold text-foreground">{album.title}</h1>
 					<div className="flex-1" />
 					<AlbumActionsMenu
-						albumId={albumId}
-						albumTitle={album.title}
-						canManage={canManage}
-						onAddPhotos={() => setAddOpen(true)}
+						onEdit={
+							canManage
+								? () => navigate({ to: "/app/albums/$id/edit", params: { id: albumId } })
+								: undefined
+						}
 						zipUrl={photoTotal > 0 ? `/api/app/albums/${albumId}/photos.zip` : null}
 						videosUrl={hasDownloadableVideos ? `/api/app/albums/${albumId}/videos.html` : null}
 						triggerClassName="size-10"
 						iconClassName="size-6"
-						onDeleted={() => navigate({ to: "/app/albums" })}
 					/>
 				</div>
 				<p className="mt-1 text-sm text-muted-foreground">
@@ -244,14 +248,6 @@ export function AlbumView({ albumId, currentUserId, currentUserRole }: AlbumView
 				initialIndex={lightboxIndex ?? 0}
 				open={lightboxIndex !== null}
 				onClose={() => setLightboxIndex(null)}
-			/>
-
-			<AlbumCreateDialog
-				mode="append"
-				albumId={albumId}
-				open={addOpen}
-				onOpenChange={setAddOpen}
-				onCreated={() => queryClient.invalidateQueries({ queryKey: ["albums"] })}
 			/>
 		</div>
 	);

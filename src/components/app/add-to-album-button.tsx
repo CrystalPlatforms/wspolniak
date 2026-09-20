@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 import { toast } from "sonner";
-import { AlbumCreateDialog } from "@/components/app/album-create-dialog";
 import { Button } from "@/components/ui/button";
 import {
 	Dialog,
@@ -85,7 +85,7 @@ interface AddToAlbumDialogProps {
  */
 function AddToAlbumDialog({ open, onOpenChange, kind, itemRef }: AddToAlbumDialogProps) {
 	const queryClient = useQueryClient();
-	const [createOpen, setCreateOpen] = useState(false);
+	const navigate = useNavigate();
 
 	const { data, isPending, isError } = useQuery({
 		queryKey: ["albums", "addable"],
@@ -114,52 +114,52 @@ function AddToAlbumDialog({ open, onOpenChange, kind, itemRef }: AddToAlbumDialo
 	});
 
 	return (
-		<>
-			<Dialog open={open} onOpenChange={onOpenChange}>
-				<DialogContent className="sm:max-w-sm">
-					<DialogHeader>
-						<DialogTitle>Dodaj do albumu</DialogTitle>
-						<DialogDescription>Wybierz album, do którego dołączyć element.</DialogDescription>
-					</DialogHeader>
+		<Dialog open={open} onOpenChange={onOpenChange}>
+			<DialogContent className="sm:max-w-sm">
+				<DialogHeader>
+					<DialogTitle>Dodaj do albumu</DialogTitle>
+					<DialogDescription>Wybierz album, do którego dołączyć element.</DialogDescription>
+				</DialogHeader>
 
-					{isPending ? (
-						<div className="flex items-center justify-center py-6" aria-busy="true">
-							<Loader />
-						</div>
-					) : isError ? (
-						<p role="alert" className="text-sm text-destructive">
-							Nie udało się pobrać albumów.
+				{isPending ? (
+					<div className="flex items-center justify-center py-6" aria-busy="true">
+						<Loader />
+					</div>
+				) : isError ? (
+					<p role="alert" className="text-sm text-destructive">
+						Nie udało się pobrać albumów.
+					</p>
+				) : (data?.data ?? []).length === 0 ? (
+					<div className="flex flex-col items-start gap-3 py-2">
+						<p className="text-sm text-muted-foreground">
+							Nie masz albumów, musisz najpierw stworzyć.
 						</p>
-					) : (data?.data ?? []).length === 0 ? (
-						<div className="flex flex-col items-start gap-3 py-2">
-							<p className="text-sm text-muted-foreground">
-								Nie masz albumów, musisz najpierw stworzyć.
-							</p>
-							<Button onClick={() => setCreateOpen(true)}>Stwórz album</Button>
-						</div>
-					) : (
-						<div className="flex max-h-64 flex-col gap-1 overflow-y-auto">
-							{(data?.data ?? []).map((album) => (
-								<Button
-									key={album.id}
-									variant="ghost"
-									className="w-full justify-start"
-									disabled={addToAlbum.isPending}
-									onClick={() => addToAlbum.mutate(album)}
-								>
-									{album.title}
-								</Button>
-							))}
-						</div>
-					)}
-				</DialogContent>
-			</Dialog>
-
-			<AlbumCreateDialog
-				open={createOpen}
-				onOpenChange={setCreateOpen}
-				onCreated={() => queryClient.invalidateQueries({ queryKey: ["albums"] })}
-			/>
-		</>
+						{/* Reviza #187: tworzenie idzie na podstronę /app/new-album. */}
+						<Button
+							onClick={() => {
+								onOpenChange(false);
+								navigate({ to: "/app/new-album" });
+							}}
+						>
+							Stwórz album
+						</Button>
+					</div>
+				) : (
+					<div className="flex max-h-64 flex-col gap-1 overflow-y-auto">
+						{(data?.data ?? []).map((album) => (
+							<Button
+								key={album.id}
+								variant="ghost"
+								className="w-full justify-start"
+								disabled={addToAlbum.isPending}
+								onClick={() => addToAlbum.mutate(album)}
+							>
+								{album.title}
+							</Button>
+						))}
+					</div>
+				)}
+			</DialogContent>
+		</Dialog>
 	);
 }

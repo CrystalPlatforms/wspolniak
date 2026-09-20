@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { Sparkles } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Loader } from "@/components/ui/loader";
 import { VISION_SHRINK_TARGET_BYTES } from "@/core/ai/models";
 import { useAiAccess } from "@/core/ai/use-ai-access";
 import { shrinkImageToLimit } from "@/images/shrink";
+import { cn } from "@/lib/utils";
+import { AlLogo } from "./al-logo";
 
 /** Komunikat awaryjny improve, gdy endpoint nie odpowie zreadowalnym błędem. */
 const FALLBACK_IMPROVE = "Nie udało się poprawić opisu. Spróbuj ponownie.";
@@ -16,6 +18,9 @@ const FALLBACK_TITLE = "Nie udało się zaproponować tytułu. Spróbuj ponownie
 /** Gradient identycznościowy AL („jasnozielony → butelkowy") — wspólny dla wszystkich wariantów. */
 const GRADIENT_CLASS = "bg-linear-to-r from-[#8bc34a] to-[#006a4e] text-white hover:opacity-90";
 
+/** Stan „Generowanie…" — secondary (niebieski #0c275f) jak w tworzeniu posta. */
+const SECONDARY_CLASS = "bg-[#0c275f] text-white hover:bg-[#0c275f]/90";
+
 type GradientAiButtonProps =
 	| {
 			target: "post-description";
@@ -25,19 +30,28 @@ type GradientAiButtonProps =
 			onResult: (text: string) => void;
 			/** Zewnętrzne wyłączenie (np. podczas submitu formularza). */
 			disabled?: boolean;
+			/** Dodatkowe klasy przycisku (np. wysokość dopasowana do sąsiada). */
+			buttonClass?: string;
 	  }
 	| {
 			target: "comment";
 			text: string;
 			onResult: (text: string) => void;
 			disabled?: boolean;
+			/** Dodatkowe klasy przycisku (np. wysokość dopasowana do sąsiada). */
+			buttonClass?: string;
 	  }
 	| {
 			target: "album-title";
 			files: File[];
 			onResult: (text: string) => void;
 			disabled?: boolean;
+			/** Dodatkowe klasy przycisku (np. wysokość dopasowana do sąsiada). */
+			buttonClass?: string;
 	  };
+
+/** Który przycisk aktualnie generuje (tylko kliknięty pokazuje „Generowanie…"). */
+type AiButtonKind = "improve" | "propose" | "album";
 
 /**
  * Buduje payload POST /api/ai/generate dla wariantu przycisku + komunikat
@@ -81,6 +95,39 @@ async function generateRequestFor(props: GradientAiButtonProps): Promise<{
 }
 
 /**
+ * Pojedynczy przycisk AL: gradient w idle, secondary (#0c275f) + biały
+ * kropkowy Loader i wspólny napis „Generowanie…" w trakcie (reviza #187,
+ * spójnie z publikowaniem posta). Logo AL zamiast ikony Sparkles.
+ */
+function AiButton({
+	busy,
+	disabled = false,
+	onClick,
+	label,
+	className,
+}: {
+	busy: boolean;
+	disabled?: boolean;
+	onClick: () => void;
+	label: string;
+	/** Dodatkowe klasy (np. wysokość dopasowana do sąsiada — reviza #187). */
+	className?: string;
+}) {
+	return (
+		<Button
+			type="button"
+			size="sm"
+			disabled={disabled || busy}
+			onClick={onClick}
+			className={cn(busy ? SECONDARY_CLASS : GRADIENT_CLASS, className)}
+		>
+			{busy ? <Loader loading size={4} color="#FFFFFF" /> : <AlLogo className="size-4" />}
+			{busy ? "Generowanie…" : label}
+		</Button>
+	);
+}
+
+/**
  * Gradientowy przycisk AL (F2 #189 + F3 #190 + F4 #191 + F5 #192). Cała para
  * / pojedynczy przycisk znika dla userów bez skutecznego dostępu do AL
  * (`useAiAccess`) i dopóki stan dostępu jest nieznany. Aktywny jest ten
@@ -90,14 +137,14 @@ async function generateRequestFor(props: GradientAiButtonProps): Promise<{
  */
 export function GradientAiButton(props: GradientAiButtonProps) {
 	const { data: access } = useAiAccess();
-	const [busy, setBusy] = useState(false);
+	const [busyKind, setBusyKind] = useState<AiButtonKind | null>(null);
 	const [error, setError] = useState<string | null>(null);
 
 	if (access?.effective !== true) return null;
 
-	async function run() {
+	async function run(kind: AiButtonKind) {
 		setError(null);
-		setBusy(true);
+		setBusyKind(kind);
 		let fallback = FALLBACK_IMPROVE;
 		try {
 			const request = await generateRequestFor(props);
@@ -119,25 +166,23 @@ export function GradientAiButton(props: GradientAiButtonProps) {
 		} catch {
 			setError(fallback);
 		} finally {
-			setBusy(false);
+			setBusyKind(null);
 		}
 	}
 
 	// Etykiety i stan disabled zależą od wariantu; wspólny jest access-gate,
-	// busy i inline error.
+	// inline error oraz zasada: generuje się TYLKO kliknięty przycisk, drugi
+	// jest w tym czasie wygaszony (reviza #187).
 	if (props.target === "album-title") {
 		return (
 			<>
-				<Button
-					type="button"
-					size="sm"
-					disabled={props.disabled || busy || props.files.length === 0}
-					onClick={run}
-					className={GRADIENT_CLASS}
-				>
-					<Sparkles className="size-4" />
-					{busy ? "Proponuję…" : "Zaproponuj tytuł"}
-				</Button>
+				<AiButton
+					busy={busyKind === "album"}
+					className={props.buttonClass}
+					disabled={props.disabled || busyKind !== null || props.files.length === 0}
+					onClick={() => run("album")}
+					label="Zaproponuj tytuł"
+				/>
 				{error && (
 					<p role="alert" className="text-sm text-destructive">
 						{error}
@@ -157,27 +202,21 @@ export function GradientAiButton(props: GradientAiButtonProps) {
 					{error}
 				</p>
 			)}
-			<Button
-				type="button"
-				size="sm"
-				disabled={props.disabled || busy || !hasText}
-				onClick={run}
-				className={GRADIENT_CLASS}
-			>
-				<Sparkles className="size-4" />
-				{busy ? "Poprawiam…" : "Popraw opis"}
-			</Button>
+			<AiButton
+				busy={busyKind === "improve"}
+				className={props.buttonClass}
+				disabled={props.disabled || busyKind !== null || !hasText}
+				onClick={() => run("improve")}
+				label="Popraw opis"
+			/>
 			{!commentTarget && props.file !== undefined && (
-				<Button
-					type="button"
-					size="sm"
-					disabled={props.disabled || busy || hasText || !props.file}
-					onClick={run}
-					className={GRADIENT_CLASS}
-				>
-					<Sparkles className="size-4" />
-					{busy ? "Proponuję…" : "Zaproponuj opis"}
-				</Button>
+				<AiButton
+					busy={busyKind === "propose"}
+					className={props.buttonClass}
+					disabled={props.disabled || busyKind !== null || hasText || !props.file}
+					onClick={() => run("propose")}
+					label="Zaproponuj opis"
+				/>
 			)}
 		</div>
 	);

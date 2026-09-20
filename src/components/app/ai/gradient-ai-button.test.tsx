@@ -145,8 +145,8 @@ describe("GradientAiButton", () => {
 		const button = await screen.findByRole("button", { name: /popraw opis/i });
 		await user.click(button);
 
-		// W trakcie: busy — wyłączony, etykieta „Poprawiam…".
-		const busy = screen.getByRole("button", { name: /poprawiam/i });
+		// W trakcie: busy — wyłączony, wspólna etykieta „Generowanie…" (reviza #187).
+		const busy = screen.getByRole("button", { name: /generowanie/i });
 		expect(busy.hasAttribute("disabled")).toBe(true);
 
 		// Po sukcesie: poprawiony tekst ląduje w onResult, przycisk wraca do idle.
@@ -163,6 +163,45 @@ describe("GradientAiButton", () => {
 			mode: "improve-post-description",
 			text: "Mój opis",
 		});
+	});
+
+	it("gdy jeden przycisk generuje, drugi jest wygaszony, ale bez etykiety Generowanie (reviza #187)", async () => {
+		const user = userEvent.setup();
+		const onResult = vi.fn();
+		const fetchMock = vi.fn().mockImplementation((url: string, init?: RequestInit) => {
+			if (init?.method === "POST" && url.includes("/api/ai/generate")) {
+				return new Promise((resolve) =>
+					setTimeout(
+						() =>
+							resolve({
+								ok: true,
+								status: 200,
+								json: () => Promise.resolve({ data: { text: "Lepszy opis" } }),
+							}),
+						50,
+					),
+				);
+			}
+			return Promise.resolve({
+				ok: true,
+				json: () =>
+					Promise.resolve({
+						data: { master: true, aiOptIn: true, aiBlocked: false, effective: true },
+					}),
+			});
+		});
+		vi.stubGlobal("fetch", fetchMock);
+
+		// Treść + zdjęcie = oba przyciski widoczne jednocześnie.
+		renderButton({ text: "Coś już jest", file: FILE, onResult });
+		await user.click(await screen.findByRole("button", { name: /popraw opis/i }));
+
+		// Kliknięty: „Generowanie…"; drugi: zwykła etykieta, ale wygaszony.
+		const generating = screen.getByRole("button", { name: /generowanie/i });
+		expect(generating.hasAttribute("disabled")).toBe(true);
+		const propose = screen.getByRole("button", { name: /zaproponuj opis/i });
+		expect(propose.hasAttribute("disabled")).toBe(true);
+		await vi.waitFor(() => expect(onResult).toHaveBeenCalledWith("Lepszy opis"));
 	});
 
 	it("błąd endpointa → polski komunikat inline, treść nietknięta", async () => {

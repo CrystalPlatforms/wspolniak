@@ -17,6 +17,13 @@ vi.mock("sonner", () => ({
 	toast: { success: vi.fn(), error: vi.fn() },
 }));
 
+// Reviza #187: skrót „Stwórz album" nawiguje na /app/new-album zamiast
+// otwierać dialog tworzenia (dialog usunięty).
+const mockNavigate = vi.fn();
+vi.mock("@tanstack/react-router", () => ({
+	useNavigate: () => mockNavigate,
+}));
+
 // F7 #176: bramka flagi albums czyta useAppBootstrap — mock na poziomie pliku.
 // `?? { featureFlags: undefined }`: afterEach robi restoreAllMocks, co czyści
 // mockReturnValue — fallback chroni testy spoza describe flagi.
@@ -171,8 +178,8 @@ describe("AddToAlbumButton", () => {
 			expect(screen.getByText(/Nie masz albumów, musisz najpierw stworzyć/i)).not.toBeNull();
 		});
 		fireEvent.click(screen.getByRole("button", { name: "Stwórz album" }));
-		// Skrót otwiera flow tworzenia (F1) — dialog „Nowy album".
-		expect(screen.getByText("Nowy album")).not.toBeNull();
+		// Reviza #187: skrót zamyka dialog i nawiguje na /app/new-album.
+		expect(mockNavigate).toHaveBeenCalledWith({ to: "/app/new-album" });
 	});
 
 	it("toasts an error when the add fails", async () => {
