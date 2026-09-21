@@ -1,3 +1,10 @@
+## [5.12.1](https://github.com/CrystalPlatforms/wspolniak/compare/v5.12.0...v5.12.1) (2026-09-21)
+
+
+### Bug Fixes
+
+* **chat:** concise empty state — "Brak wiadomości" text and MessageSquareOff icon ([cb27f13](https://github.com/CrystalPlatforms/wspolniak/commit/cb27f134be44074a93797eeb3c0425074c26a5dd))
+
 # [5.12.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.11.0...v5.12.0) (2026-09-20)
 
 
