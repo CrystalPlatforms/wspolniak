@@ -151,7 +151,7 @@ describe("ChatView — lista wiadomości", () => {
 			wrapper: createWrapper(),
 		});
 
-		expect(await screen.findByText(/Nie ma jeszcze żadnych wiadomości/i)).toBeDefined();
+		expect(await screen.findByText(/Brak wiadomości/i)).toBeDefined();
 	});
 
 	it("przy ponad 50 wiadomościach pokazuje 50 najnowszych + loader + notice (starsze ukryte)", async () => {

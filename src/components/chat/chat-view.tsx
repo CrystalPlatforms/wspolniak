@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MessageSquare, SendHorizontal, X } from "lucide-react";
+import { MessageSquare, MessageSquareOff, SendHorizontal, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ChatBubbleMenu } from "@/components/chat/chat-bubble-menu";
@@ -298,9 +298,8 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 					) : null}
 					{visible.length === 0 && pending.length === 0 ? (
 						<div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-							<MessageSquare className="h-10 w-10 text-muted-foreground" aria-hidden="true" />
-							<p className="text-muted-foreground">Nie ma jeszcze żadnych wiadomości</p>
-							<p className="text-sm text-muted-foreground">Napisz pierwszą do rodziny</p>
+							<MessageSquareOff className="h-10 w-10 text-muted-foreground" aria-hidden="true" />
+							<p className="text-muted-foreground">Brak wiadomości</p>
 						</div>
 					) : null}
 					<ol className="flex flex-col" aria-label="Wiadomości">
