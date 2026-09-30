@@ -2,7 +2,8 @@
 import { QueryClient } from "@tanstack/react-query";
 import { feedQueryKey } from "@/components/app/feed-query";
 import { compressImage } from "@/images/compress";
-import { UploadFlowError } from "@/images/upload";
+import { type ImageUploadProgress, UploadFlowError } from "@/images/upload";
+import { FakeXHR } from "@/test/fake-xhr";
 import {
 	createPost,
 	PUBLISH_BAR_DURATION_MS,
@@ -32,6 +33,7 @@ function makeInput(overrides: Partial<PublishPostInput> = {}): PublishPostInput 
 
 afterEach(() => {
 	vi.useRealTimers();
+	FakeXHR.instances = [];
 });
 
 describe("runPublishFlow", () => {
@@ -205,20 +207,14 @@ describe("runPublishFlow", () => {
 		expect(lastB).toEqual({ videoIndex: 1, total: 2, percent: 100 });
 	});
 
-	it("przekazuje onSlowUpload do createPost — wolny upload pliku ostrzega UI (issue #199)", async () => {
+	it("przekazuje onSlowUpload → onSlowLink: wolne łącze z przepustowości ostrzega UI (issue #203)", async () => {
 		vi.useFakeTimers();
 		vi.setSystemTime(0);
 		try {
 			vi.mocked(compressImage).mockImplementation(async (file) => file); // passthrough
-			let resolveUpload: ((res: unknown) => void) | undefined;
 			vi.stubGlobal(
 				"fetch",
 				vi.fn(async (url: string) => {
-					if (url.startsWith("https://upload/")) {
-						return new Promise((resolve) => {
-							resolveUpload = resolve;
-						});
-					}
 					if (url.endsWith("/api/app/images/upload-urls")) {
 						return {
 							ok: true,
@@ -234,6 +230,7 @@ describe("runPublishFlow", () => {
 					throw new Error(`unexpected fetch: ${url}`);
 				}),
 			);
+			vi.stubGlobal("XMLHttpRequest", FakeXHR);
 
 			const slowCalls: string[] = [];
 			const navigate = vi.fn().mockResolvedValue(undefined);
@@ -245,14 +242,76 @@ describe("runPublishFlow", () => {
 				onSlowUpload: (fileName) => slowCalls.push(fileName),
 			});
 
-			await vi.advanceTimersByTimeAsync(7_000);
-			expect(slowCalls).toEqual(["1.jpg"]); // ostrzeżenie po 7 s, upload trwa dalej
+			await vi.advanceTimersByTimeAsync(0); // XHR utworzony
+			FakeXHR.instances[0]?.progress(150_000, 2_000_000); // t=0 — start pomiaru
+			await vi.advanceTimersByTimeAsync(2_500);
+			FakeXHR.instances[0]?.progress(100_000, 2_000_000); // 40 KB/s < 100 → wolne
+			expect(slowCalls).toEqual(["1.jpg"]);
 
-			resolveUpload?.({ ok: true, status: 200 });
-			await vi.advanceTimersByTimeAsync(PUBLISH_BAR_DURATION_MS); // POST /posts + pełny pasek
+			FakeXHR.instances[0]?.respond(200);
+			await vi.advanceTimersByTimeAsync(PUBLISH_BAR_DURATION_MS);
+			await flow;
+		} finally {
+			vi.unstubAllGlobals();
+		}
+	});
+
+	it("postęp zdjęć: onImageProgress z realnych bajtów — „Zdjęcie i/N — x%” (issue #203)", async () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(0);
+		try {
+			vi.mocked(compressImage).mockImplementation(async (file) => file); // passthrough
+			vi.stubGlobal(
+				"fetch",
+				vi.fn(async (url: string, init?: RequestInit) => {
+					if (url.endsWith("/api/app/images/upload-urls")) {
+						const body = JSON.parse(String(init?.body)) as { count: number };
+						return {
+							ok: true,
+							status: 200,
+							json: async () => ({
+								data: Array.from({ length: body.count }, (_, i) => ({
+									cfImageId: `cf-${i + 1}`,
+									uploadURL: `https://upload/cf-${i + 1}`,
+								})),
+							}),
+						};
+					}
+					if (url.endsWith("/api/app/posts")) {
+						return { ok: true, status: 200, json: async () => ({ id: "post-1" }) };
+					}
+					throw new Error(`unexpected fetch: ${url}`);
+				}),
+			);
+			vi.stubGlobal("XMLHttpRequest", FakeXHR);
+
+			const progress: ImageUploadProgress[] = [];
+			const navigate = vi.fn().mockResolvedValue(undefined);
+			const flow = runPublishFlow({
+				input: makeInput({
+					files: [
+						new File(["x"], "1.jpg", { type: "image/jpeg" }),
+						new File(["y"], "2.jpg", { type: "image/jpeg" }),
+					],
+				}),
+				navigate,
+				queryClient: makeQueryClient(),
+				startedAt: 0,
+				onImageProgress: (p) => progress.push(p),
+			});
+
+			await vi.advanceTimersByTimeAsync(0); // oba XHR-y w locie (concurrency 2)
+			const byUrl = (suffix: string): FakeXHR | undefined =>
+				FakeXHR.instances.find((x) => x.url.endsWith(suffix));
+			byUrl("cf-1")?.progress(0, 100);
+			byUrl("cf-1")?.progress(50, 100);
+			byUrl("cf-2")?.progress(100, 100);
+			for (const x of FakeXHR.instances) x.respond(200);
+			for (const x of FakeXHR.instances) x.respond(200);
+			await vi.advanceTimersByTimeAsync(PUBLISH_BAR_DURATION_MS);
 			await flow;
 
-			expect(navigate).toHaveBeenCalledWith({ to: "/app" }); // flow dokończony mimo wolnego łącza
+			expect(progress.at(-1)).toEqual({ fileName: "2.jpg", fileIndex: 1, total: 2, percent: 100 });
 		} finally {
 			vi.unstubAllGlobals();
 		}
@@ -322,8 +381,9 @@ describe("createPost", () => {
 				const body = JSON.parse(String(init?.body)) as { count: number };
 				return { ok: true, status: 200, json: async () => ({ data: pairsFor(body.count) }) };
 			}
+			// upload pliku idzie przez XHR (issue #203) - fetch nie powinien wolac:
 			if (url.startsWith("https://upload/")) {
-				return { ok: true, status: 200, json: async () => ({}) };
+				throw new Error(`upload should use XHR, got fetch: ${url}`);
 			}
 			if (url.endsWith("/api/app/posts")) {
 				return { ok: true, status: 200, json: async () => ({ id: "post-1" }) };
@@ -348,7 +408,11 @@ describe("createPost", () => {
 			new File(["b"], "2.jpg", { type: "image/jpeg" }),
 		];
 
-		await createPost({ description: "hi", files, pendingVideos: [], mentions: [] });
+		vi.stubGlobal("XMLHttpRequest", FakeXHR);
+		const promise = createPost({ description: "hi", files, pendingVideos: [], mentions: [] });
+		await vi.waitFor(() => expect(FakeXHR.instances).toHaveLength(2));
+		for (const x of FakeXHR.instances) x.respond(200);
+		await promise;
 
 		const calls = fetchMock.mock.calls.map(([u]) => String(u));
 
@@ -361,8 +425,9 @@ describe("createPost", () => {
 		expect(batchCalls).toHaveLength(1);
 		expect(JSON.parse(String(batchCalls[0]?.[1]?.body))).toEqual({ count: 2 });
 
-		// N uploadów do CF
-		expect(calls.filter((u) => u.startsWith("https://upload/"))).toHaveLength(2);
+		// N uploadów do CF przez XHR (nie fetch)
+		expect(FakeXHR.instances).toHaveLength(2);
+		expect(FakeXHR.instances.every((x) => x.method === "POST")).toBe(true);
 
 		// POST /posts z cfImageId w kolejności plików
 		const postsCalls = fetchMock.mock.calls.filter(([u]) => String(u).endsWith("/api/app/posts"));

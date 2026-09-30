@@ -197,6 +197,33 @@ describe("NewPostForm", () => {
 		expect(screen.queryByText(/wolne połączenie internetowe/i)).toBeNull();
 	});
 
+	// Issue #203: progres z realnych bajtów — label „Zdjęcie i/N — x%” na przycisku.
+	it("pokazuje „Zdjęcie 2/3 — 45%” na przycisku przy imageProgress", () => {
+		render(
+			<NewPostForm
+				onSubmit={vi.fn()}
+				isSubmitting
+				imageProgress={{ fileName: "2.jpg", fileIndex: 1, total: 3, percent: 45 }}
+			/>,
+		);
+
+		expect(screen.getByText(/Zdjęcie 2\/3 — 45%/)).toBeDefined();
+	});
+
+	it("preferuje progres zdjęć nad wideo (zdjęcia lecą po wideo)", () => {
+		render(
+			<NewPostForm
+				onSubmit={vi.fn()}
+				isSubmitting
+				uploadProgress={{ videoIndex: 0, total: 1, percent: 100 }}
+				imageProgress={{ fileName: "1.jpg", fileIndex: 0, total: 2, percent: 30 }}
+			/>,
+		);
+
+		expect(screen.getByText(/Zdjęcie 1\/2 — 30%/)).toBeDefined();
+		expect(screen.queryByText(/Wgrywanie wideo/)).toBeNull();
+	});
+
 	it("disables submit button when submitting", () => {
 		render(<NewPostForm onSubmit={vi.fn()} isSubmitting={true} />);
 

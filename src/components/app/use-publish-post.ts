@@ -7,7 +7,12 @@ import { feedQueryKey } from "@/components/app/feed-query";
 import type { Mention } from "@/components/app/mention-input";
 import { runVideoUpload, VideoUploadHttpError } from "@/components/video/use-video-upload";
 import type { PostVideoEntry } from "@/db/posts";
-import { UploadFlowError, uploadFetch, uploadImages } from "@/images/upload";
+import {
+	type ImageUploadProgress,
+	UploadFlowError,
+	uploadFetch,
+	uploadImages,
+} from "@/images/upload";
 
 /** Wideo oczekujące na upload przy publikacji (z kompozytora). */
 export interface PublishVideoInput {
@@ -46,10 +51,12 @@ export interface RunPublishFlowOptions {
 	/** Postęp uploadu wideo („Wideo 1/2 — 45%") — do labelu przycisku. */
 	onUploadProgress?: (p: VideoPublishProgress) => void;
 	/**
-	 * Ostrzeżenie „wolne łącze" — upload zdjęcia trwa dłużej niż 7 s (issue #199).
-	 * Wołane per plik, NIE przerywa uploadu (limit twardego błędu to 20 s na plik).
+	 * Ostrzeżenie „wolne łącze" (issue #203): mierzone z realnej przepustowości
+	 * transferu (< 100 KB/s po 2 s) — wołane per plik, NIE przerywa uploadu.
 	 */
 	onSlowUpload?: (fileName: string) => void;
+	/** Postęp uploadu zdjęć z realnych bajtów („Zdjęcie i/N — x%") — issue #203. */
+	onImageProgress?: (p: ImageUploadProgress) => void;
 	/** Jedyna granica sieci — mockowana w testach, realna w hooku usePublishPost. */
 	createPostFn?: (input: PublishPostInput & { videos?: unknown }) => Promise<unknown>;
 	/** Granica uploadu wideo (session → chunks → confirm) — mockowana w testach. */
@@ -148,7 +155,12 @@ async function uploadPendingVideos(
  */
 export async function runPublishFlow(options: RunPublishFlowOptions): Promise<void> {
 	const create =
-		options.createPostFn ?? ((input: PublishPostInput) => createPost(input, options.onSlowUpload));
+		options.createPostFn ??
+		((input: PublishPostInput) =>
+			createPost(input, {
+				onSlowLink: options.onSlowUpload,
+				onImageProgress: options.onImageProgress,
+			}));
 	const videoEntries = await uploadPendingVideos(
 		options.input.pendingVideos,
 		options.onUploadProgress ?? (() => {}),
@@ -169,19 +181,30 @@ export async function runPublishFlow(options: RunPublishFlowOptions): Promise<vo
 	});
 }
 
+/** Callbacki createPost → uploadImages (issue #203): wolne łącze + progres zdjęć. */
+export interface CreatePostCallbacks {
+	/** Ostrzeżenie „wolne łącze" z realnej przepustowości (issue #203). */
+	onSlowLink?: (fileName: string) => void;
+	/** Progres % per plik z realnych bajtów — „Zdjęcie i/N — x%" (issue #203). */
+	onImageProgress?: (p: ImageUploadProgress) => void;
+}
+
 /**
- * Realna funkcja create (granica sieci): kompresuje + uploaduje zdjęcia i tworzy post.
- *
- * Zdjęcia idą przez `uploadImages` (issue #135: batch upload-urls, kompresja w workerze,
- * równoległy upload, jasne błędy zamiast "Load failed"; issue #199: twardy limit
- * per plik 20 s + ostrzeżenie „wolne łącze" po 7 s).
- * `cfImageId` zachowują kolejność plików.
+ * Realna funkcja create (granica sieci): kompresja + upload zdjęć i create postu.
+ * Zdjęcia przez uploadImages (issue #135, #203: XHR bez twardego limitu,
+ * progres % z realnych bajtów, wolne łącze z przepustowości, concurrency 2).
  */
 export async function createPost(
 	input: PublishPostInput & { videos?: unknown },
-	onSlowUpload?: (fileName: string) => void,
+	callbacks?: CreatePostCallbacks,
 ): Promise<unknown> {
-	const cfImageIds = input.files.length > 0 ? await uploadImages(input.files, onSlowUpload) : [];
+	const cfImageIds =
+		input.files.length > 0
+			? await uploadImages(input.files, {
+					onSlowLink: callbacks?.onSlowLink,
+					onProgress: callbacks?.onImageProgress,
+				})
+			: [];
 
 	const res = await uploadFetch(
 		"/api/app/posts",
@@ -236,6 +259,8 @@ export interface UsePublishPostResult {
 	isPending: boolean;
 	/** Postęp uploadu wideo („Wideo 1/2 — 45%") — null gdy poza fazą uploadu. */
 	uploadProgress: VideoPublishProgress | null;
+	/** Postęp uploadu zdjęć z realnych bajtów („Zdjęcie i/N — x%") — issue #203. */
+	imageProgress: ImageUploadProgress | null;
 	/**
 	 * Upload zdjęcia trwa dłużej niż 7 s (issue #199) — UI pokazuje ostrzeżenie
 	 * „wolne łącze". Resetuje się przy nowej publikacji i po jej zakończeniu.
@@ -257,6 +282,7 @@ export function usePublishPost(): UsePublishPostResult {
 	const queryClient = useQueryClient();
 	const [isPending, setIsPending] = useState(false);
 	const [uploadProgress, setUploadProgress] = useState<VideoPublishProgress | null>(null);
+	const [_imageProgress, _setImageProgress] = useState<ImageUploadProgress | null>(null);
 	const [isSlowUpload, setIsSlowUpload] = useState(false);
 	const [error, setError] = useState<Error | null>(null);
 
@@ -264,6 +290,7 @@ export function usePublishPost(): UsePublishPostResult {
 		async (input: PublishPostInput) => {
 			setError(null);
 			setUploadProgress(null);
+			setImageProgress(null);
 			setIsSlowUpload(false);
 			setIsPending(true);
 			try {
@@ -274,12 +301,14 @@ export function usePublishPost(): UsePublishPostResult {
 					startedAt: Date.now(),
 					onUploadProgress: setUploadProgress,
 					onSlowUpload: () => setIsSlowUpload(true),
+					onImageProgress: setImageProgress,
 				});
 				// sukces: navigate odpaliło się w runPublishFlow, komponent się odmontuje.
 				// Celowo nie zerujemy isPending — pasek ma być pełny aż do samej nawigacji.
 			} catch (e) {
 				setError(e instanceof Error ? e : new Error(String(e)));
 				setUploadProgress(null);
+				setImageProgress(null);
 				setIsSlowUpload(false);
 				setIsPending(false);
 			}
@@ -297,6 +326,7 @@ export function usePublishPost(): UsePublishPostResult {
 		reset: () => {
 			setError(null);
 			setUploadProgress(null);
+			setImageProgress(null);
 			setIsSlowUpload(false);
 			setIsPending(false);
 		},

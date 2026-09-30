@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
 import type { FeatureFlags } from "@/db/instance";
 import { MAX_DESCRIPTION_LENGTH } from "@/db/posts/schema";
+import type { ImageUploadProgress } from "@/images/upload";
 import { reorder } from "@/lib/reorder";
 import { cn } from "@/lib/utils";
 
@@ -58,6 +59,8 @@ interface NewPostFormProps {
 	 * „wolne łącze" bez blokowania publikacji.
 	 */
 	isSlowUpload?: boolean;
+	/** Postęp uploadu zdjęć z realnych bajtów („Zdjęcie i/N — x%") — issue #203. */
+	imageProgress?: ImageUploadProgress | null;
 	/** Reviza #187: nagłówek (strzałka + „Nowy post") rysuje sama forma. */
 	onBack?: () => void;
 }
@@ -176,6 +179,7 @@ export function NewPostForm({
 	videoNotConnected = false,
 	initialDescription,
 	isSlowUpload = false,
+	imageProgress = null,
 	onBack,
 }: NewPostFormProps) {
 	const [description, setDescription] = useState(initialDescription ?? "");
@@ -464,9 +468,11 @@ export function NewPostForm({
 				) : null}
 				<span className="relative">
 					{isSubmitting
-						? uploadProgress
-							? `Wgrywanie wideo ${uploadProgress.videoIndex + 1}/${uploadProgress.total}…`
-							: "Publikowanie..."
+						? imageProgress
+							? `Zdjęcie ${imageProgress.fileIndex + 1}/${imageProgress.total} — ${imageProgress.percent}%`
+							: uploadProgress
+								? `Wgrywanie wideo ${uploadProgress.videoIndex + 1}/${uploadProgress.total}…`
+								: "Publikowanie..."
 						: "Opublikuj"}
 				</span>
 			</Button>
