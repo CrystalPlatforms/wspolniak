@@ -105,4 +105,13 @@ describe("OversizedImageDialog", () => {
 		await userEvent.click(screen.getByRole("button", { name: /anuluj/i }));
 		expect(onOpenChange).toHaveBeenCalledWith(false);
 	});
+
+	it("link Dowiedz się więcej prowadzi do artykułu w dziale Błędy (F4 #207)", async () => {
+		renderDialog();
+
+		const link = screen.getByRole("link", { name: /Dowiedz się więcej/ });
+		await waitFor(() =>
+			expect(link.getAttribute("href")).toBe("http://docs.localhost:3000/bugs/big-photo"),
+		);
+	});
 });

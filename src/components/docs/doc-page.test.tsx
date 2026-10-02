@@ -66,15 +66,11 @@ describe("DocPage", () => {
 		const docsLink = nav.querySelector('a[href="http://docs.localhost:3000/"]');
 		expect(docsLink?.textContent).toBe("Dokumentacja");
 
-		// Przyciski powrotu: apka na GŁÓWNYM hoście, dokumentacja na docs.*.
+		// Przyciski powrotu żyją w sidebarze (department-layout.test.tsx) — tutaj
+		// breadcrumb nadal linkuje międzyhostowo: dokumentacja na docs.*.
 		await waitFor(() => {
-			expect(screen.getByRole("link", { name: /Powrót do Wspólniaka/ }).getAttribute("href")).toBe(
-				"http://localhost:3000/app",
-			);
+			expect(nav.querySelector('a[href="http://docs.localhost:3000/"]')).not.toBeNull();
 		});
-		expect(screen.getByRole("link", { name: /Powrót do dokumentacji/ }).getAttribute("href")).toBe(
-			"http://docs.localhost:3000/",
-		);
 	});
 
 	it("renderuje dokument techniczny z blokiem kodu (F3) przez ten sam komponent", async () => {
@@ -95,5 +91,29 @@ describe("DocPage", () => {
 		renderInRouter(<DocPage department="product" doc={null} />);
 
 		expect(await screen.findByText("Nie znaleziono dokumentu")).toBeTruthy();
+	});
+
+	it("dzial Bledy (F4 #207): notatka dla rodziny nad trescia i struktura objaw/przyczyna/rozwiazanie", async () => {
+		const doc = getDoc("bugs", "big-photo");
+		expect(doc).not.toBeNull();
+
+		renderInRouter(<DocPage department="bugs" doc={doc} />);
+
+		expect(
+			await screen.findByRole("heading", {
+				level: 1,
+				name: "Zdjęcie przekracza dozwolony rozmiar pliku",
+			}),
+		).toBeTruthy();
+		// Struktura developer-style: objaw -> przyczyna -> rozwiazanie.
+		expect(screen.getByRole("heading", { level: 2, name: "Objaw" })).toBeTruthy();
+		expect(screen.getByRole("heading", { level: 2, name: "Przyczyna" })).toBeTruthy();
+		expect(screen.getByRole("heading", { level: 2, name: /Rozwiązanie/ })).toBeTruthy();
+
+		// Notatka dla rodziny (konsola -> admin) istnieje i jest NAD trescia artykulu.
+		const note = screen.getByText(/Skopiuj treść błędu z konsoli/).closest("aside");
+		if (!note) throw new Error("Notatka dla rodziny nie jest w <aside>");
+		const symptom = screen.getByRole("heading", { name: "Objaw" });
+		expect(note.compareDocumentPosition(symptom) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 	});
 });

@@ -83,14 +83,12 @@ describe("docs registry", () => {
 			]);
 		});
 
-		it("zwraca pustą listę dla działu bugs (F4 dopisze treści)", () => {
-			expect(listDocs("bugs")).toEqual([]);
+		it("dział bugs ma zmigrowany artykuł o za dużym zdjęciu (F4 #207)", () => {
+			expect(listDocs("bugs").map((doc) => doc.slug)).toContain("big-photo");
 		});
 
-		it("ma dokument w każdym istniejącym dziale (spójność registry)", () => {
+		it("ma dokument w każdym dziale (spójność registry)", () => {
 			for (const department of DOC_DEPARTMENTS) {
-				// bugs celowo pusty do F4 — reszta działów musi mieć treść.
-				if (department === "bugs") continue;
 				expect(listDocs(department).length).toBeGreaterThan(0);
 			}
 		});

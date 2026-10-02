@@ -2,12 +2,31 @@
 // Współdzielona strona dokumentu docsów (F1 #204): przycisk powrotu, breadcrumb,
 // tytuł i treść Markdown. Stan „nie znaleziono" dla nieznanych slugów. Współdzielony
 // przez wszystkie działy — techniczny (F3) i bugs (F4) dostają go za darmo.
-import { ArrowLeft, BookOpen, SearchX } from "lucide-react";
+import { ArrowLeft, Bug, SearchX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getDepartmentMeta } from "@/docs/departments";
 import type { Doc, DocDepartment } from "@/docs/registry";
 import { useAppHref, useDocsHref } from "@/docs/use-cross-host-href";
 import { DocsMarkdown } from "./markdown";
+
+/**
+ * Notatka dla rodziny na górze każdego dokumentu działu Błędy (F4 #207): błąd
+ * zgłaszamy administratorowi, kopiując treść z konsoli albo robiąc zrzut ekranu.
+ */
+function BugsFamilyNote() {
+	return (
+		<aside className="flex gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4">
+			<Bug className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+			<div className="space-y-1 text-sm">
+				<p className="font-semibold text-foreground">Coś nie działa?</p>
+				<p className="leading-relaxed text-muted-foreground">
+					Skopiuj treść błędu z konsoli przeglądarki albo zrób jej zrzut ekranu i wyślij ją
+					administratorowi — to najszybsza droga do znalezienia przyczyny.
+				</p>
+			</div>
+		</aside>
+	);
+}
 
 interface DocPageProps {
 	department: DocDepartment;
@@ -16,9 +35,9 @@ interface DocPageProps {
 
 export function DocPage({ department, doc }: DocPageProps) {
 	const meta = getDepartmentMeta(department);
-	// Linki międzyhostowe: cookie sesji nie jest współdzielony z docs.*, więc
-	// „Powrót do Wspólniaka" prowadzi na GŁÓWNY host apki, a „Dokumentacja"
-	// w breadcrumb — na host docsów (pełny URL po mount, bez hydration mismatch).
+	// Linki międzyhostowe: cookie sesji nie jest współdzielony z docs.*, więc linki
+	// breadcrumb prowadzą pełnymi URL-ami (apka na GŁÓWNYM hoście, dokumentacja na
+	// docs.*); przyciski powrotu żyją w sidebarze (department-layout).
 	const appHref = useAppHref("/app");
 	const docsHref = useDocsHref("/");
 
@@ -50,21 +69,6 @@ export function DocPage({ department, doc }: DocPageProps) {
 
 	return (
 		<main className="mx-auto max-w-3xl px-4 py-10 text-foreground sm:px-6">
-			<div className="mb-6 flex flex-wrap items-center gap-2">
-				<Button asChild variant="ghost" className="-ml-2 h-9 text-muted-foreground">
-					<a href={appHref}>
-						<ArrowLeft aria-hidden />
-						Powrót do Wspólniaka
-					</a>
-				</Button>
-				<Button asChild variant="ghost" className="h-9 text-muted-foreground">
-					<a href={docsHref}>
-						<BookOpen aria-hidden />
-						Powrót do dokumentacji
-					</a>
-				</Button>
-			</div>
-
 			<nav aria-label="Ścieżka" className="mb-8 text-sm text-muted-foreground">
 				<ol className="flex flex-wrap items-center gap-2">
 					<li>
@@ -96,6 +100,12 @@ export function DocPage({ department, doc }: DocPageProps) {
 			<header className="mb-10">
 				<h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{doc.title}</h1>
 			</header>
+
+			{department === "bugs" && (
+				<div className="mb-8">
+					<BugsFamilyNote />
+				</div>
+			)}
 
 			<div className="space-y-4">
 				<DocsMarkdown content={doc.content} />

@@ -10,6 +10,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Loader } from "@/components/ui/loader";
+import { useDocsHref } from "@/docs/use-cross-host-href";
 import { ShrinkError, shrinkImageToLimit } from "@/images/shrink";
 
 function formatSizeMb(bytes: number): string {
@@ -43,6 +44,9 @@ export function OversizedImageDialog({
 }: OversizedImageDialogProps) {
 	const [isShrinking, setIsShrinking] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	// „Dowiedz się więcej" prowadzi do artykułu w dziale Błędy (F4 #207) — na hoście
+	// docs.* w produkcji, więc pełny URL zamiast router Link (patrz useDocsHref).
+	const learnMoreHref = useDocsHref("/bugs/big-photo");
 
 	// nowy plik = nowa sesja dialogu — czyścimy błąd z poprzedniej
 	useEffect(() => {
@@ -81,6 +85,12 @@ export function OversizedImageDialog({
 						<AlertDescription>{error}</AlertDescription>
 					</Alert>
 				)}
+				<a
+					href={learnMoreHref}
+					className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+				>
+					Dowiedz się więcej — jak zmniejszyć za duże zdjęcie
+				</a>
 				<DialogFooter className="flex-row gap-2">
 					<Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
 						Anuluj

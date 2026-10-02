@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/app'
+import { Route as CreditsRouteImport } from './routes/credits'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as ShareRouteImport } from './routes/share'
 import { Route as AppIndexRouteImport } from './routes/app/index'
@@ -27,7 +28,7 @@ import { Route as AppSettingsRouteImport } from './routes/app/settings'
 import { Route as AppStatsRouteImport } from './routes/app/stats'
 import { Route as AppVideoRouteImport } from './routes/app/video'
 import { Route as AuthErrorRouteImport } from './routes/auth/error'
-import { Route as DocsBigPhotoRouteImport } from './routes/docs/big-photo'
+import { Route as BugsSlugRouteImport } from './routes/bugs.$slug'
 import { Route as ProductSlugRouteImport } from './routes/product.$slug'
 import { Route as SharedPostIdRouteImport } from './routes/shared-post.$id'
 import { Route as TechnicalSlugRouteImport } from './routes/technical.$slug'
@@ -46,6 +47,11 @@ const IndexRoute = IndexRouteImport.update({
 const AppRoute = AppRouteImport.update({
   id: '/app',
   path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CreditsRoute = CreditsRouteImport.update({
+  id: '/credits',
+  path: '/credits',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SetupRoute = SetupRouteImport.update({
@@ -128,9 +134,9 @@ const AuthErrorRoute = AuthErrorRouteImport.update({
   path: '/auth/error',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DocsBigPhotoRoute = DocsBigPhotoRouteImport.update({
-  id: '/docs/big-photo',
-  path: '/docs/big-photo',
+const BugsSlugRoute = BugsSlugRouteImport.update({
+  id: '/bugs/$slug',
+  path: '/bugs/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProductSlugRoute = ProductSlugRouteImport.update({
@@ -182,6 +188,7 @@ const AppPostIdEditRoute = AppPostIdEditRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/credits': typeof CreditsRoute
   '/setup': typeof SetupRoute
   '/share': typeof ShareRoute
   '/app/admin': typeof AppAdminRoute
@@ -197,7 +204,7 @@ export interface FileRoutesByFullPath {
   '/app/stats': typeof AppStatsRoute
   '/app/video': typeof AppVideoRouteWithChildren
   '/auth/error': typeof AuthErrorRoute
-  '/docs/big-photo': typeof DocsBigPhotoRoute
+  '/bugs/$slug': typeof BugsSlugRoute
   '/product/$slug': typeof ProductSlugRoute
   '/shared-post/$id': typeof SharedPostIdRoute
   '/technical/$slug': typeof TechnicalSlugRoute
@@ -211,6 +218,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/credits': typeof CreditsRoute
   '/setup': typeof SetupRoute
   '/share': typeof ShareRoute
   '/app/admin': typeof AppAdminRoute
@@ -225,7 +233,7 @@ export interface FileRoutesByTo {
   '/app/stats': typeof AppStatsRoute
   '/app/video': typeof AppVideoRouteWithChildren
   '/auth/error': typeof AuthErrorRoute
-  '/docs/big-photo': typeof DocsBigPhotoRoute
+  '/bugs/$slug': typeof BugsSlugRoute
   '/product/$slug': typeof ProductSlugRoute
   '/shared-post/$id': typeof SharedPostIdRoute
   '/technical/$slug': typeof TechnicalSlugRoute
@@ -241,6 +249,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
+  '/credits': typeof CreditsRoute
   '/setup': typeof SetupRoute
   '/share': typeof ShareRoute
   '/app/admin': typeof AppAdminRoute
@@ -256,7 +265,7 @@ export interface FileRoutesById {
   '/app/stats': typeof AppStatsRoute
   '/app/video': typeof AppVideoRouteWithChildren
   '/auth/error': typeof AuthErrorRoute
-  '/docs/big-photo': typeof DocsBigPhotoRoute
+  '/bugs/$slug': typeof BugsSlugRoute
   '/product/$slug': typeof ProductSlugRoute
   '/shared-post/$id': typeof SharedPostIdRoute
   '/technical/$slug': typeof TechnicalSlugRoute
@@ -273,6 +282,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/app'
+    | '/credits'
     | '/setup'
     | '/share'
     | '/app/admin'
@@ -288,7 +298,7 @@ export interface FileRouteTypes {
     | '/app/stats'
     | '/app/video'
     | '/auth/error'
-    | '/docs/big-photo'
+    | '/bugs/$slug'
     | '/product/$slug'
     | '/shared-post/$id'
     | '/technical/$slug'
@@ -302,6 +312,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/credits'
     | '/setup'
     | '/share'
     | '/app/admin'
@@ -316,7 +327,7 @@ export interface FileRouteTypes {
     | '/app/stats'
     | '/app/video'
     | '/auth/error'
-    | '/docs/big-photo'
+    | '/bugs/$slug'
     | '/product/$slug'
     | '/shared-post/$id'
     | '/technical/$slug'
@@ -331,6 +342,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/app'
+    | '/credits'
     | '/setup'
     | '/share'
     | '/app/admin'
@@ -346,7 +358,7 @@ export interface FileRouteTypes {
     | '/app/stats'
     | '/app/video'
     | '/auth/error'
-    | '/docs/big-photo'
+    | '/bugs/$slug'
     | '/product/$slug'
     | '/shared-post/$id'
     | '/technical/$slug'
@@ -362,10 +374,11 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
+  CreditsRoute: typeof CreditsRoute
   SetupRoute: typeof SetupRoute
   ShareRoute: typeof ShareRoute
   AuthErrorRoute: typeof AuthErrorRoute
-  DocsBigPhotoRoute: typeof DocsBigPhotoRoute
+  BugsSlugRoute: typeof BugsSlugRoute
   ProductSlugRoute: typeof ProductSlugRoute
   SharedPostIdRoute: typeof SharedPostIdRoute
   TechnicalSlugRoute: typeof TechnicalSlugRoute
@@ -385,6 +398,13 @@ declare module '@tanstack/react-router' {
       path: '/app'
       fullPath: '/app'
       preLoaderRoute: typeof AppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/credits': {
+      id: '/credits'
+      path: '/credits'
+      fullPath: '/credits'
+      preLoaderRoute: typeof CreditsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/setup': {
@@ -499,11 +519,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthErrorRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/docs/big-photo': {
-      id: '/docs/big-photo'
-      path: '/docs/big-photo'
-      fullPath: '/docs/big-photo'
-      preLoaderRoute: typeof DocsBigPhotoRouteImport
+    '/bugs/$slug': {
+      id: '/bugs/$slug'
+      path: '/bugs/$slug'
+      fullPath: '/bugs/$slug'
+      preLoaderRoute: typeof BugsSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/product/$slug': {
@@ -641,10 +661,11 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
+  CreditsRoute: CreditsRoute,
   SetupRoute: SetupRoute,
   ShareRoute: ShareRoute,
   AuthErrorRoute: AuthErrorRoute,
-  DocsBigPhotoRoute: DocsBigPhotoRoute,
+  BugsSlugRoute: BugsSlugRoute,
   ProductSlugRoute: ProductSlugRoute,
   SharedPostIdRoute: SharedPostIdRoute,
   TechnicalSlugRoute: TechnicalSlugRoute,

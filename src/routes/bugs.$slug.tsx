@@ -4,17 +4,17 @@ import { DepartmentLayout } from "@/components/docs/department-layout";
 import { DocPage } from "@/components/docs/doc-page";
 import { getDoc } from "@/docs/registry";
 
-export const Route = createFileRoute("/product/$slug")({
-	component: ProductDocPage,
+export const Route = createFileRoute("/bugs/$slug")({
+	component: BugsDocPage,
 });
 
-/** Publiczny dokument dzialu Produkt — /product/$slug (docsy). */
-function ProductDocPage() {
+/** Publiczny dokument dzialu Bledy — /bugs/$slug (docsy). */
+function BugsDocPage() {
 	const { slug } = Route.useParams();
-	const doc = getDoc("product", slug);
+	const doc = getDoc("bugs", slug);
 	return (
-		<DepartmentLayout department="product" activeSlug={slug}>
-			<DocPage department="product" doc={doc} />
+		<DepartmentLayout department="bugs" activeSlug={slug}>
+			<DocPage department="bugs" doc={doc} />
 		</DepartmentLayout>
 	);
 }

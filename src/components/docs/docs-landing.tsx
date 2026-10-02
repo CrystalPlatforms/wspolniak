@@ -11,7 +11,7 @@ import { useAppHref } from "@/docs/use-cross-host-href";
 import { cn } from "@/lib/utils";
 
 function docsLogoFor(theme: "light" | "dark" | undefined): string {
-	return theme === "light" ? "/logos/wspolniak-docs-light.jpeg" : "/logos/wspolniak-docs.jpeg";
+	return theme === "light" ? "/logos/wspolniak-docs-light.png" : "/logos/wspolniak-docs.png";
 }
 
 function DepartmentCard({ department }: { department: DocDepartment }) {
@@ -50,8 +50,7 @@ function DepartmentCard({ department }: { department: DocDepartment }) {
 
 	return (
 		<Link
-			to="/product/$slug"
-			params={{ slug: firstDoc.slug }}
+			to={`/${department}/${firstDoc.slug}` as never}
 			className="group block rounded-xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
 		>
 			{card}
@@ -71,7 +70,7 @@ export function DocsLanding() {
 				<img
 					src={docsLogoFor(resolvedTheme)}
 					alt="Dokumentacja Wspólniaka"
-					className="w-40 rounded-2xl border border-border"
+					className="w-40 rounded-2xl"
 				/>
 				<h1 className="mt-8 text-3xl font-bold tracking-tight">Dokumentacja</h1>
 

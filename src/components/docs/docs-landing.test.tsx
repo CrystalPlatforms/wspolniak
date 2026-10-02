@@ -7,10 +7,11 @@
  *   na podstawie DOC_DEPARTMENT_META — kolejność wynika z tej listy.
  * - Karta działu z treścią jest linkiem do PIERWSZEGO dokumentu (alfabetycznie po
  *   slugu z listDocs); karta bez treści jest nieklikalna z plakietką „Wkrótce".
- *   Stan na dziś: Produkt → /product/feed-and-posts, Techniczna →
- *   /technical/architecture (F3), Błędy → „Wkrótce" (F4 dopisze treści).
- * - Duże logo swapuje wariant JPEG wg motywu: ciemny → wspolniak-docs.jpeg (biały
- *   napis na czerni), jasny → wspolniak-docs-light.jpeg. SSR (bez resolvedTheme)
+ *   Stan od F4 (#207): Produkt → /product/feed-and-posts, Techniczna →
+ *   /technical/architecture, Błędy → /bugs/big-photo — każda karta linkuje
+ *   pierwszy dokument SWOJEGO działu.
+ * - Duże logo swapuje wariant PNG wg motywu (owner podmienił pliki na .png): ciemny → wspolniak-docs.png (biały
+ *   napis na czerni), jasny → wspolniak-docs-light.png. SSR (bez resolvedTheme)
  *   renderuje wariant ciemny.
  * - Karty działów mają sam label (bez opisów — decyzja właściciela 2026-10-02).
  * - „Powrót do Wspólniaka" prowadzi na GŁÓWNY host apki (useAppHref → pełny URL,
@@ -92,21 +93,22 @@ describe("DocsLanding", () => {
 		expect(link.getAttribute("href")).toBe("/product/feed-and-posts");
 	});
 
-	it("karta Błędy bez treści jest nieklikalna z plakietką Wkrótce", async () => {
+	it("karta Błędy ma treść i linkuje do artykułu big-photo (F4 #207)", async () => {
 		renderInRouter(<DocsLanding />);
 
-		// Produkt i Techniczna są linkami — Błędy nie może być linkiem.
+		// Wszystkie trzy karty działów są linkami do PIERWSZEGO dokumentu swojego
+		// działu — w tym Błędy do zmigrowanego artykułu.
 		const links = await screen.findAllByRole("link");
 		const hrefs = links.map((link) => link.getAttribute("href"));
-		expect(hrefs).not.toContain("/bugs");
-		expect(await screen.findByText("Wkrótce")).toBeTruthy();
+		expect(hrefs).toContain("/bugs/big-photo");
+		expect(screen.queryByText("Wkrótce")).toBeNull();
 	});
 
 	it("renderuje duże logo docsów i przycisk powrotu na GŁÓWNY host apki", async () => {
 		renderInRouter(<DocsLanding />);
 
 		const logo = await screen.findByAltText("Dokumentacja Wspólniaka");
-		expect(logo.getAttribute("src")).toBe("/logos/wspolniak-docs.jpeg");
+		expect(logo.getAttribute("src")).toBe("/logos/wspolniak-docs.png");
 		// Powrót prowadzi poza subdomenę docsów (cookie sesji nie jest współdzielony):
 		// useAppHref po mount liczy pełny URL z originu karty (jsdom: localhost:3000).
 		const backLink = await screen.findByRole("link", { name: /Powrót do Wspólniaka/ });
@@ -118,7 +120,7 @@ describe("DocsLanding", () => {
 		renderInRouter(<DocsLanding />);
 
 		expect((await screen.findByAltText("Dokumentacja Wspólniaka")).getAttribute("src")).toBe(
-			"/logos/wspolniak-docs-light.jpeg",
+			"/logos/wspolniak-docs-light.png",
 		);
 	});
 });

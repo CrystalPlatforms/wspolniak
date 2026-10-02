@@ -25,7 +25,11 @@ export function isLocalHostname(hostname: string): boolean {
  */
 export function docsOrigin(origin: string): string {
 	const url = new URL(origin);
-	url.hostname = `${DOCS_HOST_PREFIX}${url.hostname}`;
+	// Idempotentnie: host już-docs zostaje bez zmian (redirecty /docs/* z hosta
+	// docs.* nie mogą produkować docs.docs.*).
+	if (!url.hostname.startsWith(DOCS_HOST_PREFIX)) {
+		url.hostname = `${DOCS_HOST_PREFIX}${url.hostname}`;
+	}
 	return url.origin;
 }
 
@@ -54,10 +58,22 @@ export interface DocsRedirect {
  * - `/docs` (exact) → docs landing na każdym hostzie (stary landing przejęty przez subdomenę).
  * - Host docs.* i dev localhost: ścieżki docsów renderują się bezpośrednio.
  * - Pozostałe (produkcyjne) hosty: ścieżki docsów 301-kanonizują na subdomenę docs.*.
+ * - `/docs/big-photo` → `/bugs/big-photo` na subdomenie docsów (F4 #207) — artykuł zmigrowany
+ *   do działu Błędy, stara trasa przestała istnieć.
+ * - Pozostałe `/docs/*` → odpowiednik ścieżki głównej na subdomenie docsów (F4 #207): stare
+ *   trasy /docs/* usunięte, redirect obowiązuje na każdym hostzie, też docs.*.
  */
 export function resolveDocsRedirect(pathname: string, origin: string): DocsRedirect | null {
 	if (pathname === "/docs") {
 		return { status: 301, location: `${docsOrigin(origin)}/` };
+	}
+
+	// Stare trasy /docs/* usunięte (F4 #207) — redirect na każdym hostzie.
+	if (pathname === "/docs/big-photo") {
+		return { status: 301, location: `${docsOrigin(origin)}/bugs/big-photo` };
+	}
+	if (pathname.startsWith("/docs/")) {
+		return { status: 301, location: `${docsOrigin(origin)}${pathname.slice("/docs".length)}` };
 	}
 
 	const { hostname } = new URL(origin);

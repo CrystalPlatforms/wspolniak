@@ -11,7 +11,8 @@
  * - Dev localhost (i 127.0.0.1, *.localhost) renderuje ścieżki docsów BEZPOŚREDNIO —
  *   bez zależności od działającego DNS.
  * - `/docs` (exact) 301-uje na docs landing na KAŻDYM hostzie — stary landing
- *   przejęła subdomena; ścieżka `/docs/big-photo` NIE jest dotykana (żyje do F4).
+ *   przejęła subdomena. Od F4 (#207) `/docs/*` 301-uje do odpowiedników głównych
+ *   ścieżek (/docs/big-photo → /bugs/big-photo) na każdym hostzie — trasy usunięte.
  * - Produkcyjny host apki kanonizuje tylko ścieżki docsów (/product, /technical,
  *   /bugs, /credits + ich podścieżki) — żaden inny path nie może wyjść z apki.
  * - NIE testujemy tu: samego fetch Workera (HITL przez pnpm dev), DNS/prod.
@@ -71,8 +72,33 @@ describe("resolveDocsRedirect (logika entry Workera z mockowanym Hostem)", () =>
 		});
 	});
 
-	it("nie dotyka /docs/big-photo (stary artykuł żyje do migracji F4)", () => {
-		expect(resolveDocsRedirect("/docs/big-photo", "https://wspolniak.com")).toBeNull();
+	it("/docs/big-photo 301-uje do /bugs/big-photo na subdomenie docsów (F4 #207)", () => {
+		expect(resolveDocsRedirect("/docs/big-photo", "https://wspolniak.com")).toEqual({
+			status: 301,
+			location: "https://docs.wspolniak.com/bugs/big-photo",
+		});
+	});
+
+	it("redirect /docs/big-photo obowiązuje na każdym hostzie (trasy /docs/* usunięte)", () => {
+		expect(resolveDocsRedirect("/docs/big-photo", "https://docs.wspolniak.com")).toEqual({
+			status: 301,
+			location: "https://docs.wspolniak.com/bugs/big-photo",
+		});
+		expect(resolveDocsRedirect("/docs/big-photo", "http://localhost:3000")).toEqual({
+			status: 301,
+			location: "http://docs.localhost:3000/bugs/big-photo",
+		});
+	});
+
+	it("generyczne /docs/* 301-ują do odpowiednika ścieżki głównej (F4 #207)", () => {
+		expect(resolveDocsRedirect("/docs/product/feed-and-posts", "https://wspolniak.com")).toEqual({
+			status: 301,
+			location: "https://docs.wspolniak.com/product/feed-and-posts",
+		});
+		expect(resolveDocsRedirect("/docs/technical/stack", "https://docs.wspolniak.com")).toEqual({
+			status: 301,
+			location: "https://docs.wspolniak.com/technical/stack",
+		});
 	});
 
 	it("host docs.* renderuje ścieżki docsów bezpośrednio", () => {
