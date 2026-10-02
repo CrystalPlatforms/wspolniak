@@ -27,9 +27,10 @@ import { Route as AppSettingsRouteImport } from './routes/app/settings'
 import { Route as AppStatsRouteImport } from './routes/app/stats'
 import { Route as AppVideoRouteImport } from './routes/app/video'
 import { Route as AuthErrorRouteImport } from './routes/auth/error'
-import { Route as DocsIndexRouteImport } from './routes/docs/index'
 import { Route as DocsBigPhotoRouteImport } from './routes/docs/big-photo'
+import { Route as ProductSlugRouteImport } from './routes/product.$slug'
 import { Route as SharedPostIdRouteImport } from './routes/shared-post.$id'
+import { Route as TechnicalSlugRouteImport } from './routes/technical.$slug'
 import { Route as AppAlbumsIndexRouteImport } from './routes/app/albums/index'
 import { Route as AppAlbumsIdRouteImport } from './routes/app/albums/$id'
 import { Route as AppPostIdRouteImport } from './routes/app/post.$id'
@@ -127,19 +128,24 @@ const AuthErrorRoute = AuthErrorRouteImport.update({
   path: '/auth/error',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DocsIndexRoute = DocsIndexRouteImport.update({
-  id: '/docs/',
-  path: '/docs/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const DocsBigPhotoRoute = DocsBigPhotoRouteImport.update({
   id: '/docs/big-photo',
   path: '/docs/big-photo',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProductSlugRoute = ProductSlugRouteImport.update({
+  id: '/product/$slug',
+  path: '/product/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SharedPostIdRoute = SharedPostIdRouteImport.update({
   id: '/shared-post/$id',
   path: '/shared-post/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TechnicalSlugRoute = TechnicalSlugRouteImport.update({
+  id: '/technical/$slug',
+  path: '/technical/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppAlbumsIndexRoute = AppAlbumsIndexRouteImport.update({
@@ -192,9 +198,10 @@ export interface FileRoutesByFullPath {
   '/app/video': typeof AppVideoRouteWithChildren
   '/auth/error': typeof AuthErrorRoute
   '/docs/big-photo': typeof DocsBigPhotoRoute
+  '/product/$slug': typeof ProductSlugRoute
   '/shared-post/$id': typeof SharedPostIdRoute
+  '/technical/$slug': typeof TechnicalSlugRoute
   '/app/': typeof AppIndexRoute
-  '/docs/': typeof DocsIndexRoute
   '/app/albums/$id': typeof AppAlbumsIdRoute
   '/app/post/$id': typeof AppPostIdRoute
   '/app/video/$id': typeof AppVideoIdRoute
@@ -219,9 +226,10 @@ export interface FileRoutesByTo {
   '/app/video': typeof AppVideoRouteWithChildren
   '/auth/error': typeof AuthErrorRoute
   '/docs/big-photo': typeof DocsBigPhotoRoute
+  '/product/$slug': typeof ProductSlugRoute
   '/shared-post/$id': typeof SharedPostIdRoute
+  '/technical/$slug': typeof TechnicalSlugRoute
   '/app': typeof AppIndexRoute
-  '/docs': typeof DocsIndexRoute
   '/app/albums/$id': typeof AppAlbumsIdRoute
   '/app/post/$id': typeof AppPostIdRoute
   '/app/video/$id': typeof AppVideoIdRoute
@@ -249,9 +257,10 @@ export interface FileRoutesById {
   '/app/video': typeof AppVideoRouteWithChildren
   '/auth/error': typeof AuthErrorRoute
   '/docs/big-photo': typeof DocsBigPhotoRoute
+  '/product/$slug': typeof ProductSlugRoute
   '/shared-post/$id': typeof SharedPostIdRoute
+  '/technical/$slug': typeof TechnicalSlugRoute
   '/app/': typeof AppIndexRoute
-  '/docs/': typeof DocsIndexRoute
   '/app/albums/$id': typeof AppAlbumsIdRoute
   '/app/post/$id': typeof AppPostIdRoute
   '/app/video/$id': typeof AppVideoIdRoute
@@ -280,9 +289,10 @@ export interface FileRouteTypes {
     | '/app/video'
     | '/auth/error'
     | '/docs/big-photo'
+    | '/product/$slug'
     | '/shared-post/$id'
+    | '/technical/$slug'
     | '/app/'
-    | '/docs/'
     | '/app/albums/$id'
     | '/app/post/$id'
     | '/app/video/$id'
@@ -307,9 +317,10 @@ export interface FileRouteTypes {
     | '/app/video'
     | '/auth/error'
     | '/docs/big-photo'
+    | '/product/$slug'
     | '/shared-post/$id'
+    | '/technical/$slug'
     | '/app'
-    | '/docs'
     | '/app/albums/$id'
     | '/app/post/$id'
     | '/app/video/$id'
@@ -336,9 +347,10 @@ export interface FileRouteTypes {
     | '/app/video'
     | '/auth/error'
     | '/docs/big-photo'
+    | '/product/$slug'
     | '/shared-post/$id'
+    | '/technical/$slug'
     | '/app/'
-    | '/docs/'
     | '/app/albums/$id'
     | '/app/post/$id'
     | '/app/video/$id'
@@ -354,8 +366,9 @@ export interface RootRouteChildren {
   ShareRoute: typeof ShareRoute
   AuthErrorRoute: typeof AuthErrorRoute
   DocsBigPhotoRoute: typeof DocsBigPhotoRoute
+  ProductSlugRoute: typeof ProductSlugRoute
   SharedPostIdRoute: typeof SharedPostIdRoute
-  DocsIndexRoute: typeof DocsIndexRoute
+  TechnicalSlugRoute: typeof TechnicalSlugRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -486,13 +499,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthErrorRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/docs/': {
-      id: '/docs/'
-      path: '/docs'
-      fullPath: '/docs/'
-      preLoaderRoute: typeof DocsIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/docs/big-photo': {
       id: '/docs/big-photo'
       path: '/docs/big-photo'
@@ -500,11 +506,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DocsBigPhotoRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/product/$slug': {
+      id: '/product/$slug'
+      path: '/product/$slug'
+      fullPath: '/product/$slug'
+      preLoaderRoute: typeof ProductSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/shared-post/$id': {
       id: '/shared-post/$id'
       path: '/shared-post/$id'
       fullPath: '/shared-post/$id'
       preLoaderRoute: typeof SharedPostIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/technical/$slug': {
+      id: '/technical/$slug'
+      path: '/technical/$slug'
+      fullPath: '/technical/$slug'
+      preLoaderRoute: typeof TechnicalSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app/albums/': {
@@ -625,8 +645,9 @@ const rootRouteChildren: RootRouteChildren = {
   ShareRoute: ShareRoute,
   AuthErrorRoute: AuthErrorRoute,
   DocsBigPhotoRoute: DocsBigPhotoRoute,
+  ProductSlugRoute: ProductSlugRoute,
   SharedPostIdRoute: SharedPostIdRoute,
-  DocsIndexRoute: DocsIndexRoute,
+  TechnicalSlugRoute: TechnicalSlugRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

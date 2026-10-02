@@ -5,6 +5,7 @@
 /// <reference types="vite/client" />
 import { ChatRoom } from "@/chat/chat-room";
 import { initDatabase } from "@/db";
+import { resolveDocsRedirect } from "@/docs/host";
 import { apiHono } from "@/hono/api";
 import authRoute from "@/hono/api/auth";
 import { createHono } from "@/hono/factory";
@@ -60,6 +61,17 @@ export default {
 
 		if (url.pathname.startsWith("/app/u/")) {
 			return authHono.fetch(request, env, ctx);
+		}
+
+		// Host-based serving branch (F1 #204): `/docs` exact → docs landing na każdym
+		// hostzie; ścieżki docsów z produkcyjnego hosta apki 301-kanonizują na subdomenę
+		// docs.* (dev localhost renderuje docsy bezpośrednio). Reszta → SSR.
+		const docsRedirect = resolveDocsRedirect(url.pathname, url.origin);
+		if (docsRedirect) {
+			return new Response(null, {
+				status: docsRedirect.status,
+				headers: { Location: docsRedirect.location },
+			});
 		}
 
 		return getSsrEntry().then((handler) =>

@@ -669,3 +669,15 @@ code {
   background-color: var(--muted) !important;
   font-weight: 600;
 }
+
+/* Shiki dual-theme (F3 #206): HTML podświetlania niesie oba motywy (CSS vars);
+   w ciemnym motywie apki przełączamy kolory na wariant ciemny bez ponownego
+   podświetlania. */
+.dark .shiki,
+.dark .shiki span {
+	color: var(--shiki-dark);
+	background-color: var(--shiki-dark-bg);
+	font-style: var(--shiki-dark-font-style);
+	font-weight: var(--shiki-dark-font-weight);
+	text-decoration: var(--shiki-dark-text-decoration);
+}

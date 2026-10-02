@@ -8,6 +8,7 @@ import { ChatSettingsNote } from "@/components/app/chat-settings-note";
 import { ThemeToggle } from "@/components/theme";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { useDocsHref } from "@/docs/use-cross-host-href";
 
 export const Route = createFileRoute("/app/settings")({
 	component: SettingsPage,
@@ -26,6 +27,9 @@ function SettingsPage() {
 	const { featureFlags, session } = Route.useRouteContext();
 	const [loggingOut, setLoggingOut] = useState(false);
 	const queryClient = useQueryClient();
+	// Dokumentacja żyje na subdomenie docs.* — pełny URL liczymy z originu karty
+	// (po mount, bez hydration mismatch); dev: docs.localhost:3000, prod: docs.wspolniak.com.
+	const docsHref = useDocsHref("/");
 
 	// AL (F1 #179) — stan dostępu do AI zalogowanego usera + zapis opt-in.
 	const aiAccessQuery = useQuery({
@@ -95,6 +99,17 @@ function SettingsPage() {
 						aria-label="AL (asystent AI)"
 					/>
 				</div>
+			</section>
+
+			<section className="rounded-lg border border-border bg-card p-4">
+				<h2 className="mb-3 text-lg font-semibold text-foreground">Dokumentacja</h2>
+				<a
+					href={docsHref}
+					className="flex items-center justify-between gap-4 text-sm text-muted-foreground transition-colors hover:text-foreground"
+				>
+					Dokumentacja Wspólniaka
+					<ChevronRight className="h-4 w-4" />
+				</a>
 			</section>
 
 			{session.role === "admin" && (

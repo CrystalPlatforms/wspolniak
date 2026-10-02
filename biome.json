@@ -100,6 +100,7 @@
 			"!.claude/skills",
 			"!.wrangler",
 			"!ai-demo",
+			"!crs-assets",
 			"!.claude/settings 2.json"
 		]
 	},

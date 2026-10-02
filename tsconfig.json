@@ -3,7 +3,9 @@
 	// ai-demo to OSOBNY projekt (własny routeTree + konfiguracja) — jego pliki
 	// nie mogą się mieszać do typów głównej aplikacji (konflikt Register w
 	// @tanstack/react-router rozbijał kontekst tras na `never`).
-	"exclude": ["node_modules", "ai-demo"],
+	// crs-assets to wendoring w toku (react-bits BranchedMenu na sidebar docsów,
+	// F5) — niekompilowalny dopóki nie wejdzie do apki; po adaptacji usuń z exclude.
+	"exclude": ["node_modules", "ai-demo", "crs-assets"],
 	"compilerOptions": {
 		"target": "ES2022",
 		"jsx": "react-jsx",

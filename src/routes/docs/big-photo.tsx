@@ -84,7 +84,9 @@ function BigPhotoDocsPage() {
 					</li>
 					<li aria-hidden>/</li>
 					<li>
-						<Link to="/docs" className="transition-colors hover:text-foreground">
+						{/* /docs przejął docs landing na subdomenie (F1 #204) — breadcrumb
+						    prowadzi do landinga docsów ("/"), nie do starej trasy. */}
+						<Link to="/" className="transition-colors hover:text-foreground">
 							Dokumentacja
 						</Link>
 					</li>
