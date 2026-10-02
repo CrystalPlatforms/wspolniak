@@ -282,7 +282,7 @@ export function usePublishPost(): UsePublishPostResult {
 	const queryClient = useQueryClient();
 	const [isPending, setIsPending] = useState(false);
 	const [uploadProgress, setUploadProgress] = useState<VideoPublishProgress | null>(null);
-	const [_imageProgress, _setImageProgress] = useState<ImageUploadProgress | null>(null);
+	const [imageProgress, setImageProgress] = useState<ImageUploadProgress | null>(null);
 	const [isSlowUpload, setIsSlowUpload] = useState(false);
 	const [error, setError] = useState<Error | null>(null);
 
@@ -320,6 +320,7 @@ export function usePublishPost(): UsePublishPostResult {
 		publish,
 		isPending,
 		uploadProgress,
+		imageProgress,
 		isSlowUpload,
 		isError: error !== null,
 		error,
