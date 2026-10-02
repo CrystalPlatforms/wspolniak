@@ -1,3 +1,10 @@
+# [5.14.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.13.0...v5.14.0) (2026-10-02)
+
+
+### Features
+
+* **docs:** bugs department + legacy /docs/* redirects, BranchedMenu sidebar, credits page ([#207](https://github.com/CrystalPlatforms/wspolniak/issues/207) [#208](https://github.com/CrystalPlatforms/wspolniak/issues/208) [#209](https://github.com/CrystalPlatforms/wspolniak/issues/209)) ([b22e161](https://github.com/CrystalPlatforms/wspolniak/commit/b22e161078649c1f144c299f71aaca332dbdc83d))
+
 # [5.13.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.12.1...v5.13.0) (2026-10-02)
 
 
