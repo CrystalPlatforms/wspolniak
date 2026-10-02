@@ -59,10 +59,14 @@ function ensureBootTimer() {
 /**
  * Sygnał choreografii dla pasków nawigacji: `false` dopóki splash żyje,
  * `true` w chwili jego ukrycia. Późne montże (po ukryciu) dostają `true`
- * od razu — bez odtwarzania animacji.
+ * od razu — bez odtwarzania animacji. Initializer JEST celowo stały (`false`),
+ * nie `bootReady`: przy hydratacji po czasie singleton bywa już true, a klasa
+ * zależna od hooka różniłaby się między SSR HTML a pierwszym renderem klienta
+ * (hydration mismatch, react-dom warning). Warm montaż dostaje `true` z efektu
+ * w tej samej klatce (RTL/act flush) — wizualnie bez różnicy.
  */
 export function useBootReveal(): boolean {
-	const [ready, setReady] = useState(bootReady);
+	const [ready, setReady] = useState(false);
 	useEffect(() => {
 		ensureBootTimer();
 		const listener = () => setReady(true);
@@ -112,7 +116,8 @@ function ensureSettleTimer() {
  * `false` podczas splasha i wjazdu pasków, `true` gdy paski osiadły.
  */
 export function useBootSettled(): boolean {
-	const [settled, setSettled] = useState(bootSettled);
+	// Initializer stały (nie `bootSettled`) — patrz notka hydration w useBootReveal.
+	const [settled, setSettled] = useState(false);
 	useEffect(() => {
 		const onReady = () => ensureSettleTimer();
 		const onSettled = () => setSettled(true);
