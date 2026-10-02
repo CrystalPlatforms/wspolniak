@@ -1,3 +1,17 @@
+# [5.13.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.12.1...v5.13.0) (2026-10-02)
+
+
+### Bug Fixes
+
+* **app:** hydration mismatch from boot singleton state initializers ([c3af7bf](https://github.com/CrystalPlatforms/wspolniak/commit/c3af7bf1cd4958444b6400f4a26f8cf7771a9ba0))
+* **upload:** no hard file timeout, real-byte progress, concurrency 2 ([#203](https://github.com/CrystalPlatforms/wspolniak/issues/203)) ([5d11e76](https://github.com/CrystalPlatforms/wspolniak/commit/5d11e76ec3c85b6103ec07fdde2d48cc676ebfa8))
+* **upload:** restore imageProgress state wiped by formatter hook ([#212](https://github.com/CrystalPlatforms/wspolniak/issues/212)) ([eade4ec](https://github.com/CrystalPlatforms/wspolniak/commit/eade4ecae2b6d1fadccb51e6cf6fed16579803ce))
+
+
+### Features
+
+* **docs:** docs subdomain — registry, landing, product + technical departments, rich markdown, lazy Shiki ([#204](https://github.com/CrystalPlatforms/wspolniak/issues/204) [#205](https://github.com/CrystalPlatforms/wspolniak/issues/205) [#206](https://github.com/CrystalPlatforms/wspolniak/issues/206)) ([b6fe300](https://github.com/CrystalPlatforms/wspolniak/commit/b6fe300a717fcf32ad290439616e48274046ad04)), closes [#202](https://github.com/CrystalPlatforms/wspolniak/issues/202)
+
 ## [5.12.1](https://github.com/CrystalPlatforms/wspolniak/compare/v5.12.0...v5.12.1) (2026-09-21)
 
 
