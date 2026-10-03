@@ -1,3 +1,10 @@
+# [5.15.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.14.0...v5.15.0) (2026-10-03)
+
+
+### Features
+
+* **docs:** AL RAG-lite doc citations + full content coverage, 12 product articles ([#210](https://github.com/CrystalPlatforms/wspolniak/issues/210) [#211](https://github.com/CrystalPlatforms/wspolniak/issues/211)) ([2226e87](https://github.com/CrystalPlatforms/wspolniak/commit/2226e8754cdae932bd03a6643676c7bbb3bdb861)), closes [#202](https://github.com/CrystalPlatforms/wspolniak/issues/202)
+
 # [5.14.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.13.0...v5.14.0) (2026-10-02)
 
 
