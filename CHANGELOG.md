@@ -1,3 +1,10 @@
+## [5.15.1](https://github.com/CrystalPlatforms/wspolniak/compare/v5.15.0...v5.15.1) (2026-10-03)
+
+
+### Bug Fixes
+
+* **app:** isomorphic hostname in index route — unblocks production build ([a371d59](https://github.com/CrystalPlatforms/wspolniak/commit/a371d59958e8f96cc9a5e2f5a48b693c69c04a97))
+
 # [5.15.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.14.0...v5.15.0) (2026-10-03)
 
 
