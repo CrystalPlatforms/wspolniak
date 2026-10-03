@@ -6,7 +6,8 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { Button } from "@/components/ui/button";
 import { DOC_DEPARTMENT_META } from "@/docs/departments";
-import { type DocDepartment, listDocs } from "@/docs/registry";
+import { getDepartmentManifest } from "@/docs/manifest";
+import type { DocDepartment } from "@/docs/registry";
 import { useAppHref } from "@/docs/use-cross-host-href";
 import { cn } from "@/lib/utils";
 
@@ -18,8 +19,7 @@ function DepartmentCard({ department }: { department: DocDepartment }) {
 	const meta = DOC_DEPARTMENT_META.find((d) => d.key === department);
 	if (!meta) return null;
 
-	const docs = listDocs(department);
-	const firstDoc = docs[0];
+	const firstDoc = getDepartmentManifest(department).groups[0]?.docs[0];
 	const Icon = meta.icon;
 
 	const card = (
@@ -70,9 +70,8 @@ export function DocsLanding() {
 				<img
 					src={docsLogoFor(resolvedTheme)}
 					alt="Dokumentacja Wspólniaka"
-					className="w-40 rounded-2xl"
+					className="w-72 rounded-2xl"
 				/>
-				<h1 className="mt-8 text-3xl font-bold tracking-tight">Dokumentacja</h1>
 
 				<div className="mt-10 grid w-full gap-4 sm:grid-cols-3">
 					{DOC_DEPARTMENT_META.map((department) => (

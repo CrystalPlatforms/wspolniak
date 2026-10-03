@@ -4,7 +4,15 @@
 // zawsze widnieje tytuł artykułu. Dokument bez pliku w registry jest pomijany,
 // więc manifest nie renderuje martwych linków.
 
-import { ImageOff, Layers, type LucideIcon, Newspaper } from "lucide-react";
+import {
+	FolderOpen,
+	Heart,
+	ImageOff,
+	Layers,
+	type LucideIcon,
+	Newspaper,
+	Sparkles,
+} from "lucide-react";
 import { type DocDepartment, getDoc } from "./registry";
 
 export interface ManifestDoc {
@@ -34,8 +42,23 @@ const MANIFESTS: Record<DocDepartment, GroupDef[]> = {
 	product: [
 		{
 			label: "Posty i multimedia",
-			slugs: ["feed-and-posts", "uploading-photos"],
+			slugs: ["feed-and-posts", "uploading-photos", "videos"],
 			icon: Newspaper,
+		},
+		{
+			label: "Interakcje",
+			slugs: ["reactions-comments", "family-chat"],
+			icon: Heart,
+		},
+		{
+			label: "Organizacja",
+			slugs: ["albums", "library", "calendar"],
+			icon: FolderOpen,
+		},
+		{
+			label: "Aplikacja",
+			slugs: ["notifications-and-pwa", "logging-in", "al-assistant", "for-admins"],
+			icon: Sparkles,
 		},
 	],
 	technical: [

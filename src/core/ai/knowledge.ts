@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { docsKnowledgeBlock, docsNoMatchBlock } from "@/core/ai/docs-knowledge";
 
 /**
  * Wiedza AL o Wspólniaku (F5 #183) — kuratorowany dokument wstrzykiwany do
@@ -80,11 +81,21 @@ Zasady odpowiedzi:
  */
 export function buildSystemPrompt(
 	posts: AiPostContext[] = [],
-	options: { searchLimited?: boolean; searched?: boolean } = {},
+	options: {
+		searchLimited?: boolean;
+		searched?: boolean;
+		docsQuery?: string;
+		appOrigin?: string;
+	} = {},
 ): string {
 	if (options.searchLimited) {
 		return `${AL_PERSONA}\n\n${WSPOLNIAK_KNOWLEDGE}\n\n## Szukanie postów\nLimit przeszukiwania postów na tę minutę jest wyczerpany. Powiedz userowi krótko, że limit szukania jest na razie wykorzystany i może spróbować ponownie za ok. minutę.`;
 	}
+	const docsBlock =
+		options.docsQuery !== undefined && options.appOrigin !== undefined
+			? docsKnowledgeBlock(options.docsQuery, options.appOrigin) ||
+				docsNoMatchBlock(options.appOrigin)
+			: "";
 	const postsBlock =
 		posts.length === 0
 			? options.searched
@@ -96,7 +107,7 @@ export function buildSystemPrompt(
 							`- „${post.title}" — ${post.author} (${post.date}): ${promptDescription(post.description)}`,
 					)
 					.join("\n")}`;
-	return `${AL_PERSONA}\n\n${WSPOLNIAK_KNOWLEDGE}${postsBlock}`;
+	return `${AL_PERSONA}\n\n${WSPOLNIAK_KNOWLEDGE}${docsBlock}${postsBlock}`;
 }
 
 /**

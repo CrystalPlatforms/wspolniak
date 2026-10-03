@@ -246,7 +246,13 @@ describe("POST /api/ai/chat — matryca gatingu (#179)", () => {
 			apiKey: "gsk_test",
 			model: "openai/gpt-oss-120b",
 			messages: [
-				{ role: "system", content: buildSystemPrompt([]) },
+				{
+					role: "system",
+					content: buildSystemPrompt([], {
+						docsQuery: "Cześć, co to Wspólniak?",
+						appOrigin: "http://localhost",
+					}),
+				},
 				{ role: "user", content: "Cześć, co to Wspólniak?" },
 			],
 			reasoningEffort: "high",

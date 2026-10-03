@@ -47,6 +47,17 @@ export function appOrigin(origin: string): string {
 	return url.origin;
 }
 
+/**
+ * URL dokumentu docsów widziany z perspektywy hosta apki (F7 #210, RAG-lite dla
+ * AL): produkcyjnie absolutny na subdomenie docs.* (https://docs.wspolniak.com/…),
+ * dewelopersko (localhost) ścieżka relatywna — lokalne linki bez DNS-a.
+ */
+export function docsPromptHref(appOrigin: string, path: string): string {
+	const { hostname } = new URL(appOrigin);
+	if (isLocalHostname(hostname)) return path;
+	return `${docsOrigin(appOrigin)}${path}`;
+}
+
 export interface DocsRedirect {
 	status: 301;
 	location: string;

@@ -22,7 +22,7 @@ import { ThinkParser } from "@/core/ai/think-parser";
 import { getAiAccessState, setUserAiOptIn } from "@/db/identity/queries";
 import { getFeatureFlags } from "@/db/instance/queries";
 import { type AiPostMatch, MAX_DESCRIPTION_LENGTH, searchPostsForAi } from "@/db/posts";
-import { createHono } from "@/hono/factory";
+import { createHono, getOrigin } from "@/hono/factory";
 import { authMiddleware } from "@/hono/middleware/auth";
 import { getImageUrl } from "@/images/client";
 import { hasEffectiveAiAccess } from "@/lib/ai-access";
@@ -187,14 +187,15 @@ aiEndpoint.post("/chat", async (c) => {
 	// F5 #183 (iteracja: fazy) — AL najpierw MYŚLI na żywo (i sam kończy
 	// decyzją SZUKAJ/BEZPOSTÓW), potem SZUKA (budżet 6/min per user), na końcu
 	// ODPOWIADA z wiedzą o postach. Kolejność faz widoczna u klienta.
-	const lastUserMessage = [...parsed.data.messages].reverse().find((m) => m.role === "user");
+	const _lastUserMessage = [...parsed.data.messages].reverse().find((m) => m.role === "user");
 	const tokens = alConversation({
 		apiKey,
 		model,
 		userId: user.userId,
 		accountHash: c.env.CLOUDFLARE_IMAGES_ACCOUNT_HASH,
 		conversation: parsed.data.messages,
-		lastUserMessage: lastUserMessage?.content ?? "",
+		lastUserMessage: _lastUserMessage?.content ?? "",
+		appOrigin: getOrigin(c),
 	});
 	return ndjsonResponse(tokens);
 });
@@ -447,6 +448,7 @@ async function* alConversation(input: {
 	accountHash: string;
 	conversation: ChatMessage[];
 	lastUserMessage: string;
+	appOrigin: string;
 }): AsyncGenerator<ChatToken> {
 	const decision = yield* thinkPhase(input);
 	const { matches, limited, searched } = yield* searchPhase({ ...input, decision });
@@ -459,7 +461,12 @@ async function* alConversation(input: {
 			author: match.authorName,
 			date: match.createdAt.toISOString().slice(0, 10),
 		})),
-		{ searchLimited: limited, searched },
+		{
+			searchLimited: limited,
+			searched,
+			docsQuery: input.lastUserMessage,
+			appOrigin: input.appOrigin,
+		},
 	);
 	yield* answerPhase({
 		apiKey: input.apiKey,

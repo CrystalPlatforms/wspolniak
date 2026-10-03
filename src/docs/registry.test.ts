@@ -1,41 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
- * Założenia zakodowane w testach (stan na RED, F1 #204):
+ * Założenia zakodowane w testach (F1 #204, zaktualizowane F8 #211):
  * - Registry to JEDYNY dostęp do treści docsów: Markdown z katalogu content
  *   (src/docs/content/{department}/{slug}.md) jest bundlowany w buildzie (Vite
- *   raw glob), więc testy czytają REALNE pliki —
- *   to jednocześnie pilnuje, żeby authored content pozostał sparsowalny.
- * - Frontmatter zawiera wyłącznie `title:`
-treść;
-dokumentu;
-jest;
-resztą;
-pliku
- *   (bez
-separatora`---`;
-).
- * - Nieznany slug → null
-nieznany;
-dział;
-→ typodowo niemożliwy (union DocDepartment).
- * - searchDocs: tokeny z zapytania punktują +10 w tytule, +1 w treści
-dokumenty * bez;
-trafienia;
-nie;
-wchodzą;
-do wyników; sortowanie
-malejące;
-po;
-score;
-jest
- *   deterministyczne (przy remisie wygrywa kolejność dział/slug).
- * - NIE
-testujemy;
-tu: renderowania;
-Markdown (testy markdown.tsx), host
-brancha * host.test.ts, treści;
-merytorycznej;
-dokumentów (HITL).
+ *   raw glob), więc testy czytają REALNE pliki — to jednocześnie pilnuje,
+ *   żeby authored content pozostał sparsowalny.
+ * - Frontmatter zawiera wyłącznie `title:`, treść dokumentu jest resztą pliku.
+ * - Nieznany slug → null; nieznany dział → typodowo niemożliwy (union DocDepartment).
+ * - searchDocs: tokeny z zapytania punktują +10 w tytule, +1 w treści;
+ *   dokumenty bez trafienia nie wchodzą do wyników; sortowanie malejące po
+ *   score jest deterministyczne (przy remisie wygrywa kolejność dział/slug).
+ * - NIE testujemy tu: renderowania Markdown (testy markdown.tsx), host brancha
+ *   (host.test.ts), treści merytorycznej dokumentów (HITL).
  */
 
 import { DOC_DEPARTMENTS, getDoc, listDocs, searchDocs } from "./registry";
@@ -69,10 +45,23 @@ describe("docs registry", () => {
 	});
 
 	describe("listDocs", () => {
-		it("zwraca wszystkie zbundlowane dokumenty produktowe", () => {
+		it("zwraca wszystkie zbundlowane dokumenty produktowe (F8 #211)", () => {
 			const slugs = listDocs("product").map((doc) => doc.slug);
 
-			expect(slugs).toEqual(["feed-and-posts", "uploading-photos"]);
+			expect(slugs).toEqual([
+				"al-assistant",
+				"albums",
+				"calendar",
+				"family-chat",
+				"feed-and-posts",
+				"for-admins",
+				"library",
+				"logging-in",
+				"notifications-and-pwa",
+				"reactions-comments",
+				"uploading-photos",
+				"videos",
+			]);
 		});
 
 		it("zwraca dokumenty techniczne posortowane po slugu", () => {
@@ -98,12 +87,14 @@ describe("docs registry", () => {
 		it("trafienie w tytule wygrywa z trafieniem w treści", () => {
 			const results = searchDocs("wideo");
 
-			// „wideo" jest w tytule uploading-photos (+10) i tylko w treści
-			// feed-and-posts (+1) — tytuł wygrywa.
-			expect(results.map((result) => result.doc.slug)).toEqual([
-				"uploading-photos",
-				"feed-and-posts",
-			]);
+			// Tytułowe trafienia (10) wygrywają z treściowymi: uploading-photos
+			// i videos mają „wideo" w tytule (remis — kolejność z ALL_DOCS),
+			// pozostałe dokumenty mają „wideo" tylko w treści.
+			const resultsSlugs = results.map((result) => result.doc.slug);
+			expect(resultsSlugs.slice(0, 2)).toEqual(["uploading-photos", "videos"]);
+			for (const result of results.slice(2)) {
+				expect(result.score).toBeLessThan(10);
+			}
 		});
 
 		it("kilkuczłonowe zapytanie sumuje score z tytułu i treści", () => {

@@ -6,28 +6,28 @@ Wspólniak to rodzinny serwis ze zdjęciami. Wszystko krąży wokół feedu — 
 
 ## Przeglądanie feedu
 
-Po zalogowaniu widzisz feed na stronie głównej aplikacji. Posty ustawiają się od najnowszych, a ich ładowanie jest nieograniczone — przewijaj do woli.
+Po zalogowaniu widzisz feed na stronie głównej aplikacji. Posty ustawiają się od najnowszych, a ich ładowanie jest nieograniczone — przewijaj do woli. Na górze feedu działa pole **„Szukaj w feedzie…"** — znajdziesz po nim posty po treści opisu.
 
 ## Publikowanie posta
 
 Kliknij pole **„Co słychać?"** na górze feedu i napisz, co się u was dzieje.
 
-- **Tekst** — możesz formatować post (pogrubienia, listy, cytaty) edytorem WYSIWYG i oznaczać rodzinę przez `@nick`.
-- **Zdjęcia** — do 10 zdjęć w jednym poście (patrz [Dodawanie zdjęć i wideo](/product/uploading-photos)).
-- **Wideo** — wklej link z YouTube, a Wspólniak osadzi go w poście.
+- **Tekst** — formatujesz go edytorem WYSIWYG (zawsze włączony): pogrubienia, listy, nagłówki, cytaty i linki. Przyciskiem **@** oznaczysz rodzinę — wybrana osoba dostaje powiadomienie. Opis może mieć do 2000 znaków.
+- **Zdjęcia** — do 10 zdjęć w jednym poście (limity i zmniejszanie opisuje [Dodawanie zdjęć i wideo](/product/uploading-photos)).
+- **Wideo** — przycisk **„Dodaj wideo"** wybiera plik z urządzenia i publikuje go na rodzinnym kanale YouTube (szczegóły: [Wspólniak Wideo](/product/videos)).
+- **Album** — przycisk **„Dodaj do albumu"** wpisze post do istniejącego albumu (patrz [Albumy](/product/albums)).
 
-Post opublikujesz przyciskiem „Dodaj post". Przez chwilę po publikacji możesz go jeszcze edytować lub usunąć.
+Post opublikujesz przyciskiem „Dodaj post". Post może edytować lub usunąć jego autor oraz administrator — bez ograniczenia czasu. Dziennie możesz dodać do 50 postów.
 
 ## Reakcje i komentarze
 
-- **Reakcje** — kliknij emoji pod postem, żeby dodać swoją. Ponowne kliknięcie tej samej reakcji ją cofa.
-- **Komentarze** — pisz pod postem; obsługują `@mentions`, odpowiedzi i reakcje. Komentarze po 24 godzinach od publikacji postu automatycznie wygasają.
-
-> **Uwaga:** Wspólniak jest prywatny — treści widzi wyłącznie rodzina zalogowana na waszej instancji. Nikt spoza rodziny nie zobaczy żadnego posta.
+Pod postem dodasz emoji i komentarze — pełny opis: [Reakcje i komentarze](/product/reactions-comments).
 
 ## Przypinanie postów
 
-Ważne ogłoszenia (np. urodziny, plany na weekend) możesz przypiąć na górze feedu. Przypięte posty są nieusuwalne z feedu dopóki nie odpięte.
+Ważne ogłoszenia (np. urodziny, plany na weekend) administrator może przypiąć na górze feedu — jednocześnie wisi najwyżej 3 przypięte posty. Przypięty post ma widoczną ramkę i etykietę „Przypięty post".
+
+> **Uwaga:** Wspólniak jest prywatny — treści widzi wyłącznie rodzina zalogowana na waszej instancji. Nikt spoza rodziny nie zobaczy żadnego posta.
 
 ## Wsparcie
 
