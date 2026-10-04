@@ -652,7 +652,7 @@
 
 ## Project Metrics
 
-- Current application codebase size: **66,078 lines of code** as measured on 2026-10-03 (66,607 total minus 529 SQL migrations).
+- Current application codebase size: **67,055 lines of code** as measured on 2026-10-04 (67,540 total minus 485 SQL migrations).
 - Documentation content (docs Markdown under `src/docs/content/`): **478 lines** as measured on 2026-10-03.
 - Scope: `src/` and `scripts/` source files, excluding generated files, SQL migrations, build artifacts, and dependencies.
 - This metric must be recalculated and kept current whenever the codebase changes in a way that materially affects line count.
