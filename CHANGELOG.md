@@ -1,3 +1,10 @@
+# [5.16.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.15.1...v5.16.0) (2026-10-04)
+
+
+### Features
+
+* **chat:** composer command bar — @ button, / command picker, /link tokens ([#214](https://github.com/CrystalPlatforms/wspolniak/issues/214)) ([8d4bae6](https://github.com/CrystalPlatforms/wspolniak/commit/8d4bae67a990b2629ddcfed88b6923d0d0f0cecd))
+
 ## [5.15.1](https://github.com/CrystalPlatforms/wspolniak/compare/v5.15.0...v5.15.1) (2026-10-03)
 
 
