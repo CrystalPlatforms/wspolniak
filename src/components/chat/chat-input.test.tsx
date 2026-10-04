@@ -119,3 +119,109 @@ describe("ChatInput — @mentions", () => {
 		expect(screen.queryByText("Tomek")).toBeNull();
 	});
 });
+
+describe("ChatInput — command bar (#214)", () => {
+	afterEach(() => {
+		cleanup();
+		vi.restoreAllMocks();
+		vi.unstubAllGlobals();
+	});
+
+	it("@ button inserts @ and opens the member picker", async () => {
+		vi.stubGlobal("fetch", mockFetchUsers([{ id: "u2", name: "Ania" }]));
+		const user = userEvent.setup();
+		render(<TestHost />);
+
+		await user.click(screen.getByRole("button", { name: "Wstaw @" }));
+
+		const input = screen.getByLabelText("Wiadomość") as HTMLInputElement;
+		expect(input.value).toBe("@");
+		const list = await screen.findByRole("list", { name: "Wspomnij osobę" });
+		expect(list.textContent).toContain("Ania");
+	});
+
+	it("slash button inserts / into the input and opens the command picker", async () => {
+		const user = userEvent.setup();
+		render(<TestHost />);
+
+		await user.click(screen.getByRole("button", { name: "Polecenia" }));
+
+		const input = screen.getByLabelText("Wiadomość") as HTMLInputElement;
+		expect(input.value).toBe("/");
+		const picker = screen.getByRole("list", { name: "Polecenia" });
+		expect(picker.textContent).toContain("/link");
+	});
+
+	it("typing / opens the same command picker; Enter picks /link and opens the link form", async () => {
+		const user = userEvent.setup();
+		render(<TestHost />);
+
+		const input = screen.getByLabelText("Wiadomość");
+		await user.type(input, "/li");
+		// Picker widoczny po wpisaniu `/li` — ten sam co z przycisku.
+		const picker = await screen.findByRole("list", { name: "Polecenia" });
+		expect(picker.textContent).toContain("/link");
+
+		await user.type(input, "{Enter}");
+		// Wpisane `/li` znika z draftu, formularz /link otwarty.
+		expect((input as HTMLInputElement).value).toBe("");
+		expect(screen.getByRole("button", { name: "Wstaw" })).toBeTruthy();
+	});
+
+	it("Escape closes the command picker", async () => {
+		const user = userEvent.setup();
+		render(<TestHost />);
+
+		await user.click(screen.getByRole("button", { name: "Polecenia" }));
+		await screen.findByRole("list", { name: "Polecenia" });
+		await user.type(screen.getByLabelText("Wiadomość"), "{Escape}");
+
+		expect(screen.queryByRole("list", { name: "Polecenia" })).toBeNull();
+	});
+
+	it("saving the link form inserts the token at the caret, combined with existing text", async () => {
+		const user = userEvent.setup();
+		render(<TestHost />);
+
+		const input = screen.getByLabelText("Wiadomość") as HTMLInputElement;
+		await user.type(input, "Hej ");
+		await user.click(screen.getByRole("button", { name: "Polecenia" }));
+		// Wybór /link z pickera otwiera formularz.
+		await user.click(screen.getByText("/link"));
+		await screen.findByRole("button", { name: "Wstaw" });
+
+		await user.type(screen.getByLabelText("Tytuł"), "Przepis");
+		await user.type(screen.getByLabelText("Adres URL"), "https://example.com");
+		await user.click(screen.getByRole("button", { name: "Wstaw" }));
+
+		expect(input.value).toBe("Hej [Przepis](https://example.com)");
+	});
+
+	it("typing @ closes the open link form and opens the member picker", async () => {
+		vi.stubGlobal("fetch", mockFetchUsers([{ id: "u2", name: "Ania" }]));
+		const user = userEvent.setup();
+		render(<TestHost />);
+
+		await user.click(screen.getByRole("button", { name: "Polecenia" }));
+		await user.click(screen.getByText("/link"));
+		await screen.findByRole("button", { name: "Wstaw" });
+
+		await user.type(screen.getByLabelText("Wiadomość"), "@");
+
+		expect(screen.queryByRole("button", { name: "Wstaw" })).toBeNull();
+		await screen.findByRole("list", { name: "Wspomnij osobę" });
+	});
+
+	it("@ button mid-word inserts a leading space so the picker opens", async () => {
+		vi.stubGlobal("fetch", mockFetchUsers([{ id: "u2", name: "Ania" }]));
+		const user = userEvent.setup();
+		render(<TestHost />);
+
+		const input = screen.getByLabelText("Wiadomość") as HTMLInputElement;
+		await user.type(input, "hej");
+		await user.click(screen.getByRole("button", { name: "Wstaw @" }));
+
+		expect(input.value).toBe("hej @");
+		await screen.findByRole("list", { name: "Wspomnij osobę" });
+	});
+});
