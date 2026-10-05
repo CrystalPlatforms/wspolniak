@@ -1,3 +1,10 @@
+# [5.17.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.16.0...v5.17.0) (2026-10-05)
+
+
+### Features
+
+* **docs:** full technical & bugs coverage — 11 technical + 7 bugs articles ([#213](https://github.com/CrystalPlatforms/wspolniak/issues/213)) ([2d96bae](https://github.com/CrystalPlatforms/wspolniak/commit/2d96baec061d7d13327c6717f16c35b26953a779))
+
 # [5.16.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.15.1...v5.16.0) (2026-10-04)
 
 
