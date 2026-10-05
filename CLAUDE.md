@@ -98,7 +98,7 @@ Każda domena eksportuje:
 
 - `src/hono/api/` — endpointy Hono
 - `src/hono/factory.ts` — typed Hono with Env bindings
-- Middleware chain: requestId → errorHandler → cors → auth → rateLimiter → validator
+- Auth middleware doklejany per endpoint, middleware admina dla strefy admina, walidacja Zod per-handler; rate limiting tam, gdzie trzeba (np. logowanie kodem dostępu — 5 prób/min/IP)
 - Handlers call query functions from `@/db/{domain}` (thin wrappers)
 
 ### PWA & Push
@@ -193,16 +193,19 @@ trzymaj w `/docs` lub `plans/`.
 
 ### Upload zdjęć — w toku (wrzesień 2026, issue #199 + follow-up)
 
-Naprawa uploadu (issue #199): twardy limit czasu **per plik** — upload zdjęcia 20 s
-(`FILE_UPLOAD_TIMEOUT_MS`), szybkie requesty JSON 7 s (`UPLOAD_TIMEOUT_MS`), a po 7 s
-uploadu pliku UI pokazuje ostrzeżenie „wolne łącze" (`onSlowUpload`), nie przerywając
-uploadu. Wideo nie ma twardego limitu (chunked upload z własnym progresem %).
+Upload (issue #199 + #203): szybkie requesty JSON mają timeout 7 s (`UPLOAD_TIMEOUT_MS`),
+a upload samego pliku **nie ma twardego limitu** (celowo — licznik przerywał transfery,
+które by się dokończyły). Ostrzeżenie „wolne łącze" (`onSlowLink`) wychodzi z mierzonej
+przepustowości (~100 KB/s), pokazuje się raz na plik, bez przerywania uploadu. Wideo nie
+ma twardego limitu (chunked upload z własnym progresem %).
 
 Dwie funkcje do wdrożenia (TDD Vertical Slice — issue na GitHubie):
 1. **Za duże zdjęcie — detekcja przed publikacją:** podgląd zdjęcia robi się czerwony
    z wykrzyknikiem na środku; kliknięcie otwiera dialog z błędem.
 2. **Crop/kompresja w dialogu błędu:** opcja obcięcia zdjęcia, która realnie zmniejsza
    rozmiar pliku. Szczegóły UX do zaprojektowania w trakcie implementacji.
+3. **Limit pliku 15 MB → 19 MB:** twardy sufit Cloudflare Images to 20 MB na obraz,
+   więc 19 MB zostaje bezpiecznie pod nim.
 
 ## Reguły specyficzne dla technologii
 
