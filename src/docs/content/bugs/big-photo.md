@@ -54,3 +54,8 @@ Aby telefon domyślnie zapisywał mniejsze pliki, zmień poniższe ustawienia:
 | Obsługiwane formaty | JPEG, PNG, WebP, HEIC, HEIF |
 | Maksymalna liczba zdjęć w poście | 10 |
 | Przetwarzanie po stronie serwera | Cloudflare Images (automatyczne warianty rozmiarów) |
+
+## Zobacz też
+
+- [Upload trwa wieczność](/bugs/slow-upload) — gdy zdjęcie wlecze się przez wolne łącze
+- [Dokumentacja techniczna: Upload zdjęć pod maską](/technical/photo-upload-pipeline) — jak działa zmniejszanie i wysyłka

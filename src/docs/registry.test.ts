@@ -64,16 +64,36 @@ describe("docs registry", () => {
 			]);
 		});
 
-		it("zwraca dokumenty techniczne posortowane po slugu", () => {
+		it("zwraca dokumenty techniczne posortowane po slugu (F9 #213 — pełne pokrycie platformy)", () => {
 			expect(listDocs("technical").map((doc) => doc.slug)).toEqual([
+				"al-internals",
 				"architecture",
+				"database-and-domains",
 				"deploy-and-migrations",
+				"docs-under-the-hood",
+				"limits-and-performance",
+				"photo-upload-pipeline",
+				"push-under-the-hood",
+				"pwa-offline",
+				"realtime-chat",
+				"security-and-privacy",
 				"stack",
+				"testing-strategy",
+				"video-pipeline",
 			]);
 		});
 
-		it("dział bugs ma zmigrowany artykuł o za dużym zdjęciu (F4 #207)", () => {
-			expect(listDocs("bugs").map((doc) => doc.slug)).toContain("big-photo");
+		it("dział bugs ma pełny zestaw artykułów (F9 #213, big-photo z F4 #207)", () => {
+			expect(listDocs("bugs").map((doc) => doc.slug)).toEqual([
+				"big-photo",
+				"chat-messages-missing",
+				"feature-turned-off",
+				"magic-link-not-arriving",
+				"push-notifications-missing",
+				"slow-upload",
+				"stale-content-cache",
+				"youtube-video-problems",
+			]);
 		});
 
 		it("ma dokument w każdym dziale (spójność registry)", () => {
@@ -87,12 +107,13 @@ describe("docs registry", () => {
 		it("trafienie w tytule wygrywa z trafieniem w treści", () => {
 			const results = searchDocs("wideo");
 
-			// Tytułowe trafienia (10) wygrywają z treściowymi: uploading-photos
-			// i videos mają „wideo" w tytule (remis — kolejność z ALL_DOCS),
-			// pozostałe dokumenty mają „wideo" tylko w treści.
+			// Tytułowe trafienia (10) wygrywają z treściowymi: uploading-photos,
+			// videos i video-pipeline (F9 #213) mają „wideo" w tytule (remis —
+			// kolejność z ALL_DOCS: product przed technical), pozostałe
+			// dokumenty mają „wideo" tylko w treści.
 			const resultsSlugs = results.map((result) => result.doc.slug);
-			expect(resultsSlugs.slice(0, 2)).toEqual(["uploading-photos", "videos"]);
-			for (const result of results.slice(2)) {
+			expect(resultsSlugs.slice(0, 3)).toEqual(["uploading-photos", "videos", "video-pipeline"]);
+			for (const result of results.slice(3)) {
 				expect(result.score).toBeLessThan(10);
 			}
 		});

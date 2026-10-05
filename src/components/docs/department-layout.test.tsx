@@ -106,13 +106,14 @@ describe("DepartmentLayout (sidebar F5 #208)", () => {
 		expect(screen.getByRole("button", { name: "Deploy i migracje" })).toBeTruthy();
 	});
 
-	it("renderuje grupe i dokumenty z manifestu (bledy)", async () => {
+	it("renderuje grupy i dokumenty z manifestu (bledy, F9 #213)", async () => {
 		renderInRouter(<DepartmentLayout department="bugs">tresc</DepartmentLayout>, "/bugs/big-photo");
 
-		expect(await screen.findByText("Znane problemy")).toBeTruthy();
+		expect(await screen.findByText("Zdjęcia i filmiki")).toBeTruthy();
 		expect(
 			screen.getByRole("button", { name: "Zdjęcie przekracza dozwolony rozmiar pliku" }),
 		).toBeTruthy();
+		expect(screen.getByRole("button", { name: "Filmik z YouTube nie działa" })).toBeTruthy();
 	});
 
 	it("aktywny dokument jest podswietlony (data-active z activeSlug)", async () => {
@@ -150,7 +151,7 @@ describe("DepartmentLayout (sidebar F5 #208)", () => {
 			"/bugs/big-photo",
 		);
 
-		await screen.findByText("Znane problemy");
+		await screen.findByText("Powiadomienia i czat");
 		expect(screen.queryByRole("dialog", { name: "Nawigacja dokumentacji" })).toBeNull();
 
 		await userEvent.click(screen.getByRole("button", { name: "Otwórz nawigację dokumentacji" }));

@@ -7,7 +7,10 @@
 	"compatibility_date": "2025-09-02",
 	"compatibility_flags": ["nodejs_compat"],
 	"main": "./src/server.ts",
-	"routes": [{ "pattern": "wspolniak.com", "custom_domain": true }],
+	"routes": [
+		{ "pattern": "wspolniak.com", "custom_domain": true },
+		{ "pattern": "docs.wspolniak.com", "custom_domain": true }
+	],
 	"vars": {
 		"APP_URL": "https://wspolniak.com"
 	},

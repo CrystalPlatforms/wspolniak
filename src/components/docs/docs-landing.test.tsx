@@ -93,14 +93,15 @@ describe("DocsLanding", () => {
 		expect(link.getAttribute("href")).toBe("/product/feed-and-posts");
 	});
 
-	it("karta Błędy ma treść i linkuje do artykułu big-photo (F4 #207)", async () => {
+	it("karta Błędy ma treść i linkuje do pierwszego dokumentu bugów (F9 #213)", async () => {
 		renderInRouter(<DocsLanding />);
 
-		// Wszystkie trzy karty działów są linkami do PIERWSZEGO dokumentu swojego
-		// działu — w tym Błędy do zmigrowanego artykułu.
+		// Wszystkie trzy karty działów są linkami do PIERWSZEGO dokumentu
+		// pierwszej grupy swojego działu — w bugach od F9 jest to artykuł
+		// o magic linku (najczęstszy rodzinny problem staje na czele).
 		const links = await screen.findAllByRole("link");
 		const hrefs = links.map((link) => link.getAttribute("href"));
-		expect(hrefs).toContain("/bugs/big-photo");
+		expect(hrefs).toContain("/bugs/magic-link-not-arriving");
 		expect(screen.queryByText("Wkrótce")).toBeNull();
 	});
 

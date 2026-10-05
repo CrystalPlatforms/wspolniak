@@ -5,13 +5,21 @@
 // więc manifest nie renderuje martwych linków.
 
 import {
+	BellRing,
+	BookOpen,
+	Bot,
 	FolderOpen,
+	Gauge,
 	Heart,
 	ImageOff,
+	KeyRound,
 	Layers,
 	type LucideIcon,
 	Newspaper,
+	ShieldCheck,
 	Sparkles,
+	Wrench,
+	Zap,
 } from "lucide-react";
 import { type DocDepartment, getDoc } from "./registry";
 
@@ -64,15 +72,62 @@ const MANIFESTS: Record<DocDepartment, GroupDef[]> = {
 	technical: [
 		{
 			label: "Platforma",
-			slugs: ["stack", "architecture", "deploy-and-migrations"],
+			slugs: [
+				"stack",
+				"architecture",
+				"deploy-and-migrations",
+				"database-and-domains",
+				"testing-strategy",
+				"docs-under-the-hood",
+			],
 			icon: Layers,
+		},
+		{
+			label: "Bezpieczeństwo",
+			slugs: ["security-and-privacy"],
+			icon: ShieldCheck,
+		},
+		{
+			label: "Multimedia i limity",
+			slugs: ["photo-upload-pipeline", "video-pipeline", "limits-and-performance"],
+			icon: Gauge,
+		},
+		{
+			label: "Czas rzeczywisty",
+			slugs: ["realtime-chat", "push-under-the-hood", "pwa-offline"],
+			icon: Zap,
+		},
+		{
+			label: "Sztuczna inteligencja",
+			slugs: ["al-internals"],
+			icon: Bot,
+		},
+		{
+			label: "Dokumentacja",
+			slugs: ["docs-under-the-hood"],
+			icon: BookOpen,
 		},
 	],
 	bugs: [
 		{
-			label: "Znane problemy",
-			slugs: ["big-photo"],
+			label: "Konto i logowanie",
+			slugs: ["magic-link-not-arriving"],
+			icon: KeyRound,
+		},
+		{
+			label: "Zdjęcia i filmiki",
+			slugs: ["big-photo", "youtube-video-problems", "slow-upload"],
 			icon: ImageOff,
+		},
+		{
+			label: "Powiadomienia i czat",
+			slugs: ["push-notifications-missing", "chat-messages-missing"],
+			icon: BellRing,
+		},
+		{
+			label: "Aplikacja",
+			slugs: ["stale-content-cache", "feature-turned-off"],
+			icon: Wrench,
 		},
 	],
 };

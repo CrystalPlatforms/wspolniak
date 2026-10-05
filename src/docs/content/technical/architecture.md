@@ -14,7 +14,7 @@ if (url.pathname.startsWith("/api/")) {
 }
 ```
 
-- `/api/*` → **Hono API** (middleware: requestId → errorHandler → cors → auth → rateLimiter → validator)
+- `/api/*` → **Hono API** — auth middleware doklejany per endpoint, middleware admina dla strefy admina, walidacja Zod per-handler, rate limiting tam, gdzie trzeba (np. logowanie kodem dostępu)
 - `/app/u/*` → auth middleware (magic links)
 - reszta → **TanStack Start SSR** (routing plikowy w `src/routes/`)
 
