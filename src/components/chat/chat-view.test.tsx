@@ -54,6 +54,8 @@ interface ApiMessage {
 	id: string;
 	authorId: string;
 	text: string;
+	kind?: string;
+	payload?: unknown;
 	replyToId?: string | null;
 	replyText?: string | null;
 	createdAt: string;
@@ -996,4 +998,192 @@ it("@ → wybór z listy → Enter: POST niesie @imię w treści", async () => {
 	// Optymistyczny/potwierdzony bąbelek własny — mention podkreślony.
 	const mention = await screen.findByText("@Ania");
 	expect(mention.classList.contains("underline")).toBe(true);
+});
+
+// Założenia kontraktu spójności (F2 #215 + F3 #216):
+// - Ankieta i lokalizacja to pełnoprawne wiadomości: menu (reakcje/odpowiedź/
+//   usuwanie), quote i highlight działają na message id, niezależnie od kind.
+// - Ankieta renderuje pytanie + opcje; lokalizacja kartę z linkiem — w tym samym
+//   szkielecie bąbelka (data-side, godzina, menu).
+describe("ChatView — spójność ankiet i lokalizacji (F2 #215, F3 #216)", () => {
+	beforeEach(() => {
+		vi.stubGlobal("WebSocket", FakeWebSocket);
+		FakeWebSocket.instances = [];
+	});
+
+	function quoteIn(rowId: string): HTMLElement {
+		const row = document.querySelector(`[data-message-id="${rowId}"]`);
+		return row?.querySelector("[data-reply-quote]") as HTMLElement;
+	}
+
+	function rowOf(rowId: string): HTMLElement {
+		return document.querySelector(`[data-message-id="${rowId}"]`) as HTMLElement;
+	}
+
+	const pollMessage = apiMessage({
+		id: "m-poll",
+		text: "Pizza w piątek?",
+		kind: "poll",
+		payload: { options: ["Tak", "Nie"] },
+	});
+
+	it("renders a poll message as an interactive bubble with question and options", async () => {
+		mockChatApi([pollMessage]);
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
+
+		await screen.findByText("Pizza w piątek?");
+		expect(screen.getByRole("button", { name: "Głosuj na: Tak" })).toBeDefined();
+		expect(screen.getByRole("button", { name: "Głosuj na: Nie" })).toBeDefined();
+	});
+
+	it("Odpowiedz on a poll message quotes the question; sending keeps the poll untouched", async () => {
+		const user = userEvent.setup();
+		const confirmed = apiMessage({
+			id: "m2",
+			authorId: "u1",
+			author: { id: "u1", name: "Tomek" },
+			text: "Jasne!",
+			replyToId: "m-poll",
+			replyText: "Pizza w piątek?",
+		});
+		const { fetchMock } = mockChatApi([pollMessage], { ok: true, message: confirmed });
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
+		await screen.findByText("Pizza w piątek?");
+
+		fireEvent.contextMenu(bubbleOf("Pizza w piątek?"), { clientX: 50, clientY: 50 });
+		await user.click(screen.getByRole("menuitem", { name: "Odpowiedz" }));
+
+		// Quote preview nad inputem pokazuje pytanie ankiety.
+		const preview = document.querySelector("[data-reply-preview]");
+		expect(preview?.textContent).toContain("Pizza w piątek?");
+
+		await user.type(screen.getByLabelText("Wiadomość"), "Jasne!");
+		await user.click(screen.getByRole("button", { name: /wyślij/i }));
+
+		const postCall = fetchMock.mock.calls.find(
+			([url, init]) => url === "/api/chat/messages" && init?.method === "POST",
+		);
+		expect(JSON.parse(String(postCall?.[1]?.body))).toMatchObject({
+			text: "Jasne!",
+			replyToId: "m-poll",
+		});
+
+		// Odpowiedź renderuje quote wskazujący na ankietę.
+		await screen.findByText("Jasne!");
+		const quote = document.querySelector("[data-reply-quote]");
+		expect(quote?.textContent).toContain("Pizza w piątek?");
+	});
+
+	it("clicking the quote scrolls to the poll original and highlights it (7s)", async () => {
+		const reply = apiMessage({
+			id: "m2",
+			authorId: "u1",
+			author: { id: "u1", name: "Tomek" },
+			text: "Jasne!",
+			replyToId: "m-poll",
+			replyText: "Pizza w piątek?",
+		});
+		mockChatApi([pollMessage, reply]);
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
+		await screen.findByText("Jasne!");
+		Element.prototype.scrollIntoView = vi.fn();
+
+		vi.useFakeTimers();
+		try {
+			fireEvent.click(quoteIn("m2"));
+
+			const pollRow = rowOf("m-poll");
+			expect(pollRow.classList.contains("chat-highlight")).toBe(true);
+
+			// Poświata gaśnie po dokładnie 7 s (jak dla tekstu).
+			act(() => {
+				vi.advanceTimersByTime(7_000);
+			});
+			expect(pollRow.classList.contains("chat-highlight")).toBe(false);
+		} finally {
+			vi.useRealTimers();
+		}
+	});
+
+	it("Usuń in the menu deletes a poll message like a plain one", async () => {
+		const user = userEvent.setup();
+		// Własna ankieta (autor u1) — „Usuń" dostępne bez admina, jak dla tekstu.
+		const ownPoll = apiMessage({
+			id: "m-poll",
+			authorId: "u1",
+			author: { id: "u1", name: "Tomek" },
+			text: "Pizza w piątek?",
+			kind: "poll",
+			payload: { options: ["Tak", "Nie"] },
+		});
+		const { fetchMock } = mockChatApi([ownPoll]);
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
+		await screen.findByText("Pizza w piątek?");
+
+		fireEvent.contextMenu(bubbleOf("Pizza w piątek?"), { clientX: 50, clientY: 50 });
+		await user.click(screen.getByRole("menuitem", { name: "Usuń" }));
+
+		await waitFor(() => {
+			const deleteCall = fetchMock.mock.calls.find(
+				([url, init]) => url === "/api/chat/messages/m-poll" && init?.method === "DELETE",
+			);
+			expect(deleteCall).toBeDefined();
+		});
+	});
+
+	it("a location message renders a card with the external maps link in the bubble skeleton", async () => {
+		mockChatApi([
+			apiMessage({
+				id: "m-loc",
+				text: "Domek",
+				kind: "location",
+				payload: { lat: 53.86, lng: 21.54, label: "Domek" },
+			}),
+		]);
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
+		await screen.findByText("Domek");
+
+		const link = screen.getByRole("link", { name: "Otwórz w mapach" });
+		expect(link.getAttribute("href")).toContain("53.86,21.54");
+		// Pełnoprawny bąbelek: strona i menu jak zwykła wiadomość.
+		expect(document.querySelector('[data-message-id="m-loc"]')?.getAttribute("data-side")).toBe(
+			"other",
+		);
+		fireEvent.contextMenu(bubbleOf("Domek"), { clientX: 50, clientY: 50 });
+		expect(screen.getByRole("menu", { name: "Menu wiadomości" })).toBeDefined();
+	});
+
+	it("a WS delete event removes a location message like a plain one", async () => {
+		mockChatApi([
+			apiMessage({
+				id: "m-loc",
+				text: "Domek",
+				kind: "location",
+				payload: { lat: 53.86, lng: 21.54 },
+			}),
+		]);
+		render(<ChatView currentUserId="u1" currentUserName="Tomek" isAdmin={false} />, {
+			wrapper: createWrapper(),
+		});
+		await screen.findByText("53.86000, 21.54000");
+
+		const socket = FakeWebSocket.instances[0];
+		act(() => {
+			socket?.onmessage?.({ data: JSON.stringify({ type: "delete", data: { messageId: "m-loc" } }) });
+		});
+
+		await waitFor(() => {
+			expect(screen.queryByText("53.86000, 21.54000")).toBeNull();
+		});
+	});
 });

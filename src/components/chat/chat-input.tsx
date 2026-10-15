@@ -18,13 +18,36 @@ import {
 	filterCommands,
 } from "./chat-commands";
 import { ChatLinkForm } from "./chat-link-form";
+import { ChatLocationForm } from "./chat-location-form";
+import { ChatPollForm } from "./chat-poll-form";
 import { buildLinkToken } from "./link-tokens";
+
+/** Dane formularza /ankieta (F2 #215) — pytanie + 2–6 opcji. */
+export interface ChatPollInput {
+	question: string;
+	options: string[];
+}
+
+/** Dane formularza /polozenie (F3 #216) — pinezka + opcjonalna etykieta. */
+export interface ChatLocationInput {
+	lat: number;
+	lng: number;
+	label?: string;
+}
 
 export interface ChatInputProps {
 	value: string;
 	onChange: (value: string) => void;
 	/** Enter bez otwartej listy mentionów = wyślij (dotychczasowe zachowanie czatu). */
 	onSend: () => void;
+	/** Zapis ankiety (F2 #215) — ChatView wysyła POST; resolve = zamknij formularz. */
+	onSendPoll: (input: ChatPollInput) => Promise<void>;
+	/** Wysyłka ankiety w toku — blokuje przycisk formularza. */
+	pollPending: boolean;
+	/** Zapis lokalizacji (F3 #216) — ChatView wysyła POST; resolve = zamknij formularz. */
+	onSendLocation: (input: ChatLocationInput) => Promise<void>;
+	/** Wysyłka lokalizacji w toku — blokuje przycisk formularza. */
+	locationPending: boolean;
 	/** Id zalogowanego użytkownika — wykluczone z listy (anti self-mention UX). */
 	currentUserId?: string;
 	disabled?: boolean;
@@ -79,7 +102,17 @@ function ChatCommandPicker({
  * Mention to czysty tekst `@imię ` — bez metadanych i powiadomień (czat nie ma
  * push; treść niesie mention sama z siebie).
  */
-export function ChatInput({ value, onChange, onSend, currentUserId, disabled }: ChatInputProps) {
+export function ChatInput({
+	value,
+	onChange,
+	onSend,
+	onSendPoll,
+	pollPending,
+	onSendLocation,
+	locationPending,
+	currentUserId,
+	disabled,
+}: ChatInputProps) {
 	const inputRef = useRef<HTMLInputElement>(null);
 	const [detection, setDetection] = useState<MentionDetection | null>(null);
 	const users = useMentionUsers(detection?.query ?? null);
@@ -88,8 +121,12 @@ export function ChatInput({ value, onChange, onSend, currentUserId, disabled }: 
 	// Null = picker zamknięty. Wzajemnie wykluczona z mentionem (patrz handleChange).
 	const [command, setCommand] = useState<CommandDetection | null>(null);
 	const [commandIndex, setCommandIndex] = useState(0);
-	// Formularz /link: zapamiętana pozycja karety do wstawienia tokenu; null = zamknięty.
+	// Formularze komend (#214, #215, #216): /link zapamiętuje pozycję karety do
+	// wstawienia tokenu; /ankieta i /polozenie nie dotykają draftu. Null/false =
+	// zamknięte. Wzajemnie wykluczone.
 	const [linkCaret, setLinkCaret] = useState<number | null>(null);
+	const [pollOpen, setPollOpen] = useState(false);
+	const [locationOpen, setLocationOpen] = useState(false);
 
 	const filteredUsers = currentUserId ? users.filter((u) => u.id !== currentUserId) : users;
 
@@ -100,20 +137,24 @@ export function ChatInput({ value, onChange, onSend, currentUserId, disabled }: 
 		const detected = detectMentionQuery(target.value, caret);
 		if (detected) {
 			// Mention wygrywa z komendą (reguła #168); nowy query = pierwszy wiersz.
-			// Otwarty formularz /link ustępuje oknu mentionów.
+			// Otwarte formularze komend ustępują oknu mentionów.
 			setDetection(detected);
 			setCommand(null);
 			setLinkCaret(null);
+			setPollOpen(false);
+			setLocationOpen(false);
 			setActiveIndex(0);
 			return;
 		}
 		setDetection(null);
 		const detectedCommand = detectCommandQuery(target.value, caret);
 		if (detectedCommand) {
-			// Nowy query komendy = pierwszy wiersz listy; formularz /link ustępuje.
+			// Nowy query komendy = pierwszy wiersz listy; otwarte formularze ustępują.
 			setCommand(detectedCommand);
 			setCommandIndex(0);
 			setLinkCaret(null);
+			setPollOpen(false);
+			setLocationOpen(false);
 		} else {
 			setCommand(null);
 		}
@@ -169,16 +210,48 @@ export function ChatInput({ value, onChange, onSend, currentUserId, disabled }: 
 
 	/**
 	 * Wybór komendy z pickera: czyści wpisane `/query` z draftu (Enter z klawiatury
-	 * wpisuje je do pola — nie chcemy `/link` w treści) i otwiera formularz /link
-	 * na pozycji karety.
+	 * wpisuje je do pola — nie chcemy `/link` w treści) i otwiera formularz komendy.
+	 * `/link` wstawia token na pozycji karety; `/ankieta` (#215) i `/polozenie`
+	 * (#216) nie dotykają draftu — otwierają tylko formularz nad inputem.
 	 */
-	function pickCommand(_picked: ChatCommand) {
-		// Wpisana treść `/query` znika z draftu — token wstaje dokładnie w jej miejsce.
+	function pickCommand(picked: ChatCommand) {
+		// Wpisana treść `/query` znika z draftu — formularz wstaje dokładnie w jej miejsce.
 		const start = command?.startIndex ?? value.length;
 		const end = start + 1 + (command?.query.length ?? 0);
 		onChange(value.slice(0, start) + value.slice(end));
 		setCommand(null);
+		if (picked.name === "/ankieta") {
+			setPollOpen(true);
+			return;
+		}
+		if (picked.name === "/polozenie") {
+			setLocationOpen(true);
+			return;
+		}
 		setLinkCaret(start);
+	}
+
+	/**
+	 * Zapis ankiety (F2 #215): wysyłka przez ChatView; resolve = sukces → zamykamy
+	 * formularz. Odrzucenie (błąd API/toast) — formularz zostaje z wpisaną treścią.
+	 */
+	async function sendPoll(input: ChatPollInput) {
+		try {
+			await onSendPoll(input);
+			setPollOpen(false);
+		} catch {
+			// Formularz zostaje otwarty — błąd raportuje toast w ChatView.
+		}
+	}
+
+	/** Zapis lokalizacji (F3 #216) — jak sendPoll: resolve zamyka, odrzucenie nie. */
+	async function sendLocation(input: ChatLocationInput) {
+		try {
+			await onSendLocation(input);
+			setLocationOpen(false);
+		} catch {
+			// Formularz zostaje otwarty — błąd raportuje toast w ChatView.
+		}
 	}
 
 	/** Zapis formularza /link: token wstawiony na zapamiętanej karecie formularza. */
@@ -339,11 +412,26 @@ export function ChatInput({ value, onChange, onSend, currentUserId, disabled }: 
 						onSelect={pickCommand}
 					/>
 				)}
-				{linkCaret !== null ? (
+				{pollOpen || locationOpen || linkCaret !== null ? (
 					/* Mobilnie: okno na szerokości od przycisku @ (100px w lewo) do
-					   przycisku wyślij (52px w prawo). */
+					   przycisku wyślij (52px w prawo). Formularze komend (#214/#215/#216)
+					   są wzajemnie wykluczone. */
 					<div className="absolute bottom-full left-0 right-0 mb-2 max-md:-left-[100px] max-md:-right-[52px]">
-						<ChatLinkForm onSave={saveLink} onCancel={() => setLinkCaret(null)} />
+						{pollOpen ? (
+							<ChatPollForm
+								onSave={sendPoll}
+								onCancel={() => setPollOpen(false)}
+								pending={pollPending}
+							/>
+						) : locationOpen ? (
+							<ChatLocationForm
+								onSave={sendLocation}
+								onCancel={() => setLocationOpen(false)}
+								pending={locationPending}
+							/>
+						) : (
+							<ChatLinkForm onSave={saveLink} onCancel={() => setLinkCaret(null)} />
+						)}
 					</div>
 				) : null}
 				{showDropdown && (

@@ -8,6 +8,11 @@ import {
 	type ChatReactionEvent,
 	type ChatReactionItem,
 } from "./chat-reactions";
+import {
+	applyPollVoteUpdate,
+	CHAT_POLLS_KEY,
+	type ChatPollVoteUpdate,
+} from "./chat-polls";
 import { CHAT_MESSAGES_KEY, type ChatMessageItem } from "./chat-view";
 
 /** Backoff reconnectu: 1s → 2s → 4s → … max 15s; reset po udanym połączeniu. */
@@ -21,11 +26,13 @@ const TYPING_EXPIRY_MS = 3_000;
 const TYPING_THROTTLE_MS = 2_000;
 
 /** Wydarzenia z DO — wiadomości (F2), anonimowy typing (F3), reakcje (F4),
- *  usunięcie wiadomości (F6 #157). */
+ *  usunięcie wiadomości (F6 #157), głosy ankiet (F2 #215 — same liczniki,
+ *  głosowanie tajne). */
 type ChatSocketEvent =
 	| { type: "message"; data: ChatMessageItem }
 	| { type: "reaction"; data: ChatReactionEvent }
 	| { type: "delete"; data: { messageId: string } }
+	| { type: "vote-update"; data: ChatPollVoteUpdate }
 	| { type: "typing" };
 
 /** Publiczny interfejs hooka: stan wskaźnika + throttlowane powiadomienie o pisaniu. */
@@ -46,8 +53,9 @@ function chatSocketUrl(): string {
 }
 
 /** Dispatch eventu z DO: message → cache wiadomości, reaction → cache reakcji,
- *  delete → callback (animacja przed kasowaniem cache), typing → callback
- *  (kropki + zegar wygaśnięcia). Wydzielone z onmessage (czytelność + limit złożoności). */
+ *  delete → callback (animacja przed kasowaniem cache), vote-update → cache
+ *  ankiet, typing → callback (kropki + zegar wygaśnięcia). Wydzielone z onmessage
+ *  (czytelność + limit złożoności). */
 function handleChatSocketEvent(
 	parsed: ChatSocketEvent,
 	queryClient: QueryClient,
@@ -63,6 +71,9 @@ function handleChatSocketEvent(
 		);
 	} else if (parsed.type === "delete" && parsed.data) {
 		onDelete?.(parsed.data.messageId);
+	} else if (parsed.type === "vote-update" && parsed.data) {
+		// Głos (kogokolwiek) — pełne agregaty z serwera, bez tożsamości głosującego.
+		applyPollVoteUpdate(queryClient, parsed.data);
 	} else if (parsed.type === "typing") {
 		onTyping();
 	}
@@ -134,6 +145,7 @@ export function useChatSocket(options: UseChatSocketOptions = {}): ChatSocketApi
 				// Refetch po (re)connect — łata ewentualne luki z czasu offline.
 				void queryClient.invalidateQueries({ queryKey: CHAT_MESSAGES_KEY });
 				void queryClient.invalidateQueries({ queryKey: CHAT_REACTIONS_KEY });
+				void queryClient.invalidateQueries({ queryKey: CHAT_POLLS_KEY });
 			};
 			socket.onmessage = (event) => {
 				try {

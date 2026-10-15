@@ -31,6 +31,8 @@ function apiMessage(overrides: Partial<ChatMessageItem> = {}): ChatMessageItem {
 		id: "m1",
 		authorId: "u2",
 		text: "Cześć!",
+		kind: "text",
+		payload: null,
 		replyToId: null,
 		replyText: null,
 		createdAt: "2026-08-22T10:00:00.000Z",

@@ -9,6 +9,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
+import { CHAT_POLLS_KEY } from "./chat-polls";
 import { CHAT_REACTIONS_KEY } from "./chat-reactions";
 import { CHAT_MESSAGES_KEY, type ChatMessageItem } from "./chat-view";
 import { removeChatMessage, useChatSocket } from "./use-chat-socket";
@@ -44,6 +45,8 @@ function incoming(id: string) {
 			id,
 			authorId: "u2",
 			text: `Wiadomość ${id}`,
+			kind: "text",
+			payload: null,
 			replyToId: null,
 			replyText: null,
 			createdAt: "2026-08-22T10:00:00.000Z",
@@ -59,6 +62,8 @@ function listMessage(id: string): ChatMessageItem {
 		id,
 		authorId: "u2",
 		text: `Wiadomość ${id}`,
+		kind: "text",
+		payload: null,
 		replyToId: null,
 		replyText: null,
 		createdAt: "2026-08-22T10:00:00.000Z",
@@ -194,6 +199,73 @@ describe("useChatSocket — reaction events (F4 #155)", () => {
 		await waitFor(() => {
 			expect(invalidateSpy).toHaveBeenCalledWith(
 				expect.objectContaining({ queryKey: CHAT_REACTIONS_KEY }),
+			);
+		});
+	});
+});
+
+// Założenia kontraktu vote-update (F2 #215):
+// - Event {type:"vote-update", data:{messageId, tallies}} nadpisuje liczniki
+//   w cache CHAT_POLLS_KEY (agregaty z serwera — głosowanie tajne, payload
+//   nie niesie userId/nazwisk, więc i cache ich nie przechowuje).
+// - Po (re)connect — refetch stanu ankiet (jak wiadomości i reakcji).
+describe("useChatSocket — vote-update (F2 #215)", () => {
+	it("applies a vote-update event to the polls cache without touching other state", async () => {
+		const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		client.setQueryData(CHAT_POLLS_KEY, { myVotes: {}, tallies: { "m-1": [1, 0] } });
+		vi.stubGlobal("WebSocket", FakeWebSocket);
+
+		const { result } = renderHook(() => useChatSocket(), { wrapper: createWrapper(client) });
+		const socket = FakeWebSocket.instances[0];
+
+		act(() => {
+			socket?.onmessage?.({
+				data: JSON.stringify({
+					type: "vote-update",
+					data: { messageId: "m-1", tallies: [1, 3] },
+				}),
+			});
+		});
+
+		await waitFor(() => {
+			expect(client.getQueryData(CHAT_POLLS_KEY)).toEqual({
+				myVotes: {},
+				tallies: { "m-1": [1, 3] },
+			});
+		});
+		expect(result.current.isSomeoneTyping).toBe(false);
+	});
+
+	it("ignores malformed vote-update payloads (socket stays alive)", () => {
+		const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		client.setQueryData(CHAT_POLLS_KEY, { myVotes: {}, tallies: { "m-1": [1, 0] } });
+		vi.stubGlobal("WebSocket", FakeWebSocket);
+
+		renderHook(() => useChatSocket(), { wrapper: createWrapper(client) });
+		const socket = FakeWebSocket.instances[0];
+
+		act(() => {
+			socket?.onmessage?.({ data: "nie jest JSONem" });
+			socket?.onmessage?.({ data: JSON.stringify({ type: "vote-update", data: null }) });
+		});
+
+		expect(client.getQueryData(CHAT_POLLS_KEY)).toEqual({
+			myVotes: {},
+			tallies: { "m-1": [1, 0] },
+		});
+	});
+
+	it("refetches the polls state when the (re)connection opens", async () => {
+		const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+		const invalidateSpy = vi.spyOn(client, "invalidateQueries");
+		vi.stubGlobal("WebSocket", FakeWebSocket);
+
+		renderHook(() => useChatSocket(), { wrapper: createWrapper(client) });
+
+		FakeWebSocket.instances[0]?.onopen?.();
+		await waitFor(() => {
+			expect(invalidateSpy).toHaveBeenCalledWith(
+				expect.objectContaining({ queryKey: CHAT_POLLS_KEY }),
 			);
 		});
 	});

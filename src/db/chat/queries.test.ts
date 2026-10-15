@@ -19,11 +19,13 @@ import {
 	createChatMessage,
 	deleteChatMessage,
 	deleteExpiredChatMessages,
+	getChatPollsState,
 	listChatMessages,
 	listChatReactions,
 	toggleChatReaction,
+	voteChatPoll,
 } from "./queries";
-import { chatMessages, chatReactions } from "./table";
+import { chatMessages, chatPollVotes, chatReactions } from "./table";
 
 vi.mock("@/db/setup", () => ({
 	getDb: vi.fn(),
@@ -41,6 +43,8 @@ function mockMessage(overrides: Partial<Record<string, unknown>> = {}) {
 		id: "msg-1",
 		authorId: "user-1",
 		text: "Cześć rodzeństwo!",
+		kind: "text",
+		payload: null,
 		replyToId: null,
 		replyText: null,
 		createdAt: now,
@@ -158,6 +162,8 @@ describe("deleteExpiredChatMessages (F7 #158)", () => {
 		const queryJson = JSON.stringify(mockExecute.mock.calls[0]?.[0]);
 		expect(queryJson).toContain("expires_at < now()");
 		expect(queryJson).toContain("delete from chat_reactions");
+		// F2 #215: głosy ankiet czyszczone razem z wiadomością (ten sam CTE).
+		expect(queryJson).toContain("chat_poll_votes");
 	});
 
 	it("returns 0 when nothing expired", async () => {
@@ -266,6 +272,8 @@ describe("listChatMessages", () => {
 				id: "m-1",
 				authorId: "user-1",
 				text: "Cześć rodzeństwo!",
+				kind: "text",
+				payload: null,
 				replyToId: null,
 				replyText: null,
 				createdAt: older,
@@ -276,6 +284,8 @@ describe("listChatMessages", () => {
 				id: "m-2",
 				authorId: "user-2",
 				text: "Cześć rodzeństwo!",
+				kind: "text",
+				payload: null,
 				replyToId: null,
 				replyText: null,
 				createdAt: now,
@@ -426,5 +436,257 @@ describe("listChatReactions (F4 #155)", () => {
 		expect(chunks.find((chunk) => chunk?.name === "expires_at")).toBeDefined();
 		const dateParam = chunks.find((chunk) => chunk?.value instanceof Date)?.value as Date;
 		expect(Math.abs(Date.now() - dateParam.getTime())).toBeLessThan(5_000);
+	});
+});
+
+// Założenia kontraktu głosowania (F2 #215 + toggle po HITL):
+// - voteChatPoll: żywa ankieta kind='poll' + indeks w zakresie opcji; zapis to
+//   ATOMOWY UPSERT po UNIQUE(message_id, user_id) — zmiana głosu podmienia
+//   wiersz, więc na głosującego przypadają zawsze dokładnie 1 wiersz i 1 głos.
+// - Ponowny klik w TĘ SAMĄ opcję = DELETE wiersza (wycofanie głosu, myVote null).
+// - Sekretność: zwracamy agregaty (tallies) + głos WYWOŁUJĄCEGO (myVote) —
+//   nigdy tożsamości innych głosujących.
+// - Brak/wygasła → 404; kind != 'poll' lub indeks poza zakresem → 400.
+describe("voteChatPoll (F2 #215)", () => {
+	function mockPollLookup(rows: unknown[]) {
+		const mockLimit = vi.fn().mockResolvedValue(rows);
+		const mockWhere = vi.fn().mockReturnValue({ limit: mockLimit });
+		const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
+		const mockPollSelect = vi.fn().mockReturnValue({ from: mockFrom });
+		return { mockPollSelect };
+	}
+
+	/**
+	 * select: 1) lookup ankiety, 2) lookup mojego głosu (toggle), 3+ agregacja.
+	 * delete: toggle-off (deleteWhere resolvuje). insert: upsert z ON CONFLICT.
+	 */
+	function mockUpsertDb(pollRows: unknown[], currentVoteRows: unknown[], tallyRows: unknown[]) {
+		const { mockPollSelect } = mockPollLookup(pollRows);
+		const voteLimit = vi.fn().mockResolvedValue(currentVoteRows);
+		const voteWhere = vi.fn().mockReturnValue({ limit: voteLimit });
+		const voteFrom = vi.fn().mockReturnValue({ where: voteWhere });
+		const mockGroupBy = vi.fn().mockResolvedValue(tallyRows);
+		const talliesWhere = vi.fn().mockReturnValue({ groupBy: mockGroupBy });
+		const talliesFrom = vi.fn().mockReturnValue({ where: talliesWhere });
+		const mockSelect = vi
+			.fn<(table?: unknown) => unknown>()
+			.mockImplementationOnce(mockPollSelect)
+			.mockImplementationOnce(() => ({ from: voteFrom }))
+			.mockReturnValue({ from: talliesFrom });
+		const mockOnConflict = vi.fn().mockResolvedValue(undefined);
+		const mockValues = vi.fn().mockReturnValue({ onConflictDoUpdate: mockOnConflict });
+		const mockInsert = vi.fn().mockReturnValue({ values: mockValues });
+		const deleteWhere = vi.fn().mockResolvedValue(undefined);
+		const mockDelete = vi.fn().mockReturnValue({ where: deleteWhere });
+		mockGetDb.mockReturnValue({
+			select: mockSelect,
+			insert: mockInsert,
+			delete: mockDelete,
+		} as never);
+		return { mockValues, mockInsert, mockOnConflict, mockDelete, deleteWhere };
+	}
+
+	it("upserts the vote (ON CONFLICT target = message+user) and returns tallies with myVote", async () => {
+		const { mockValues, mockInsert, mockOnConflict } = mockUpsertDb(
+			[{ kind: "poll", payload: { options: ["Tak", "Nie"] } }],
+			[],
+			[{ optionIndex: 1, votes: 2 }],
+		);
+
+		const result = await voteChatPoll({
+			messageId: "m-1",
+			userId: "user-1",
+			optionIndex: 1,
+		});
+
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+		// Zmiana głosu = podmiana po UNIQUE(message,user) — zawsze dokładnie jeden wiersz.
+		expect(mockInsert).toHaveBeenCalledWith(chatPollVotes);
+		expect(mockOnConflict).toHaveBeenCalledWith({
+			target: [chatPollVotes.messageId, chatPollVotes.userId],
+			set: { optionIndex: 1 },
+		});
+		const insertedValues = mockValues.mock.calls[0]?.[0];
+		expect(insertedValues).toMatchObject({
+			messageId: "m-1",
+			userId: "user-1",
+			optionIndex: 1,
+		});
+		// Agregat wypełnia zerami brakujące opcje; myVote = indeks oddanego głosu.
+		expect(result.data.tallies).toEqual([0, 2]);
+		expect(result.data.myVote).toBe(1);
+	});
+
+	it("retracts the vote on a second click of the same option (delete, myVote null)", async () => {
+		const { mockInsert, mockDelete, deleteWhere } = mockUpsertDb(
+			[{ kind: "poll", payload: { options: ["Tak", "Nie"] } }],
+			[{ optionIndex: 1 }],
+			[{ optionIndex: 0, votes: 1 }],
+		);
+
+		const result = await voteChatPoll({
+			messageId: "m-1",
+			userId: "user-1",
+			optionIndex: 1,
+		});
+
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+		// Toggle: usuwa wiersz (message_id, user_id) — nie dodaje drugiego.
+		expect(mockInsert).not.toHaveBeenCalled();
+		expect(mockDelete).toHaveBeenCalledWith(chatPollVotes);
+		expect(deleteWhere).toHaveBeenCalledTimes(1);
+		expect(result.data.myVote).toBeNull();
+		expect(result.data.tallies).toEqual([1, 0]);
+	});
+
+	it("moves the vote when clicking a different option (upsert, not delete)", async () => {
+		const { mockInsert, mockDelete, mockOnConflict } = mockUpsertDb(
+			[{ kind: "poll", payload: { options: ["Tak", "Nie"] } }],
+			[{ optionIndex: 0 }],
+			[{ optionIndex: 1, votes: 1 }],
+		);
+
+		const result = await voteChatPoll({
+			messageId: "m-1",
+			userId: "user-1",
+			optionIndex: 1,
+		});
+
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+		expect(mockInsert).toHaveBeenCalledWith(chatPollVotes);
+		expect(mockDelete).not.toHaveBeenCalled();
+		expect(mockOnConflict).toHaveBeenCalledWith({
+			target: [chatPollVotes.messageId, chatPollVotes.userId],
+			set: { optionIndex: 1 },
+		});
+		expect(result.data.myVote).toBe(1);
+	});
+
+	it("rejects a vote on a nonexistent/expired message with 404 (no insert)", async () => {
+		const { mockInsert } = mockUpsertDb([], [], []);
+
+		const result = await voteChatPoll({ messageId: "gone", userId: "user-1", optionIndex: 0 });
+
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.error.status).toBe(404);
+		expect(mockInsert).not.toHaveBeenCalled();
+	});
+
+	it("rejects a vote on a non-poll message with 400 (no insert)", async () => {
+		const { mockInsert } = mockUpsertDb([{ kind: "text", payload: null }], [], []);
+
+		const result = await voteChatPoll({ messageId: "m-1", userId: "user-1", optionIndex: 0 });
+
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.error.status).toBe(400);
+		expect(mockInsert).not.toHaveBeenCalled();
+	});
+
+	it("rejects an optionIndex beyond the payload options with 400 (no insert)", async () => {
+		const { mockInsert } = mockUpsertDb(
+			[{ kind: "poll", payload: { options: ["Tak", "Nie"] } }],
+			[],
+			[],
+		);
+
+		const result = await voteChatPoll({ messageId: "m-1", userId: "user-1", optionIndex: 2 });
+
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.error.status).toBe(400);
+		expect(mockInsert).not.toHaveBeenCalled();
+	});
+});
+
+// Założenia kontraktu stanu ankiet (F2 #215):
+// - getChatPollsState: tylko ŻYWE ankiety (kind='poll', expires_at > now);
+//   mój głos per wiadomość + liczniki per opcja. Głosy innych userów są liczone,
+//   ale ich tożsamość NIGDY nie wychodzi w kształcie odpowiedzi (sekretność).
+describe("getChatPollsState (F2 #215)", () => {
+	it("returns my vote and aggregated tallies for live polls, without other voters' identities", async () => {
+		// Mock ręczny: oba zapytania kończą się na .where() — tam resolvują wiersze.
+		const pollWhere = vi.fn().mockResolvedValue([
+			{ id: "m-1", payload: { options: ["Tak", "Nie"] } },
+		]);
+		const pollFrom = vi.fn().mockReturnValue({ where: pollWhere });
+		const votesWhere = vi.fn().mockResolvedValue([
+			{ messageId: "m-1", userId: "user-1", optionIndex: 0 },
+			{ messageId: "m-1", userId: "user-2", optionIndex: 0 },
+			{ messageId: "m-1", userId: "user-3", optionIndex: 1 },
+		]);
+		const votesFrom = vi.fn().mockReturnValue({ where: votesWhere });
+		const mockSelect = vi
+			.fn<(table?: unknown) => unknown>()
+			.mockImplementationOnce(() => ({ from: pollFrom }))
+			.mockImplementationOnce(() => ({ from: votesFrom }));
+		mockGetDb.mockReturnValue({ select: mockSelect } as never);
+
+		const state = await getChatPollsState("user-1");
+
+		expect(state.myVotes).toEqual({ "m-1": 0 });
+		expect(state.tallies).toEqual({ "m-1": [2, 1] });
+		// Sekretność: kształt odpowiedzi nie zawiera żadnych userId poza moim głosem.
+		const serialized = JSON.stringify(state);
+		expect(serialized).not.toContain("user-2");
+		expect(serialized).not.toContain("user-3");
+	});
+
+	it("returns empty state when there are no live polls (skips the votes query)", async () => {
+		const pollWhere = vi.fn().mockResolvedValue([]);
+		const pollFrom = vi.fn().mockReturnValue({ where: pollWhere });
+		const mockSelect = vi.fn<(table?: unknown) => unknown>().mockImplementationOnce(() => ({ from: pollFrom }));
+		mockGetDb.mockReturnValue({ select: mockSelect } as never);
+
+		const state = await getChatPollsState("user-1");
+
+		expect(state).toEqual({ myVotes: {}, tallies: {} });
+		expect(mockSelect).toHaveBeenCalledTimes(1);
+	});
+
+	it("ignores votes beyond the option count instead of crashing the list", async () => {
+		const pollWhere = vi.fn().mockResolvedValue([
+			{ id: "m-1", payload: { options: ["Tak", "Nie"] } },
+		]);
+		const pollFrom = vi.fn().mockReturnValue({ where: pollWhere });
+		const votesWhere = vi.fn().mockResolvedValue([
+			{ messageId: "m-1", userId: "user-1", optionIndex: 7 },
+		]);
+		const votesFrom = vi.fn().mockReturnValue({ where: votesWhere });
+		const mockSelect = vi
+			.fn<(table?: unknown) => unknown>()
+			.mockImplementationOnce(() => ({ from: pollFrom }))
+			.mockImplementationOnce(() => ({ from: votesFrom }));
+		mockGetDb.mockReturnValue({ select: mockSelect } as never);
+
+		const state = await getChatPollsState("user-1");
+
+		// Nieważny głos: ani licznika, ani "mojego głosu" — bez fabrykowania zer.
+		expect(state.myVotes).toEqual({});
+		expect(state.tallies).toEqual({});
+	});
+});
+
+// F2 #215: hard delete wiadomości czyści też głosy jej ankiety (ten sam CTE).
+describe("deleteChatMessage — CTE czyści głosy ankiety (F2 #215)", () => {
+	it("includes chat_poll_votes cleanup in the single CTE statement", async () => {
+		const mockLimit = vi.fn().mockResolvedValue([{ authorId: "u1" }]);
+		const where = vi.fn().mockReturnValue({ limit: mockLimit });
+		const from = vi.fn().mockReturnValue({ where });
+		const mockSelect = vi.fn().mockReturnValue({ from });
+		const mockExecute = vi.fn().mockResolvedValue(undefined);
+		mockGetDb.mockReturnValue({ select: mockSelect, execute: mockExecute } as never);
+
+		const result = await deleteChatMessage({ id: "m-1", requesterId: "u1", requesterRole: "member" });
+
+		expect(result.ok).toBe(true);
+		expect(mockExecute).toHaveBeenCalledTimes(1);
+		const queryJson = JSON.stringify(mockExecute.mock.calls[0]?.[0]);
+		expect(queryJson).toContain("chat_poll_votes");
+		expect(queryJson).toContain("chat_reactions");
 	});
 });

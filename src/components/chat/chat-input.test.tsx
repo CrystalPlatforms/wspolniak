@@ -34,6 +34,10 @@ function TestHost({ onSend, currentUserId }: { onSend?: () => void; currentUserI
 			value={value}
 			onChange={setValue}
 			onSend={onSend ?? (() => {})}
+			onSendPoll={vi.fn().mockResolvedValue(undefined)}
+			pollPending={false}
+			onSendLocation={vi.fn().mockResolvedValue(undefined)}
+			locationPending={false}
 			currentUserId={currentUserId}
 		/>
 	);

@@ -21,9 +21,11 @@ vi.mock("@/db/chat", async (importOriginal) => {
 		...actual,
 		createChatMessage: vi.fn(),
 		deleteChatMessage: vi.fn(),
+		getChatPollsState: vi.fn(),
 		listChatMessages: vi.fn(),
 		listChatReactions: vi.fn(),
 		toggleChatReaction: vi.fn(),
+		voteChatPoll: vi.fn(),
 	};
 });
 
@@ -47,9 +49,11 @@ import { buildPushDeps } from "@/core/push-deps";
 import {
 	createChatMessage,
 	deleteChatMessage,
+	getChatPollsState,
 	listChatMessages,
 	listChatReactions,
 	toggleChatReaction,
+	voteChatPoll,
 } from "@/db/chat";
 import { findActiveUserById } from "@/db/identity/queries";
 import { verifySessionCookie } from "@/db/identity/session";
@@ -62,6 +66,8 @@ const mockDeleteMessage = vi.mocked(deleteChatMessage);
 const mockListMessages = vi.mocked(listChatMessages);
 const mockListReactions = vi.mocked(listChatReactions);
 const mockToggleReaction = vi.mocked(toggleChatReaction);
+const mockVotePoll = vi.mocked(voteChatPoll);
+const mockPollsState = vi.mocked(getChatPollsState);
 const mockBuildPushDeps = vi.mocked(buildPushDeps);
 const mockNotifyChat = vi.mocked(notifyChatMessage);
 
@@ -123,6 +129,8 @@ describe("POST /api/chat/messages", () => {
 			id: "msg-1",
 			authorId: "u1",
 			text: "Cześć!",
+			kind: "text",
+			payload: null,
 			replyToId: null,
 			replyText: null,
 			createdAt: now,
@@ -141,8 +149,14 @@ describe("POST /api/chat/messages", () => {
 		);
 
 		expect(res.status).toBe(201);
-		// Autor zawsze z sesji — nigdy z body.
-		expect(mockCreateMessage).toHaveBeenCalledWith({ authorId: "u1", text: "Cześć!" });
+		// Autor zawsze z sesji — nigdy z body; brak `kind` w body = zwykły tekst.
+		expect(mockCreateMessage).toHaveBeenCalledWith({
+			authorId: "u1",
+			text: "Cześć!",
+			replyToId: undefined,
+			kind: "text",
+			payload: undefined,
+		});
 		const json = (await res.json()) as {
 			data: { text: string; author: { id: string; name: string } };
 		};
@@ -155,6 +169,8 @@ describe("POST /api/chat/messages", () => {
 			id: "msg-1",
 			authorId: "u1",
 			text: "Cześć!",
+			kind: "text",
+			payload: null,
 			replyToId: null,
 			replyText: null,
 			createdAt: now,
@@ -296,6 +312,8 @@ describe("GET /api/chat/messages", () => {
 				id: "msg-1",
 				authorId: "u2",
 				text: "Dzień dobry!",
+				kind: "text",
+				payload: null,
 				replyToId: null,
 				replyText: null,
 				createdAt: now,
@@ -501,6 +519,8 @@ describe("POST /api/chat/messages — reply (F5 #156)", () => {
 			id: "msg-2",
 			authorId: "u1",
 			text: "Odpowiedź",
+			kind: "text",
+			payload: null,
 			replyToId: "msg-1",
 			replyText: "Oryginał",
 			createdAt: now,
@@ -523,6 +543,8 @@ describe("POST /api/chat/messages — reply (F5 #156)", () => {
 			authorId: "u1",
 			text: "Odpowiedź",
 			replyToId: "msg-1",
+			kind: "text",
+			payload: undefined,
 		});
 		const json = (await res.json()) as { data: { replyToId: string; replyText: string } };
 		expect(json.data.replyToId).toBe("msg-1");
@@ -692,6 +714,8 @@ describe("POST /api/chat/messages — push do niepodłączonych (F7 #158)", () =
 			id: "msg-1",
 			authorId: "u1",
 			text: "Cześć!",
+			kind: "text",
+			payload: null,
 			replyToId: null,
 			replyText: null,
 			createdAt: now,
@@ -763,5 +787,378 @@ describe("POST /api/chat/messages — push do niepodłączonych (F7 #158)", () =
 		expect(res.status).toBe(200);
 		expect(mockBuildPushDeps).not.toHaveBeenCalled();
 		expect(mockNotifyChat).not.toHaveBeenCalled();
+	});
+});
+
+// Założenia kontraktu ankiety (F2 #215):
+// - POST {kind:'poll'} przechodzi tą samą ścieżką co tekst: zapis payloadu,
+//   broadcast eventu "message" do wszystkich (live delivery), push w tło.
+// - Walidacja union Zod: pytanie 1–200, 2–6 opcji (każda niepusta) — inaczej 400.
+describe("POST /api/chat/messages — ankieta (F2 #215)", () => {
+	function pollMessage() {
+		return {
+			id: "msg-poll",
+			authorId: "u1",
+			text: "Pizza w piątek?",
+			kind: "poll" as const,
+			payload: { options: ["Tak", "Nie"] },
+			replyToId: null,
+			replyText: null,
+			createdAt: now,
+			expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000),
+		};
+	}
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		authedUser();
+		chatRoomStub.checkAndIncrementRateLimit.mockResolvedValue(true);
+		chatRoomStub.broadcastMessage.mockResolvedValue(undefined);
+		// Reset wartości z wcześniejszych describe (push sentinel) — bez ctx waitUntil rzuca.
+		mockBuildPushDeps.mockReset();
+	});
+
+	it("stores the payload and broadcasts the message event to all clients", async () => {
+		mockCreateMessage.mockResolvedValue(pollMessage());
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					kind: "poll",
+					text: "Pizza w piątek?",
+					payload: { options: ["Tak", "Nie"] },
+				}),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(201);
+		expect(mockCreateMessage).toHaveBeenCalledWith({
+			authorId: "u1",
+			text: "Pizza w piątek?",
+			replyToId: undefined,
+			kind: "poll",
+			payload: { options: ["Tak", "Nie"] },
+		});
+		// Live delivery — istniejący event "message" (klienci dokleją po id).
+		expect(chatRoomStub.broadcastMessage).toHaveBeenCalledWith(
+			expect.objectContaining({ id: "msg-poll", kind: "poll" }),
+		);
+	});
+
+	it("rejects fewer than 2 options with 400", async () => {
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					kind: "poll",
+					text: "Pytanie?",
+					payload: { options: ["Tylko jedna"] },
+				}),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(400);
+		expect(mockCreateMessage).not.toHaveBeenCalled();
+	});
+
+	it("rejects more than 6 options with 400", async () => {
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					kind: "poll",
+					text: "Pytanie?",
+					payload: { options: ["1", "2", "3", "4", "5", "6", "7"] },
+				}),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(400);
+		expect(mockCreateMessage).not.toHaveBeenCalled();
+	});
+
+	it("rejects an empty question with 400", async () => {
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ kind: "poll", text: "   ", payload: { options: ["a", "b"] } }),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(400);
+		expect(mockCreateMessage).not.toHaveBeenCalled();
+	});
+
+	it("rejects an empty option with 400", async () => {
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ kind: "poll", text: "Pytanie?", payload: { options: ["a", " "] } }),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(400);
+		expect(mockCreateMessage).not.toHaveBeenCalled();
+	});
+});
+
+// Założenia kontraktu głosowania (F2 #215):
+// - POST /messages/:id/votes → atomic upsert w domenie; broadcast vote-update
+//   z samymi licznikami — GŁOSOWANIE TAJNE: payload eventu nie zawiera userId
+//   ani nazwiska (AC #215). Push NIGDY nie wychodzi ze ścieżki głosów.
+// - Zakres indeksu względem liczby opcji pilnuje domena (Result 400/404).
+describe("POST /api/chat/messages/:id/votes (F2 #215)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		authedUser();
+	});
+
+	it("votes, broadcasts vote-update with tallies only, and returns tallies + myVote to the caller", async () => {
+		// myVote: null = wycofanie (toggle po HITL); wraca TYLKO głosującemu po HTTP.
+		mockVotePoll.mockResolvedValue({ ok: true, data: { tallies: [2, 1], myVote: 0 } });
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages/msg-poll/votes",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ optionIndex: 0 }),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(200);
+		expect(mockVotePoll).toHaveBeenCalledWith({
+			messageId: "msg-poll",
+			userId: "u1",
+			optionIndex: 0,
+		});
+		// Broadcast bez tożsamości głosującego — dokładnie {messageId, tallies}.
+		expect(chatRoomStub.broadcastEvent).toHaveBeenCalledTimes(1);
+		expect(chatRoomStub.broadcastEvent).toHaveBeenCalledWith("vote-update", {
+			messageId: "msg-poll",
+			tallies: [2, 1],
+		});
+		const json = (await res.json()) as { data: { tallies: number[]; myVote: number | null } };
+		expect(json.data.tallies).toEqual([2, 1]);
+		expect(json.data.myVote).toBe(0);
+	});
+
+	it("returns myVote null for a retracted vote while broadcasting the new tallies", async () => {
+		mockVotePoll.mockResolvedValue({ ok: true, data: { tallies: [1, 1], myVote: null } });
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages/msg-poll/votes",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ optionIndex: 1 }),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(200);
+		const json = (await res.json()) as { data: { tallies: number[]; myVote: number | null } };
+		expect(json.data.myVote).toBeNull();
+		expect(chatRoomStub.broadcastEvent).toHaveBeenCalledWith("vote-update", {
+			messageId: "msg-poll",
+			tallies: [1, 1],
+		});
+	});
+
+	it("rejects a non-integer optionIndex with 400 (no vote, no broadcast)", async () => {
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages/msg-poll/votes",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ optionIndex: 1.5 }),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(400);
+		expect(mockVotePoll).not.toHaveBeenCalled();
+		expect(chatRoomStub.broadcastEvent).not.toHaveBeenCalled();
+	});
+
+	it("maps the domain Result (404 expired / 400 bad option) without broadcasting", async () => {
+		mockVotePoll.mockResolvedValue({
+			ok: false,
+			error: new AppError("Nieprawidłowa opcja głosowania", "VALIDATION", 400),
+		});
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages/msg-poll/votes",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ optionIndex: 9 }),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(400);
+		expect(chatRoomStub.broadcastEvent).not.toHaveBeenCalled();
+	});
+});
+
+// GET /polls — stan żywych ankiet dla sesji (mój głos + agregaty; bez nazwisk).
+describe("GET /api/chat/polls (F2 #215)", () => {
+	it("returns the polls state for the session user", async () => {
+		const state = { myVotes: { "msg-poll": 1 }, tallies: { "msg-poll": [2, 1] } };
+		mockPollsState.mockResolvedValue(state);
+
+		const api = createApi();
+		const res = await api.request("/api/chat/polls", authedRequest(), env);
+
+		expect(res.status).toBe(200);
+		expect(mockPollsState).toHaveBeenCalledWith("u1");
+		const json = (await res.json()) as { data: typeof state };
+		expect(json.data).toEqual(state);
+	});
+});
+
+// Założenia kontraktu lokalizacji (F3 #216):
+// - POST {kind:'location'} — payload {lat,lng,label?} walidowany unionem Zod
+//   (zakresy geograficzne); zapis i broadcast jak zwykła wiadomość.
+describe("POST /api/chat/messages — lokalizacja (F3 #216)", () => {
+	function locationMessage() {
+		return {
+			id: "msg-loc",
+			authorId: "u1",
+			text: "Domek na Mazurach",
+			kind: "location" as const,
+			payload: { lat: 53.86, lng: 21.54, label: "Domek na Mazurach" },
+			replyToId: null,
+			replyText: null,
+			createdAt: now,
+			expiresAt: new Date(now.getTime() + 24 * 60 * 60 * 1000),
+		};
+	}
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		authedUser();
+		chatRoomStub.checkAndIncrementRateLimit.mockResolvedValue(true);
+		chatRoomStub.broadcastMessage.mockResolvedValue(undefined);
+		// Reset wartości z wcześniejszych describe (push sentinel) — bez ctx waitUntil rzuca.
+		mockBuildPushDeps.mockReset();
+	});
+
+	it("stores the payload and broadcasts the message event", async () => {
+		mockCreateMessage.mockResolvedValue(locationMessage());
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					kind: "location",
+					text: "Domek na Mazurach",
+					payload: { lat: 53.86, lng: 21.54, label: "Domek na Mazurach" },
+				}),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(201);
+		expect(mockCreateMessage).toHaveBeenCalledWith({
+			authorId: "u1",
+			text: "Domek na Mazurach",
+			replyToId: undefined,
+			kind: "location",
+			payload: { lat: 53.86, lng: 21.54, label: "Domek na Mazurach" },
+		});
+		expect(chatRoomStub.broadcastMessage).toHaveBeenCalledWith(
+			expect.objectContaining({ id: "msg-loc", kind: "location" }),
+		);
+	});
+
+	it("rejects latitude out of range with 400", async () => {
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					kind: "location",
+					text: "Lokalizacja",
+					payload: { lat: 91, lng: 0 },
+				}),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(400);
+		expect(mockCreateMessage).not.toHaveBeenCalled();
+	});
+
+	it("rejects longitude out of range with 400", async () => {
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					kind: "location",
+					text: "Lokalizacja",
+					payload: { lat: 0, lng: -180.5 },
+				}),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(400);
+		expect(mockCreateMessage).not.toHaveBeenCalled();
+	});
+
+	it("rejects a malformed payload (string coords) with 400", async () => {
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					kind: "location",
+					text: "Lokalizacja",
+					payload: { lat: "52", lng: "21" },
+				}),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(400);
+		expect(mockCreateMessage).not.toHaveBeenCalled();
 	});
 });

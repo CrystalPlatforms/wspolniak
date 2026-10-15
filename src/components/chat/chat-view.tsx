@@ -4,14 +4,21 @@ import { MessageSquare, MessageSquareOff, SendHorizontal, X } from "lucide-react
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { ChatBubbleMenu } from "@/components/chat/chat-bubble-menu";
+import { ChatBubbleLocation } from "@/components/chat/chat-bubble-location";
+import { ChatBubblePoll } from "@/components/chat/chat-bubble-poll";
 import { ChatBubbleReactions } from "@/components/chat/chat-bubble-reactions";
 import { ChatBubbleText } from "@/components/chat/chat-bubble-text";
-import { ChatInput } from "@/components/chat/chat-input";
+import {
+	type ChatLocationInput,
+	type ChatPollInput,
+	ChatInput,
+} from "@/components/chat/chat-input";
 import { ChatPendingBubble, type PendingMessage } from "@/components/chat/chat-pending-bubble";
 import { useBubbleMenu } from "@/components/chat/use-bubble-menu";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
 import { useOnlineStatus } from "@/pwa/use-online-status";
+import type { ChatMessageKind } from "@/db/chat/schema";
 import { isNearBottom, scrollToBottom } from "./chat-scroll";
 import { TypingIndicator } from "./typing-indicator";
 import { appendChatMessageIfNew, removeChatMessage, useChatSocket } from "./use-chat-socket";
@@ -22,11 +29,15 @@ import "./chat-bubble.css";
 /** Współdzielony klucz zapytania o listę wiadomości czatu. */
 export const CHAT_MESSAGES_KEY = ["chat", "messages"] as const;
 
-/** Wiadomość czatu po stronie klienta — daty przychodzą z API jako ISO string (JSON). */
+/** Wiadomość czatu po stronie klienta — daty przychodzą z API jako ISO string (JSON).
+ *  `payload` to surowy JSON z API (kształt zależny od `kind`); parsuje go
+ *  defensywnie komponent bąbelka (np. parsePollPayload). */
 export interface ChatMessageItem {
 	id: string;
 	authorId: string;
 	text: string;
+	kind: ChatMessageKind;
+	payload: unknown;
 	replyToId: string | null;
 	replyText: string | null;
 	createdAt: string;
@@ -54,6 +65,34 @@ async function sendChatMessage(text: string, replyToId?: string): Promise<ChatMe
 		body: JSON.stringify({ text, replyToId }),
 	});
 	if (!res.ok) throw new Error("Nie udało się wysłać wiadomości");
+	const json = (await res.json()) as { data: ChatMessageItem };
+	return json.data;
+}
+
+/** Ankieta (F2 #215): ta sama ścieżka POST, union po `kind`. */
+async function sendChatPoll(question: string, options: string[]): Promise<ChatMessageItem> {
+	const res = await fetch("/api/chat/messages", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({ kind: "poll", text: question, payload: { options } }),
+	});
+	if (!res.ok) throw new Error("Nie udało się wysłać ankiety");
+	const json = (await res.json()) as { data: ChatMessageItem };
+	return json.data;
+}
+
+/** Lokalizacja (F3 #216): `text` = etykieta albo domyślny opis (kolumna NOT NULL). */
+async function sendChatLocation(input: ChatLocationInput): Promise<ChatMessageItem> {
+	const res = await fetch("/api/chat/messages", {
+		method: "POST",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify({
+			kind: "location",
+			text: input.label ?? "Udostępniono lokalizację",
+			payload: { lat: input.lat, lng: input.lng, ...(input.label ? { label: input.label } : {}) },
+		}),
+	});
+	if (!res.ok) throw new Error("Nie udało się wysłać lokalizacji");
 	const json = (await res.json()) as { data: ChatMessageItem };
 	return json.data;
 }
@@ -205,6 +244,33 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 		},
 	});
 
+	// Ankieta (F2 #215): bez optymistycznego bąbelka — formularz trzyma stan
+	// (pending) do potwierdzenia; sukces dokleja wiadomość (dedupe z broadcastem WS).
+	const sendPollMutation = useMutation({
+		mutationFn: (vars: ChatPollInput) => sendChatPoll(vars.question, vars.options),
+		onSuccess: (message) => appendChatMessageIfNew(queryClient, message),
+		onError: () => toast.error("Nie udało się wysłać ankiety"),
+	});
+
+	// Lokalizacja (F3 #216) — ta sama konstrukcja co ankieta.
+	const sendLocationMutation = useMutation({
+		mutationFn: sendChatLocation,
+		onSuccess: (message) => appendChatMessageIfNew(queryClient, message),
+		onError: () => toast.error("Nie udało się wysłać lokalizacji"),
+	});
+
+	/** Zapis formularza /ankieta w ChatInput — odrzucenie zostawia formularz otwartym. */
+	async function handleSendPoll(input: ChatPollInput) {
+		if (!online) throw new Error("offline");
+		await sendPollMutation.mutateAsync(input);
+	}
+
+	/** Zapis formularza /polozenie w ChatInput — jak handleSendPoll. */
+	async function handleSendLocation(input: ChatLocationInput) {
+		if (!online) throw new Error("offline");
+		await sendLocationMutation.mutateAsync(input);
+	}
+
 	const deleteMutation = useMutation({
 		mutationFn: deleteChatMessageRequest,
 		// Własne echo WS przyjdzie też — podwójne wywołanie jest idempotentne.
@@ -350,7 +416,13 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 									>
 										{/* Małe emoji od innych — od zewnętrznego rogu dymka. */}
 										{side === "other" ? <ChatBubbleReactions messageId={message.id} /> : null}
-										<ChatBubbleText text={message.text} own={side === "own"} />
+										{message.kind === "poll" ? (
+											<ChatBubblePoll message={message} own={side === "own"} />
+										) : message.kind === "location" ? (
+											<ChatBubbleLocation message={message} own={side === "own"} />
+										) : (
+											<ChatBubbleText text={message.text} own={side === "own"} />
+										)}
 										<span className="shrink-0 text-[10px] opacity-60">
 											{formatChatTime(message.createdAt)}
 										</span>
@@ -439,6 +511,10 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 								notifyTyping();
 							}}
 							onSend={handleSend}
+							onSendPoll={handleSendPoll}
+							pollPending={sendPollMutation.isPending}
+							onSendLocation={handleSendLocation}
+							locationPending={sendLocationMutation.isPending}
 							currentUserId={currentUserId}
 							disabled={!online}
 						/>

@@ -246,6 +246,13 @@
       "when": 1788809035264,
       "tag": "0034_rainy_kree",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1792043777881,
+      "tag": "0035_next_bloodstorm",
+      "breakpoints": true
     }
   ]
 }

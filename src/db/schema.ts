@@ -2,7 +2,7 @@
 export { albumItems, albums } from "./albums/table";
 export { bookmarks } from "./bookmarks/table";
 export { calendarEvents, calendarReminderLog } from "./calendar/table";
-export { chatMessages, chatReactions } from "./chat/table";
+export { chatMessages, chatPollVotes, chatReactions } from "./chat/table";
 export { comments } from "./comments/table";
 export { users } from "./identity/table";
 export { instanceConfig } from "./instance/table";

@@ -8,10 +8,13 @@ import {
 	createChatMessage,
 	createChatMessageSchema,
 	deleteChatMessage,
+	getChatPollsState,
 	listChatMessages,
 	listChatReactions,
 	toggleChatReaction,
 	toggleChatReactionSchema,
+	voteChatPoll,
+	voteChatPollSchema,
 } from "@/db/chat";
 import { createHono } from "@/hono/factory";
 import { authMiddleware } from "@/hono/middleware/auth";
@@ -40,6 +43,9 @@ chatEndpoint.post("/messages", async (c) => {
 			authorId: user.userId,
 			text: parsed.data.text,
 			replyToId: parsed.data.replyToId,
+			// F2 #215 / F3 #216: payload dla typów bogatych — union Zod gwarantuje kształt.
+			kind: parsed.data.kind,
+			payload: parsed.data.kind === "text" ? undefined : parsed.data.payload,
 		});
 		// Autor znany z sesji — bez dodatkowego odczytu z DB; pełny kształt jak w GET.
 		const messageWithAuthor = { ...message, author: { id: user.userId, name: user.name } };
@@ -119,6 +125,42 @@ chatEndpoint.post("/messages/:id/reactions", async (c) => {
 chatEndpoint.get("/reactions", async (c) => {
 	const reactions = await listChatReactions();
 	return c.json({ data: reactions });
+});
+
+// POST /messages/:id/votes (F2 #215) — oddaj/zmień głos w ankiecie (atomic upsert
+// w domenie: jeden wiersz na głosującego). Zakres opcji waliduje domena wobec
+// payloadu. Broadcast **vote-update** z samymi licznikami — głosowanie tajne,
+// tożsamość głosującego nigdy nie opuszcza serwera.
+chatEndpoint.post("/messages/:id/votes", async (c) => {
+	const user = c.get("user");
+	const parsed = voteChatPollSchema.safeParse(await c.req.json());
+	if (!parsed.success) {
+		return c.json({ error: "Validation failed", details: parsed.error.flatten() }, 400);
+	}
+
+	const messageId = c.req.param("id");
+	const result = await voteChatPoll({
+		messageId,
+		userId: user.userId,
+		optionIndex: parsed.data.optionIndex,
+	});
+	if (!result.ok) {
+		return c.json({ error: result.error.message }, result.error.status as ContentfulStatusCode);
+	}
+
+	const room = c.env.CHAT_ROOM.get(c.env.CHAT_ROOM.idFromName("global"));
+	// Broadcast dalej bez tożsamości (sekretna kula); `myVote` (null = wycofany)
+	// wraca TYLKO głosującemu po HTTP — jego klient podświetla opcję.
+	await room.broadcastEvent("vote-update", { messageId, tallies: result.data.tallies });
+	return c.json({ data: { tallies: result.data.tallies, myVote: result.data.myVote } });
+});
+
+// GET /polls (F2 #215) — stan żywych ankiet dla zalogowanego: jego głosy +
+// zagregowane liczniki. Bez tożsamości innych głosujących (sekretna kula).
+chatEndpoint.get("/polls", async (c) => {
+	const user = c.get("user");
+	const state = await getChatPollsState(user.userId);
+	return c.json({ data: state });
 });
 
 // DELETE /messages/:id (F6 #157) — usuń dla wszystkich: tylko autor lub admin
