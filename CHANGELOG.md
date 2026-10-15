@@ -1,3 +1,11 @@
+# [5.18.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.17.0...v5.18.0) (2026-10-15)
+
+
+### Features
+
+* **chat:** attachments via R2, share post to chat & calendar bridge ([#217](https://github.com/CrystalPlatforms/wspolniak/issues/217), [#218](https://github.com/CrystalPlatforms/wspolniak/issues/218), [#219](https://github.com/CrystalPlatforms/wspolniak/issues/219)) ([5bd380f](https://github.com/CrystalPlatforms/wspolniak/commit/5bd380f053e2752f74c9ced35b978f2eca056ad9)), closes [#200](https://github.com/CrystalPlatforms/wspolniak/issues/200)
+* **chat:** rich message kinds — /ankieta polls ([#215](https://github.com/CrystalPlatforms/wspolniak/issues/215)) + /polozenie location ([#216](https://github.com/CrystalPlatforms/wspolniak/issues/216)) ([4894cb4](https://github.com/CrystalPlatforms/wspolniak/commit/4894cb4d4e500e154dffe0907c19f364263c20f6))
+
 # [5.17.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.16.0...v5.17.0) (2026-10-05)
 
 
