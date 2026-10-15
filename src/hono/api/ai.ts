@@ -326,7 +326,7 @@ function thinkMessages(conversation: ChatMessage[]): ChatMessage[] {
 		{
 			role: "system",
 			content:
-				"Jesteś AL, asystentem w rodzinnej aplikacji Wspólniak. Pomyśl krótko o rozmowie i zdecyduj, czy do dobrej odpowiedzi potrzebujesz treści postów ze zdjęciami z feedu (co jest na zdjęciach, wydarzenia, osoby, miejsca, daty, wspomnienia). Zakończ wypowiedź dokładnie jednym słowem: SZUKAJ — gdy posty mogą być przydatne (w razie wątpliwości wybierz SZUKAJ), albo BEZPOSTÓW — wyłącznie przy pytaniach o aplikację, pogaduchach i powitaniach.",
+				"Jesteś AL, asystentem w rodzinnej aplikacji Wspólniak. Pomyśl krótko o rozmowie i zdecyduj, czy do dobrej odpowiedzi potrzebujesz treści postów ze zdjęciami z feedu (co jest na zdjęciach, wydarzenia, osoby, miejsca, daty, wspomnienia). Zakończ wypowiedź dokładnie jednym słowem: SZUKAJ — gdy posty mogą być przydatne (w razie wątpliwości wybierz SZUKAJ), albo BEZPOSTÓW — wyłącznie przy pytaniach o aplikację, pogaduchach i powitaniach. Pytania o LISTĘ postów („jakie są posty o…”, „pokaż posty z…”, „co publikowaliśmy o…”) zawsze wymagają SZUKAJ — nawet gdy podejrzewasz, że takich postów nie ma.",
 		},
 		...recent,
 	];

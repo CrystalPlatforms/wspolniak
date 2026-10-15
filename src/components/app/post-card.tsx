@@ -7,12 +7,12 @@ import { EmojiReactions } from "@/components/app/emoji-reactions";
 import { FadeImage } from "@/components/app/fade-image";
 import { ImageLightbox } from "@/components/app/image-lightbox";
 import { MarkdownText } from "@/components/app/markdown-text";
-import { PostActions } from "@/components/app/post-actions";
 import {
 	SkeletonDescription,
 	SkeletonHeader,
 	SkeletonMeta,
 } from "@/components/app/post-card-skeleton";
+import { PostCornerActions } from "@/components/app/post-corner-actions";
 import { PostWhoReacted } from "@/components/app/post-who-reacted";
 import { VideoDialog, VideoPosterButton } from "@/components/app/video-player-dialog";
 import { useBootSequence } from "@/core/boot-sequence";
@@ -58,6 +58,8 @@ interface PostCardProps {
 	currentUserId: string;
 	currentUserRole: string;
 	libraryEnabled?: boolean;
+	/** Czat włączony (F5 #218) — steruje „Wspomnij na czacie" i ikoną w rogu cudzych postów. */
+	chatEnabled?: boolean;
 }
 
 /**
@@ -75,6 +77,7 @@ export function PostCard({
 	currentUserId,
 	currentUserRole,
 	libraryEnabled = true,
+	chatEnabled = true,
 }: PostCardProps) {
 	const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 	const [loadedImages, setLoadedImages] = useState<ReadonlySet<string>>(() => new Set());
@@ -137,14 +140,14 @@ export function PostCard({
 						<div className="ml-auto flex items-center gap-1">
 							{libraryEnabled && <BookmarkButton postId={post.id} />}
 							<PostWhoReacted target={{ kind: "post", postId: post.id }} />
-							{canManage && (
-								<PostActions
-									postId={post.id}
-									description={post.description}
-									isAdmin={currentUserRole === "admin"}
-									pinned={post.pinned}
-								/>
-							)}
+							<PostCornerActions
+								postId={post.id}
+								canManage={canManage}
+								isAdmin={currentUserRole === "admin"}
+								description={post.description}
+								pinned={post.pinned}
+								chatEnabled={chatEnabled}
+							/>
 						</div>
 					</div>
 

@@ -1179,7 +1179,9 @@ describe("ChatView — spójność ankiet i lokalizacji (F2 #215, F3 #216)", () 
 
 		const socket = FakeWebSocket.instances[0];
 		act(() => {
-			socket?.onmessage?.({ data: JSON.stringify({ type: "delete", data: { messageId: "m-loc" } }) });
+			socket?.onmessage?.({
+				data: JSON.stringify({ type: "delete", data: { messageId: "m-loc" } }),
+			});
 		});
 
 		await waitFor(() => {

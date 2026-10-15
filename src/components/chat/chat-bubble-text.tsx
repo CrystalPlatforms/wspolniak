@@ -12,7 +12,10 @@ import { parseLinkTokens } from "./link-tokens";
  */
 export function ChatBubbleText({ text, own }: { text: string; own: boolean }) {
 	return (
-		<p className="whitespace-pre-wrap break-words text-sm">
+		/* min-w-0: element flex bez niego nie skurczy się poniżej szerokości
+		   treści (overflow-wrap nie zmienia min-content) — długie słowo/URL
+		   wypychałoby tekst poza bąbelek. */
+		<p className="min-w-0 whitespace-pre-wrap break-words text-sm">
 			{parseLinkTokens(text).map((segment, index) =>
 				segment.kind === "link" ? (
 					<a

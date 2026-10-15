@@ -32,10 +32,7 @@ async function fetchChatPolls(): Promise<ChatPollsState> {
  * Dokłada liczniki z broadcastu do cache'a ankiet (nadpisuje całą tablicę —
  * serwer zawsze wysyła pełne agregaty, więc nie ma dryfu przy wyścigach głosów).
  */
-export function applyPollVoteUpdate(
-	queryClient: QueryClient,
-	update: ChatPollVoteUpdate,
-): void {
+export function applyPollVoteUpdate(queryClient: QueryClient, update: ChatPollVoteUpdate): void {
 	queryClient.setQueryData<ChatPollsState>(CHAT_POLLS_KEY, (old) => ({
 		myVotes: old?.myVotes ?? {},
 		tallies: { ...(old?.tallies ?? {}), [update.messageId]: update.tallies },
@@ -77,7 +74,10 @@ export interface ChatVoteResponse {
 	myVote: number | null;
 }
 
-async function voteChatPollRequest(messageId: string, optionIndex: number): Promise<ChatVoteResponse> {
+async function voteChatPollRequest(
+	messageId: string,
+	optionIndex: number,
+): Promise<ChatVoteResponse> {
 	const res = await fetch(`/api/chat/messages/${messageId}/votes`, {
 		method: "POST",
 		headers: { "Content-Type": "application/json" },

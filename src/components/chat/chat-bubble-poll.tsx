@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check } from "lucide-react";
 import { toast } from "sonner";
 import type { ChatMessageItem } from "@/components/chat/chat-view";
+import { ChatBubbleText } from "./chat-bubble-text";
 import {
 	applyPollVoteUpdate,
 	CHAT_POLLS_KEY,
@@ -12,7 +13,6 @@ import {
 	setMyPollVote,
 	voteChatPollRequest,
 } from "./chat-polls";
-import { ChatBubbleText } from "./chat-bubble-text";
 
 /** „1 głos / 2–4 głosy / 5+ głosów" — polska odmiana dla podsumowania ankiety. */
 function pollVotesLabel(total: number): string {

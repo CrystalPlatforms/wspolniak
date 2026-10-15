@@ -24,7 +24,7 @@ function allMigrationSql(): string {
 describe("chat migrations (F2 #215)", () => {
 	it("adds the kind column with default 'text' (existing rows backfill as text)", () => {
 		const sql = allMigrationSql();
-		expect(sql).toContain('ADD COLUMN "kind" text DEFAULT \'text\' NOT NULL');
+		expect(sql).toContain("ADD COLUMN \"kind\" text DEFAULT 'text' NOT NULL");
 	});
 
 	it("adds the nullable jsonb payload column", () => {

@@ -1,14 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { sql } from "drizzle-orm";
-import {
-	index,
-	integer,
-	jsonb,
-	pgTable,
-	text,
-	timestamp,
-	uniqueIndex,
-} from "drizzle-orm/pg-core";
+import { index, integer, jsonb, pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
 import type { ChatMessageKind, ChatMessagePayload } from "./schema";
 
 // Czat rodzinny — wiadomości znikają po 24h (expires_at ustawia baza).

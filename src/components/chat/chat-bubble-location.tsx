@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { ExternalLink, MapPin } from "lucide-react";
+import type { ChatMessageItem } from "@/components/chat/chat-view";
 import type { LocationPayload } from "@/db/chat/schema";
 import { locationPayloadSchema } from "@/db/chat/schema";
-import type { ChatMessageItem } from "@/components/chat/chat-view";
 import { ChatBubbleText } from "./chat-bubble-text";
 
 /**
@@ -29,13 +29,7 @@ export function mapLinkFor(payload: { lat: number; lng: number }): string {
  * (odrzucone w PRD — ciężkie i nieczytelne na telefonie). Reakcje/odpowiedzi/
  * usuwanie obsługuje wspólny szkielet bąbelka w ChatView.
  */
-export function ChatBubbleLocation({
-	message,
-	own,
-}: {
-	message: ChatMessageItem;
-	own: boolean;
-}) {
+export function ChatBubbleLocation({ message, own }: { message: ChatMessageItem; own: boolean }) {
 	const payload = parseLocationPayload(message.payload);
 	if (!payload) {
 		return <ChatBubbleText text={message.text} own={own} />;

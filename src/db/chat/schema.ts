@@ -2,8 +2,8 @@
 import { z } from "zod";
 import { reactionTypes } from "@/db/post-reactions/table";
 
-/** Rodzaje wiadomości czatu (F2 #215, F3 #216) — nowy default to zwykły tekst. */
-export const chatMessageKinds = ["text", "poll", "location"] as const;
+/** Rodzaje wiadomości czatu (#215, #216, #217, #218) — nowy default to zwykły tekst. */
+export const chatMessageKinds = ["text", "poll", "location", "attachments", "post"] as const;
 export type ChatMessageKind = (typeof chatMessageKinds)[number];
 
 /** Payload ankiety (F2 #215): 2–6 niepustych opcji po maks. 100 znaków. */
@@ -29,18 +29,67 @@ export type PollPayload = z.infer<typeof pollPayloadSchema>;
 export const locationPayloadSchema = z.object({
 	lat: z.number().min(-90, "Szerokość poza zakresem").max(90, "Szerokość poza zakresem"),
 	lng: z.number().min(-180, "Długość poza zakresem").max(180, "Długość poza zakresem"),
-	label: z
-		.string()
-		.trim()
-		.min(1)
-		.max(200, "Etykieta może mieć maksymalnie 200 znaków")
-		.optional(),
+	label: z.string().trim().min(1).max(200, "Etykieta może mieć maksymalnie 200 znaków").optional(),
 });
 
 export type LocationPayload = z.infer<typeof locationPayloadSchema>;
 
-/** Payload wiadomości — unia kształtów per kind (kolejne dojdą w F4–F5). */
-export type ChatMessagePayload = PollPayload | LocationPayload;
+/** Limity załączników (F4 #217): 5 plików × 19 MB, wideo wykluczone (PRD #201). */
+export const MAX_CHAT_ATTACHMENTS = 5;
+export const MAX_CHAT_ATTACHMENT_BYTES = 19 * 1024 * 1024;
+
+/**
+ * Metadane załącznika (F4 #217): klucz obiektu R2 (goły UUID — unikasz ścieżek),
+ * oryginalna nazwa pliku, rozmiar i typ MIME. Wideo blokuje `refine` —
+ * stojąca reguła projektu: wideo tylko przez YouTube.
+ */
+export const attachmentMetaSchema = z
+	.object({
+		key: z
+			.string()
+			.regex(
+				/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+				"Nieprawidłowy klucz załącznika",
+			),
+		name: z
+			.string()
+			.trim()
+			.min(1, "Nazwa pliku nie może być pusta")
+			.max(200, "Nazwa pliku może mieć maksymalnie 200 znaków"),
+		size: z.number().int().positive().max(MAX_CHAT_ATTACHMENT_BYTES, "Plik przekracza limit 19 MB"),
+		mimeType: z
+			.string()
+			.min(1)
+			.max(100)
+			.refine((type) => !type.startsWith("video/"), "Pliki wideo nie są obsługiwane"),
+	})
+	.strict();
+
+export type AttachmentMeta = z.infer<typeof attachmentMetaSchema>;
+
+/** Payload załączników (F4 #217): 1–5 metadanych; tekst wiadomości to podpis (kolumna `text`). */
+export const attachmentsPayloadSchema = z
+	.object({
+		attachments: z
+			.array(attachmentMetaSchema)
+			.min(1, "Wiadomość z załącznikami wymaga co najmniej 1 pliku")
+			.max(MAX_CHAT_ATTACHMENTS, `Możesz załączyć maksymalnie ${MAX_CHAT_ATTACHMENTS} plików`),
+	})
+	.strict();
+
+export type AttachmentsPayload = z.infer<typeof attachmentsPayloadSchema>;
+
+/** Payload udostępnionego posta (F5 #218): samo id — karta re-resolvuje post przy każdym odczycie. */
+export const postPayloadSchema = z
+	.object({
+		postId: z.string().min(1).max(64),
+	})
+	.strict();
+
+export type PostPayload = z.infer<typeof postPayloadSchema>;
+
+/** Payload wiadomości — unia kształtów per kind. */
+export type ChatMessagePayload = PollPayload | LocationPayload | AttachmentsPayload | PostPayload;
 
 /** Wspólne pole tekstowe: treść wiadomości lub pytanie ankiety (kolumna `text`). */
 const chatMessageTextSchema = z
@@ -76,10 +125,34 @@ const chatLocationMessageSchema = z.object({
 });
 
 /**
- * Wysyłka wiadomości (F1 #152 + F2 #215): union po `kind`. Brak `kind` = zwykły
- * tekst (wsteczna kompatybilność z klientami sprzed ankiet) — dokleja preprocess.
- * Zod v4 nie przyjmuje brakującego dyskryminatora mimo `.default()`, więc domyślne
- * `text` wstawia preprocess przed unionem.
+ * Podpis opcjonalny (#217/#218): kolumna `text` jest NOT NULL, więc brak podpisu
+ * = pusty string. Limit 200 znaków — ten sam co zwykła wiadomość.
+ */
+const chatCaptionSchema = z
+	.string()
+	.trim()
+	.max(200, "Wiadomość może mieć maksymalnie 200 znaków")
+	.default("");
+
+const chatAttachmentsMessageSchema = z.object({
+	kind: z.literal("attachments"),
+	text: chatCaptionSchema,
+	replyToId: chatReplyToIdSchema,
+	payload: attachmentsPayloadSchema,
+});
+
+const chatPostMessageSchema = z.object({
+	kind: z.literal("post"),
+	text: chatCaptionSchema,
+	replyToId: chatReplyToIdSchema,
+	payload: postPayloadSchema,
+});
+
+/**
+ * Wysyłka wiadomości (F1 #152 + #215/#216/#217/#218): union po `kind`. Brak
+ * `kind` = zwykły tekst (wsteczna kompatybilność z klientami sprzed ankiet) —
+ * dokleja preprocess. Zod v4 nie przyjmuje brakującego dyskryminatora mimo
+ * `.default()`, więc domyślne `text` wstawia preprocess przed unionem.
  */
 export const createChatMessageSchema = z.preprocess(
 	(raw) =>
@@ -90,6 +163,8 @@ export const createChatMessageSchema = z.preprocess(
 		chatTextMessageSchema,
 		chatPollMessageSchema,
 		chatLocationMessageSchema,
+		chatAttachmentsMessageSchema,
+		chatPostMessageSchema,
 	]),
 );
 

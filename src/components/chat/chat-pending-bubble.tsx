@@ -31,7 +31,7 @@ export function ChatPendingBubble({
 				</div>
 			) : null}
 			<div
-				className={`flex max-w-[85%] items-end gap-2 rounded-2xl rounded-br-md px-3 py-2 bg-primary text-primary-foreground ${message.status === "error" ? "opacity-80 ring-1 ring-destructive" : ""}`}
+				className={`flex max-w-[85%] min-w-0 items-end gap-2 overflow-hidden rounded-2xl rounded-br-md px-3 py-2 bg-primary text-primary-foreground ${message.status === "error" ? "opacity-80 ring-1 ring-destructive" : ""}`}
 			>
 				<ChatBubbleText text={message.text} own />
 			</div>

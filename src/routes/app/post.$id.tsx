@@ -126,6 +126,7 @@ function PostPage() {
 								onDeleted={() => navigate({ to: "/app" })}
 								onLightboxChange={setLightboxOpen}
 								libraryEnabled={featureFlags.library}
+								chatEnabled={featureFlags.chat}
 								revealText={visible.text}
 								onFirstImageLoad={handleFirstImageLoad}
 							/>
@@ -145,6 +146,7 @@ function PostPage() {
 						onDeleted={() => navigate({ to: "/app" })}
 						onLightboxChange={setLightboxOpen}
 						libraryEnabled={featureFlags.library}
+						chatEnabled={featureFlags.chat}
 						revealText={visible.text}
 						onFirstImageLoad={handleFirstImageLoad}
 					/>

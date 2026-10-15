@@ -101,6 +101,7 @@ function FeedScreen() {
 					currentUserId={session.userId}
 					currentUserRole={session.role}
 					libraryEnabled={featureFlags.library}
+					chatEnabled={featureFlags.chat}
 					hasNextPage={hasNextPage}
 					isFetchingNextPage={isFetchingNextPage}
 					onLoadMore={() => fetchNextPage()}

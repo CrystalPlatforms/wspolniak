@@ -14,6 +14,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
+import { calendarProposalTemplate } from "@/components/app/calendar-proposal";
 import { ChatInput } from "./chat-input";
 
 /** Mock fetch: /api/app/users zwraca członków; pozostałe endpointy puste. */
@@ -27,7 +28,17 @@ function mockFetchUsers(data: Array<{ id: string; name: string }>) {
 }
 
 /** Rodzic trzymający stan wartości — tak jak ChatView w produkcji. */
-function TestHost({ onSend, currentUserId }: { onSend?: () => void; currentUserId?: string }) {
+function TestHost({
+	onSend,
+	currentUserId,
+	currentUserName,
+	onFilesSelected,
+}: {
+	onSend?: () => void;
+	currentUserId?: string;
+	currentUserName?: string;
+	onFilesSelected?: (files: File[]) => void;
+}) {
 	const [value, setValue] = useState("");
 	return (
 		<ChatInput
@@ -38,6 +49,8 @@ function TestHost({ onSend, currentUserId }: { onSend?: () => void; currentUserI
 			pollPending={false}
 			onSendLocation={vi.fn().mockResolvedValue(undefined)}
 			locationPending={false}
+			onFilesSelected={onFilesSelected}
+			currentUserName={currentUserName}
 			currentUserId={currentUserId}
 		/>
 	);
@@ -92,6 +105,20 @@ describe("ChatInput — @mentions", () => {
 		await user.type(screen.getByLabelText("Wiadomość"), "Cześć{Enter}");
 
 		expect(onSend).toHaveBeenCalledTimes(1);
+	});
+
+	it("Shift+Enter inserts a newline instead of sending (komponer = textarea)", async () => {
+		const onSend = vi.fn();
+		const user = userEvent.setup();
+		render(<TestHost onSend={onSend} />);
+
+		const input = screen.getByLabelText("Wiadomość") as HTMLTextAreaElement;
+		await user.type(input, "pierwsza");
+		await user.type(input, "{Shift>}{Enter}{/Shift}");
+		await user.type(input, "druga");
+
+		expect(onSend).not.toHaveBeenCalled();
+		expect(input.value).toBe("pierwsza\ndruga");
 	});
 
 	it("closes the list on Escape", async () => {
@@ -227,5 +254,187 @@ describe("ChatInput — command bar (#214)", () => {
 
 		expect(input.value).toBe("hej @");
 		await screen.findByRole("list", { name: "Wspomnij osobę" });
+	});
+});
+
+describe("ChatInput — rozwinięcie komponera (>20 znaków)", () => {
+	afterEach(() => {
+		cleanup();
+		vi.restoreAllMocks();
+		vi.unstubAllGlobals();
+	});
+
+	function actionCluster(): HTMLElement {
+		return document.querySelector('div[class*="max-md:hidden"], div.flex.shrink-0') as HTMLElement;
+	}
+
+	it("under the threshold the input is compact (h-11) and actions are visible", async () => {
+		const user = userEvent.setup();
+		render(<TestHost />);
+
+		const input = screen.getByLabelText("Wiadomość") as HTMLInputElement;
+		await user.type(input, "Krótka wiadomość"); // 16 znaków
+
+		expect(input.className).toContain("h-11");
+		expect(input.className).not.toContain("h-32");
+		expect(input.className).toContain("rounded-full");
+		expect(actionCluster().className).not.toContain("max-md:hidden");
+	});
+
+	it("over 20 characters the input grows to h-32 on mobile AND desktop", async () => {
+		const user = userEvent.setup();
+		render(<TestHost />);
+
+		const input = screen.getByLabelText("Wiadomość") as HTMLInputElement;
+		await user.type(input, "Ta wiadomość jest zdecydowanie dłuższa"); // > 20 znaków
+
+		expect(input.className).toContain("h-32");
+		expect(input.className).not.toContain("h-11");
+		expect(input.className).toContain("rounded-2xl");
+	});
+
+	it("on mobile the action bar hides when expanded, on desktop it stays (klasa max-md:hidden)", async () => {
+		const user = userEvent.setup();
+		render(<TestHost />);
+
+		const input = screen.getByLabelText("Wiadomość") as HTMLInputElement;
+		await user.type(input, "Ta wiadomość jest zdecydowanie dłuższa");
+
+		// jsdom nie liczy media queries — weryfikujemy klasy warunkowe (CSS decyduje o ekranie).
+		expect(actionCluster().className).toContain("max-md:hidden");
+
+		await user.type(input, "{backspace}".repeat(20));
+		expect(input.value.length).toBeLessThanOrEqual(20);
+		expect(actionCluster().className).not.toContain("max-md:hidden");
+	});
+
+	it("picker popups lose their mobile offsets when the action bar is hidden", async () => {
+		const user = userEvent.setup();
+		render(<TestHost />);
+
+		const input = screen.getByLabelText("Wiadomość") as HTMLInputElement;
+		await user.type(input, "Ta wiadomość jest zdecydowanie dłuższa /");
+
+		const picker = await screen.findByRole("list", { name: "Polecenia" });
+		expect(picker.className).not.toContain("max-md:-left-[148px]");
+	});
+});
+
+describe("ChatInput — limit 200 znaków", () => {
+	afterEach(() => {
+		cleanup();
+		vi.restoreAllMocks();
+		vi.unstubAllGlobals();
+	});
+
+	it("shows the limit message when the text is capped at 200 characters", async () => {
+		const user = userEvent.setup();
+		render(<TestHost />);
+
+		const input = screen.getByLabelText("Wiadomość") as HTMLTextAreaElement;
+		// maxLength=200 blokuje dalsze pisanie — user musi dostać wyjaśnienie.
+		await user.type(input, "x".repeat(201));
+
+		expect(input.value).toHaveLength(200);
+		expect(screen.getByText("Maksymalna długość wiadomości to 200 znaków")).toBeDefined();
+	});
+
+	it("hides the limit message below the cap", async () => {
+		const user = userEvent.setup();
+		render(<TestHost />);
+
+		const input = screen.getByLabelText("Wiadomość");
+		await user.type(input, "x".repeat(150));
+
+		expect(screen.queryByText("Maksymalna długość wiadomości to 200 znaków")).toBeNull();
+	});
+});
+
+describe("ChatInput — spinacz i /dodaj (F4 #217)", () => {
+	afterEach(() => {
+		cleanup();
+		vi.restoreAllMocks();
+		vi.unstubAllGlobals();
+	});
+
+	/** Programowy klik w ukryty input plików — jsdom nie otwiera systemowej wybierarki. */
+	function spyFileInputClick() {
+		return vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => {});
+	}
+
+	it("paperclip button opens the native file picker (multi-select input)", async () => {
+		const clickSpy = spyFileInputClick();
+		const user = userEvent.setup();
+		render(<TestHost />);
+
+		await user.click(screen.getByRole("button", { name: "Załącz pliki" }));
+
+		expect(clickSpy).toHaveBeenCalledTimes(1);
+		const fileInput = document.querySelector('input[type="file"]');
+		expect(fileInput).toBeTruthy();
+		expect((fileInput as HTMLInputElement).multiple).toBe(true);
+	});
+
+	it("/dodaj from the command picker opens the same file picker", async () => {
+		const clickSpy = spyFileInputClick();
+		const user = userEvent.setup();
+		render(<TestHost />);
+
+		await user.click(screen.getByRole("button", { name: "Polecenia" }));
+		await screen.findByRole("list", { name: "Polecenia" });
+		await user.click(screen.getByText("/dodaj"));
+
+		expect(clickSpy).toHaveBeenCalledTimes(1);
+	});
+
+	it("picked files land in onFilesSelected (walidację robi ChatView)", async () => {
+		const onFilesSelected = vi.fn();
+		const user = userEvent.setup();
+		render(<TestHost onFilesSelected={onFilesSelected} />);
+
+		const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+		const photo = new File(["x"], "zdjecie.jpg", { type: "image/jpeg" });
+		await user.upload(fileInput, photo);
+
+		expect(onFilesSelected).toHaveBeenCalledWith([photo]);
+		// Reset value — ponowny wybór TEGO SAMEGO pliku musi działać.
+		expect(fileInput.value).toBe("");
+	});
+});
+
+describe("ChatInput — /wydarzenie (F6 #219)", () => {
+	afterEach(() => {
+		cleanup();
+		vi.restoreAllMocks();
+		vi.unstubAllGlobals();
+	});
+
+	it("inserts the calendar proposal template (with the session name) at the command position", async () => {
+		const user = userEvent.setup();
+		render(<TestHost currentUserName="Tomek" />);
+
+		const input = screen.getByLabelText("Wiadomość") as HTMLInputElement;
+		await user.type(input, "/");
+		await screen.findByRole("list", { name: "Polecenia" });
+		await user.click(screen.getByText("/wydarzenie"));
+
+		// Input jednowierszowy sanitizuje CR/LF — szablon wchodzi jako jedna linia.
+		const expected = calendarProposalTemplate("Tomek").replace(/\s+/g, " ").trim().slice(0, 200);
+		expect(input.value).toBe(expected);
+		expect(input.value.length).toBeLessThanOrEqual(200);
+		// Kareta za szablonem — user od razu dopisuje datę i opis.
+		expect(input.selectionStart).toBe(expected.length);
+	});
+
+	it("trims the template to the 200-char message limit for a very long name", async () => {
+		const user = userEvent.setup();
+		render(<TestHost currentUserName={"B".repeat(150)} />);
+
+		const input = screen.getByLabelText("Wiadomość") as HTMLInputElement;
+		await user.type(input, "/");
+		await screen.findByRole("list", { name: "Polecenia" });
+		await user.click(screen.getByText("/wydarzenie"));
+
+		expect(input.value).toHaveLength(200);
 	});
 });

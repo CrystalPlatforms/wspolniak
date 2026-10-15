@@ -1,9 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /**
- * Komendy ukośnika czatu (#214 — Chat F1). `/ankieta` doszła w F2 (#215);
- * kolejne (`/polozenie`, `/dodaj`, `/wydarzenie`) dojdą w kolejnych fazach
- * rozbudowy czatu (PRD #201).
+ * Komendy ukośnika czatu (#214 — Chat F1). `/ankieta` doszła w F2 (#215),
+ * `/polozenie` w F3 (#216), `/dodaj` w F4 (#217), `/wydarzenie` w F6 (#219).
  */
 export interface ChatCommand {
 	/** Nazwa z ukośnikiem, np. `/link`. */
@@ -16,6 +15,8 @@ export const CHAT_COMMANDS: ChatCommand[] = [
 	{ name: "/link", description: "Wstaw link" },
 	{ name: "/ankieta", description: "Utwórz ankietę" },
 	{ name: "/polozenie", description: "Udostępnij lokalizację" },
+	{ name: "/dodaj", description: "Załącz pliki" },
+	{ name: "/wydarzenie", description: "Wstaw szablon propozycji daty" },
 ];
 
 export interface CommandDetection {

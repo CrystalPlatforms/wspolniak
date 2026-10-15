@@ -19,6 +19,14 @@
 			}
 		]
 	},
+	// Załączniki czatu (F4 #217): prywatny bucket, obiekty kasuje reguła lifecycle
+	// `--expire-days 1` (krok 0 HITL — zakłada właściciel; realne okno 24–48h).
+	"r2_buckets": [
+		{
+			"binding": "CHAT_ATTACHMENTS",
+			"bucket_name": "wspolniak-chat-attachments-dev"
+		}
+	],
 	"migrations": [
 		{
 			"tag": "v1-chat-room",

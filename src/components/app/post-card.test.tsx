@@ -23,7 +23,8 @@ vi.mock("@/core/boot-splash", () => ({
 // PostCard renderuje Link (TanStack Router) — nawigacja kliencka do posta bez
 // przeładowania dokumentu (#164). W testach karty wystarczy passthrough na <a>
 // z rozwiązanymi params/hash; samo kliknięcie nawigacyjne testuje osobny plik
-// post-card.navigation.test.tsx (prawdziwy router).
+// post-card.navigation.test.tsx (prawdziwy router). useNavigate — „Wspomnij na
+// czacie" (F5 #218) w rogu cudzych postów; tu tylko stub bez nawigacji.
 vi.mock("@tanstack/react-router", () => ({
 	Link: ({
 		to,
@@ -42,6 +43,7 @@ vi.mock("@tanstack/react-router", () => ({
 			</a>
 		);
 	},
+	useNavigate: () => vi.fn(),
 }));
 
 // VideoThumb wymaga kontekstu routera (Link) — testujemy bramkowanie etapem

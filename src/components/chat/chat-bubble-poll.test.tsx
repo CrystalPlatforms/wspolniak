@@ -42,7 +42,9 @@ afterEach(() => {
 
 describe("ChatBubblePoll (F2 #215)", () => {
 	it("renders the question, options and live percentages from the polls cache", () => {
-		const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+		const client = new QueryClient({
+			defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+		});
 		client.setQueryData(CHAT_POLLS_KEY, { myVotes: {}, tallies: { "m-poll": [2, 1] } });
 		render(<ChatBubblePoll message={pollMessage()} own={false} />, {
 			wrapper: createWrapper(client),
@@ -58,7 +60,9 @@ describe("ChatBubblePoll (F2 #215)", () => {
 	});
 
 	it("shows zero percentages before any votes", () => {
-		const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+		const client = new QueryClient({
+			defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+		});
 		client.setQueryData(CHAT_POLLS_KEY, { myVotes: {}, tallies: {} });
 		render(<ChatBubblePoll message={pollMessage()} own={false} />, {
 			wrapper: createWrapper(client),
@@ -84,7 +88,9 @@ describe("ChatBubblePoll (F2 #215)", () => {
 			});
 		});
 		vi.stubGlobal("fetch", fetchMock);
-		const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+		const client = new QueryClient({
+			defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+		});
 		client.setQueryData(CHAT_POLLS_KEY, { myVotes: {}, tallies: { "m-poll": [2, 1] } });
 		const user = userEvent.setup();
 		render(<ChatBubblePoll message={pollMessage()} own={false} />, {
@@ -102,7 +108,9 @@ describe("ChatBubblePoll (F2 #215)", () => {
 		);
 		// Mój głos podświetlony + liczniki z serwera w cache (broadcast je powtórzy).
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: "Głosuj na: Nie" }).getAttribute("aria-pressed")).toBe("true");
+			expect(
+				screen.getByRole("button", { name: "Głosuj na: Nie" }).getAttribute("aria-pressed"),
+			).toBe("true");
 		});
 		expect(client.getQueryData(CHAT_POLLS_KEY)).toEqual({
 			myVotes: { "m-poll": 1 },
@@ -111,14 +119,23 @@ describe("ChatBubblePoll (F2 #215)", () => {
 	});
 
 	it("marks an already cast vote from myVotes (restore after reload)", () => {
-		const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
-		client.setQueryData(CHAT_POLLS_KEY, { myVotes: { "m-poll": 0 }, tallies: { "m-poll": [2, 1] } });
+		const client = new QueryClient({
+			defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+		});
+		client.setQueryData(CHAT_POLLS_KEY, {
+			myVotes: { "m-poll": 0 },
+			tallies: { "m-poll": [2, 1] },
+		});
 		render(<ChatBubblePoll message={pollMessage()} own={false} />, {
 			wrapper: createWrapper(client),
 		});
 
-		expect(screen.getByRole("button", { name: "Głosuj na: Tak" }).getAttribute("aria-pressed")).toBe("true");
-		expect(screen.getByRole("button", { name: "Głosuj na: Nie" }).getAttribute("aria-pressed")).toBe("false");
+		expect(
+			screen.getByRole("button", { name: "Głosuj na: Tak" }).getAttribute("aria-pressed"),
+		).toBe("true");
+		expect(
+			screen.getByRole("button", { name: "Głosuj na: Nie" }).getAttribute("aria-pressed"),
+		).toBe("false");
 	});
 
 	it("retracts the vote on a second click of the same option (HITL toggle)", async () => {
@@ -138,22 +155,31 @@ describe("ChatBubblePoll (F2 #215)", () => {
 			});
 		});
 		vi.stubGlobal("fetch", fetchMock);
-		const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
-		client.setQueryData(CHAT_POLLS_KEY, { myVotes: { "m-poll": 1 }, tallies: { "m-poll": [2, 2] } });
+		const client = new QueryClient({
+			defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+		});
+		client.setQueryData(CHAT_POLLS_KEY, {
+			myVotes: { "m-poll": 1 },
+			tallies: { "m-poll": [2, 2] },
+		});
 		const user = userEvent.setup();
 		render(<ChatBubblePoll message={pollMessage()} own={false} />, {
 			wrapper: createWrapper(client),
 		});
 		// Start: opcja „Nie" podświetlona jako mój głos.
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: "Głosuj na: Nie" }).getAttribute("aria-pressed")).toBe("true");
+			expect(
+				screen.getByRole("button", { name: "Głosuj na: Nie" }).getAttribute("aria-pressed"),
+			).toBe("true");
 		});
 
 		await user.click(screen.getByRole("button", { name: "Głosuj na: Nie" }));
 
 		// Po toggle: podświetlenie znika, liczniki wracają do stanu bez mojego głosu.
 		await waitFor(() => {
-			expect(screen.getByRole("button", { name: "Głosuj na: Nie" }).getAttribute("aria-pressed")).toBe("false");
+			expect(
+				screen.getByRole("button", { name: "Głosuj na: Nie" }).getAttribute("aria-pressed"),
+			).toBe("false");
 		});
 		expect(client.getQueryData(CHAT_POLLS_KEY)).toEqual({
 			myVotes: {},
@@ -166,7 +192,9 @@ describe("ChatBubblePoll (F2 #215)", () => {
 			...pollMessage(),
 			payload: { options: "nie jest tablicą" },
 		};
-		const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+		const client = new QueryClient({
+			defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+		});
 		render(<ChatBubblePoll message={broken} own={false} />, { wrapper: createWrapper(client) });
 
 		expect(screen.getByText("Pizza w piątek?")).toBeDefined();
@@ -174,7 +202,9 @@ describe("ChatBubblePoll (F2 #215)", () => {
 	});
 
 	it("live update: a vote-update applied to the cache changes the rendered percentages", async () => {
-		const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+		const client = new QueryClient({
+			defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+		});
 		client.setQueryData(CHAT_POLLS_KEY, { myVotes: {}, tallies: { "m-poll": [1, 0] } });
 		render(<ChatBubblePoll message={pollMessage()} own={false} />, {
 			wrapper: createWrapper(client),

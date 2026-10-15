@@ -681,3 +681,54 @@ code {
 	font-weight: var(--shiki-dark-font-weight);
 	text-decoration: var(--shiki-dark-text-decoration);
 }
+
+/* Czat rodzinny i czat AL (naprawa): oba ekrany scrollują WŁASNE treści
+   (wewnętrzne kontenery), a scroll dokumentu ma być zablokowany — pusty ogon
+   strony pod treścią bywał przewijalny. Reguła żyje tylko gdy któraś z tras
+   jest zamontowana (atrybut data-lock-scroll na katalogu trasy + :has()). */
+html:has([data-lock-scroll]) {
+	overflow: hidden;
+}
+
+/* Personalizowane pasy scrolla (HITL): subtelne, w kolorach MOTYWU — szare
+   kreski w trybie jasnym, jaśniejsze w ciemnym (zmienne z :root/.dark), przez-
+   roczysty tor, zaokrąglony uchwyt z wcięciem. Firefox: standardowe
+   scrollbar-width/color; Chromium/Safari: pseudoelementy ::-webkit-scrollbar. */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: var(--border) transparent;
+}
+
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+	border: 2px solid transparent;
+	border-radius: 9999px;
+	background-color: var(--border);
+	background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background-color: var(--muted-foreground);
+}
+
+::-webkit-scrollbar-corner {
+	background: transparent;
+}
+
+/* Pola tekstowe (komposery czatu i AL): pasek scrolla NIEWIDOCZNY, ale treść
+   przewija się dalej (kółko/gesty/strzałki) — czyściocha przy długiej treści. */
+.no-scrollbar {
+	scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+	display: none;
+}

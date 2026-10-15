@@ -1,24 +1,42 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MessageSquare, MessageSquareOff, SendHorizontal, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { MessageSquare, MessageSquareOff, Paperclip, SendHorizontal, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ChatBubbleMenu } from "@/components/chat/chat-bubble-menu";
+import {
+	CHAT_MESSAGES_KEY,
+	type ChatMessageItem,
+	deleteChatMessageRequest,
+	fetchChatMessages,
+	sendChatAttachments,
+	sendChatLocation,
+	sendChatMessage,
+	sendChatPoll,
+	sendChatPost,
+} from "@/components/chat/chat-api";
+import {
+	formatBytes,
+	prepareAttachments,
+	uploadChatAttachments,
+} from "@/components/chat/chat-attachments";
+import { ChatBubbleAttachments } from "@/components/chat/chat-bubble-attachments";
 import { ChatBubbleLocation } from "@/components/chat/chat-bubble-location";
+import { ChatBubbleMenu } from "@/components/chat/chat-bubble-menu";
 import { ChatBubblePoll } from "@/components/chat/chat-bubble-poll";
+import { ChatBubblePost, ChatPostDraftPreview } from "@/components/chat/chat-bubble-post";
 import { ChatBubbleReactions } from "@/components/chat/chat-bubble-reactions";
 import { ChatBubbleText } from "@/components/chat/chat-bubble-text";
 import {
+	ChatInput,
 	type ChatLocationInput,
 	type ChatPollInput,
-	ChatInput,
 } from "@/components/chat/chat-input";
 import { ChatPendingBubble, type PendingMessage } from "@/components/chat/chat-pending-bubble";
+import { chatPostPreviewKey, fetchChatPostPreview } from "@/components/chat/chat-post-share";
 import { useBubbleMenu } from "@/components/chat/use-bubble-menu";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
 import { useOnlineStatus } from "@/pwa/use-online-status";
-import type { ChatMessageKind } from "@/db/chat/schema";
 import { isNearBottom, scrollToBottom } from "./chat-scroll";
 import { TypingIndicator } from "./typing-indicator";
 import { appendChatMessageIfNew, removeChatMessage, useChatSocket } from "./use-chat-socket";
@@ -26,24 +44,10 @@ import { appendChatMessageIfNew, removeChatMessage, useChatSocket } from "./use-
 // pliku, w ChatReactionBar (menu) i w ChatBubbleMenu.
 import "./chat-bubble.css";
 
-/** Współdzielony klucz zapytania o listę wiadomości czatu. */
-export const CHAT_MESSAGES_KEY = ["chat", "messages"] as const;
-
-/** Wiadomość czatu po stronie klienta — daty przychodzą z API jako ISO string (JSON).
- *  `payload` to surowy JSON z API (kształt zależny od `kind`); parsuje go
- *  defensywnie komponent bąbelka (np. parsePollPayload). */
-export interface ChatMessageItem {
-	id: string;
-	authorId: string;
-	text: string;
-	kind: ChatMessageKind;
-	payload: unknown;
-	replyToId: string | null;
-	replyText: string | null;
-	createdAt: string;
-	expiresAt: string;
-	author: { id: string; name: string };
-}
+// Kształt wiadomości i klucz cache'u żyją w chat-api.ts — tu re-eksport
+// dla istniejących importerów (bąbelki, socket, testy).
+export { CHAT_MESSAGES_KEY };
+export type { ChatMessageItem };
 
 /** Zaznaczenie „w odpowiedzi do" nad inputem (F5 #156). */
 interface ReplyDraft {
@@ -51,55 +55,10 @@ interface ReplyDraft {
 	text: string;
 }
 
-async function fetchChatMessages(): Promise<ChatMessageItem[]> {
-	const res = await fetch("/api/chat/messages");
-	if (!res.ok) throw new Error("Nie udało się pobrać wiadomości");
-	const json = (await res.json()) as { data: ChatMessageItem[] };
-	return json.data;
-}
-
-async function sendChatMessage(text: string, replyToId?: string): Promise<ChatMessageItem> {
-	const res = await fetch("/api/chat/messages", {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ text, replyToId }),
-	});
-	if (!res.ok) throw new Error("Nie udało się wysłać wiadomości");
-	const json = (await res.json()) as { data: ChatMessageItem };
-	return json.data;
-}
-
-/** Ankieta (F2 #215): ta sama ścieżka POST, union po `kind`. */
-async function sendChatPoll(question: string, options: string[]): Promise<ChatMessageItem> {
-	const res = await fetch("/api/chat/messages", {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({ kind: "poll", text: question, payload: { options } }),
-	});
-	if (!res.ok) throw new Error("Nie udało się wysłać ankiety");
-	const json = (await res.json()) as { data: ChatMessageItem };
-	return json.data;
-}
-
-/** Lokalizacja (F3 #216): `text` = etykieta albo domyślny opis (kolumna NOT NULL). */
-async function sendChatLocation(input: ChatLocationInput): Promise<ChatMessageItem> {
-	const res = await fetch("/api/chat/messages", {
-		method: "POST",
-		headers: { "Content-Type": "application/json" },
-		body: JSON.stringify({
-			kind: "location",
-			text: input.label ?? "Udostępniono lokalizację",
-			payload: { lat: input.lat, lng: input.lng, ...(input.label ? { label: input.label } : {}) },
-		}),
-	});
-	if (!res.ok) throw new Error("Nie udało się wysłać lokalizacji");
-	const json = (await res.json()) as { data: ChatMessageItem };
-	return json.data;
-}
-
-async function deleteChatMessageRequest(messageId: string): Promise<void> {
-	const res = await fetch(`/api/chat/messages/${messageId}`, { method: "DELETE" });
-	if (!res.ok) throw new Error("Nie udało się usunąć wiadomości");
+/** Załącznik wybrany do wiadomości (F4 #217) — plik czeka na wysyłkę z podpisem. */
+interface AttachmentDraft {
+	id: string;
+	file: File;
 }
 
 /** Godzina w formacie Telegrama: HH:MM (pl-PL). */
@@ -126,11 +85,25 @@ interface ChatViewProps {
 	currentUserName: string;
 	/** Admin może usuwać także cudze wiadomości (F6 #157) — steruje itemem „Usuń". */
 	isAdmin: boolean;
+	/** Draft z URL (F5 #218): id posta do udostępnienia — podgląd w composerze. */
+	draftPostId?: string;
+	/** Draft z URL (F6 #219): tekst wstawiony do pola wiadomości (szablon daty). */
+	draftText?: string;
+	/** Zrzucenie draftu z URL (anulowanie / wysłanie / post zniknął) — robi trasa,
+	 *  bo tylko ona nawiguje (ChatView pozostaje wolny od routera, jak dotychczas). */
+	onDraftConsumed?: () => void;
 }
 
 /** Widok czatu rodzinnego (F1–F6): lista 24h, optymistyczna wysyłka, live WS,
  *  reakcje, typing, context menu (Odpowiedz/Kopiuj/Info/reakcje) i usuwanie. */
-export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewProps) {
+export function ChatView({
+	currentUserId,
+	currentUserName,
+	isAdmin,
+	draftPostId,
+	draftText,
+	onDraftConsumed,
+}: ChatViewProps) {
 	const queryClient = useQueryClient();
 	// Offline (F8 #159): banner + blokada wysyłki i reakcji (bez kolejowania — PRD).
 	const online = useOnlineStatus();
@@ -142,6 +115,41 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 	const [pending, setPending] = useState<PendingMessage[]>([]);
 	// Reply (F5): quote nad inputem; wysyłka dokłada replyToId do POST-a.
 	const [replyTo, setReplyTo] = useState<ReplyDraft | null>(null);
+	// Załączniki (F4 #217): pliki wybrane do wiadomości — czekają na wysyłkę razem z podpisem.
+	const [attachments, setAttachments] = useState<AttachmentDraft[]>([]);
+
+	// Draft z URL (F5 #218): podgląd posta w composerze. Wysyłka WYŁĄCZNIE ręczna —
+	// samo otwarcie czatu z draftem nic nie wysyła (decyzja właściciela: nadawca
+	// może najpierw dopisać komentarz). Post zniknął → zrzucamy draft z toastem.
+	const postPreviewQuery = useQuery({
+		queryKey: chatPostPreviewKey(draftPostId ?? ""),
+		queryFn: () => fetchChatPostPreview(draftPostId ?? ""),
+		enabled: draftPostId !== undefined,
+	});
+	const postPreview = draftPostId !== undefined ? (postPreviewQuery.data ?? null) : null;
+
+	/** Zrzucenie parametru draftu z URL (anulowanie / wysłanie / post zniknął). */
+	const clearDraftParam = useCallback(() => {
+		onDraftConsumed?.();
+	}, [onDraftConsumed]);
+
+	useEffect(() => {
+		if (draftPostId !== undefined && postPreviewQuery.isSuccess && postPreviewQuery.data === null) {
+			toast.error("Ten post już nie istnieje");
+			clearDraftParam();
+		}
+	}, [draftPostId, postPreviewQuery.isSuccess, postPreviewQuery.data, clearDraftParam]);
+
+	// Jeden pending draft naraz: otwarcie draftu posta czyści chipy załączników.
+	useEffect(() => {
+		if (draftPostId !== undefined) setAttachments([]);
+	}, [draftPostId]);
+
+	// Draft tekstowy z URL (F6 #219): szablon wstawiony do pola — do edycji przed
+	// wysyłką. Jednowierszowy input sanitizuje CR/LF, więc normalizujemy jawnie.
+	useEffect(() => {
+		if (draftText) setDraft(draftText.replace(/\s+/g, " ").trim());
+	}, [draftText]);
 	// Usuwanie (F6): id w trakcie animacji zniknięcia — renderuje chat-bubble-out.
 	const [removingIds, setRemovingIds] = useState<ReadonlySet<string>>(new Set());
 
@@ -259,6 +267,44 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 		onError: () => toast.error("Nie udało się wysłać lokalizacji"),
 	});
 
+	// Załączniki (F4 #217): najpierw upload plików (multipart → R2), potem JEDNA
+	// wiadomość z podpisem i metadanymi. Optymistyczny bąbelek; po błędzie pliki
+	// wracają do draftu — poprawka i ponowna wysyłka bez ponownego wybierania.
+	const sendAttachmentsMutation = useMutation({
+		mutationFn: async (vars: {
+			text: string;
+			replyToId?: string;
+			replyText: string | null;
+			drafts: AttachmentDraft[];
+		}) => {
+			const attachmentsMeta = await uploadChatAttachments(vars.drafts.map((draft) => draft.file));
+			return sendChatAttachments(vars.text, attachmentsMeta, vars.replyToId);
+		},
+		onMutate: (vars): { clientId: string } => {
+			const clientId = `temp-${crypto.randomUUID()}`;
+			setPending((prev) => [
+				...prev,
+				{
+					clientId,
+					text: vars.text || "Załączniki",
+					replyToId: vars.replyToId,
+					replyText: vars.replyToId ? vars.replyText : null,
+					status: "sending",
+				},
+			]);
+			return { clientId };
+		},
+		onSuccess: (message, _vars, context) => {
+			setPending((prev) => prev.filter((p) => p.clientId !== context?.clientId));
+			appendChatMessageIfNew(queryClient, message);
+		},
+		onError: (_error, vars, context) => {
+			setPending((prev) => prev.filter((p) => p.clientId !== context?.clientId));
+			setAttachments((prev) => [...vars.drafts, ...prev]);
+			toast.error("Nie udało się wysłać załączników");
+		},
+	});
+
 	/** Zapis formularza /ankieta w ChatInput — odrzucenie zostawia formularz otwartym. */
 	async function handleSendPoll(input: ChatPollInput) {
 		if (!online) throw new Error("offline");
@@ -270,6 +316,46 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 		if (!online) throw new Error("offline");
 		await sendLocationMutation.mutateAsync(input);
 	}
+
+	/**
+	 * Wybór plików z wybierarki (F4 #217): walidacja (5 × 19 MB, bez wideo) i
+	 * zmniejszenie zdjęć przez pipeline #200. Odrzucone pliki raportuje toastami.
+	 * Podczas draftu posta załączniki są zablokowane (jeden pending draft naraz).
+	 */
+	async function handleFilesSelected(files: File[]) {
+		if (!online) return;
+		if (postPreview) {
+			toast.error("Udostępniasz post — wyślij go albo anuluj, aby dodać załączniki");
+			return;
+		}
+		const result = await prepareAttachments(files, attachments.length);
+		if (result.accepted.length > 0) {
+			setAttachments((prev) => [
+				...prev,
+				...result.accepted.map((file) => ({ id: crypto.randomUUID(), file })),
+			]);
+		}
+		for (const rejected of result.rejected) {
+			toast.error(`„${rejected.name}" — ${rejected.reason}`);
+		}
+	}
+
+	/** Usunięcie załącznika z draftu (krzyżyk na chipie nad inputem). */
+	function removeAttachment(id: string) {
+		setAttachments((prev) => prev.filter((attachment) => attachment.id !== id));
+	}
+
+	// Udostępnienie posta (F5 #218): kind='post' niesie samo id — kartę resolwuje
+	// serwer. Komentarz opcjonalny; sukces czyści draft (i parametr w URL).
+	const sendPostMutation = useMutation({
+		mutationFn: (vars: { postId: string; text: string; replyToId?: string }) =>
+			sendChatPost(vars.postId, vars.text, vars.replyToId),
+		onSuccess: (message) => {
+			appendChatMessageIfNew(queryClient, message);
+			clearDraftParam();
+		},
+		onError: () => toast.error("Nie udało się wysłać posta"),
+	});
 
 	const deleteMutation = useMutation({
 		mutationFn: deleteChatMessageRequest,
@@ -302,8 +388,40 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 
 	function handleSend() {
 		const text = draft.trim();
-		if (!text || sendMutation.isPending || !online) return;
+		const hasAttachments = attachments.length > 0;
+		// Załącznik może lecieć bez podpisu — pusty tekst nie blokuje wysyłki.
+		if (
+			(!text && !hasAttachments && !postPreview) ||
+			sendMutation.isPending ||
+			sendAttachmentsMutation.isPending ||
+			!online
+		) {
+			return;
+		}
 		const reply = replyTo;
+		if (postPreview) {
+			// Draft posta (F5 #218): komentarz opcjonalny, wysyłka ręczna.
+			if (hasAttachments || sendPostMutation.isPending) return;
+			setDraft("");
+			setReplyTo(null);
+			sendPostMutation.mutate({ postId: postPreview.id, text, replyToId: reply?.id });
+			return;
+		}
+		if (hasAttachments) {
+			// Tekst + załączniki = JEDNA wiadomość (AC #217); podpis opcjonalny.
+			const drafts = attachments;
+			setDraft("");
+			setAttachments([]);
+			setReplyTo(null);
+			sendAttachmentsMutation.mutate({
+				text,
+				replyToId: reply?.id,
+				replyText: reply?.text ?? null,
+				drafts,
+			});
+			return;
+		}
+		if (!text) return;
 		setDraft("");
 		setReplyTo(null);
 		sendMutation.mutate({ text, replyToId: reply?.id, replyText: reply?.text ?? null });
@@ -349,7 +467,7 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 				<div
 					ref={containerRef}
 					data-chat-scroll
-					className="h-full overflow-y-auto px-4 py-4"
+					className="h-full overflow-y-auto overscroll-contain px-4 py-4"
 					onScroll={(event) => setNearBottom(isNearBottom(event.currentTarget))}
 				>
 					{hasMany ? (
@@ -412,7 +530,7 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 										onPointerLeave={cancelPress}
 										onContextMenu={(event) => handleContextMenu(message, event)}
 										onKeyDown={(event) => handleKeyDown(message, event)}
-										className={`flex max-w-[85%] cursor-default items-end gap-2 rounded-2xl px-3 py-2 [-webkit-touch-callout:none] select-none ${side === "own" ? "rounded-br-md bg-primary text-primary-foreground" : "rounded-bl-md bg-muted text-foreground"}`}
+										className={`flex max-w-[85%] min-w-0 cursor-default items-end gap-2 overflow-hidden rounded-2xl px-3 py-2 [-webkit-touch-callout:none] select-none ${side === "own" ? "rounded-br-md bg-primary text-primary-foreground" : "rounded-bl-md bg-muted text-foreground"}`}
 									>
 										{/* Małe emoji od innych — od zewnętrznego rogu dymka. */}
 										{side === "other" ? <ChatBubbleReactions messageId={message.id} /> : null}
@@ -420,6 +538,10 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 											<ChatBubblePoll message={message} own={side === "own"} />
 										) : message.kind === "location" ? (
 											<ChatBubbleLocation message={message} own={side === "own"} />
+										) : message.kind === "attachments" ? (
+											<ChatBubbleAttachments message={message} own={side === "own"} />
+										) : message.kind === "post" ? (
+											<ChatBubblePost message={message} own={side === "own"} />
 										) : (
 											<ChatBubbleText text={message.text} own={side === "own"} />
 										)}
@@ -483,6 +605,42 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 				<div className="mx-auto flex max-w-2xl flex-col">
 					{/* F3: anonimowy wskaźnik nad inputem — zawsze zamontowany (fade, bez skoku layoutu). */}
 					<TypingIndicator visible={isSomeoneTyping} />
+					{postPreview ? (
+						// Podgląd draftu posta (F5 #218) — miniatura + wycinek + autor;
+						// wysyłka ręczna przyciskiem Wyślij (z komentarzem albo bez).
+						<ChatPostDraftPreview post={postPreview} onCancel={clearDraftParam} />
+					) : null}
+					{attachments.length > 0 ? (
+						// Chipy załączników (F4 #217): nazwa + rozmiar + krzyżyk; wysyłka
+						// rusza przyciskiem Wyślij razem z podpisem z inputu.
+						<ul data-attachment-previews className="mb-2 flex flex-wrap gap-2">
+							{attachments.map((attachment) => (
+								<li
+									key={attachment.id}
+									className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/60 px-2 py-1"
+								>
+									<Paperclip
+										className="size-3.5 shrink-0 text-muted-foreground"
+										aria-hidden="true"
+									/>
+									<span className="max-w-36 truncate text-xs text-foreground">
+										{attachment.file.name}
+									</span>
+									<span className="shrink-0 text-xs text-muted-foreground">
+										{formatBytes(attachment.file.size)}
+									</span>
+									<button
+										type="button"
+										onClick={() => removeAttachment(attachment.id)}
+										aria-label={`Usuń załącznik ${attachment.file.name}`}
+										className="shrink-0 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+									>
+										<X className="size-5" />
+									</button>
+								</li>
+							))}
+						</ul>
+					) : null}
 					{replyTo ? (
 						// Podgląd odpowiedzi nad inputem (F5) — quote + anulowanie.
 						<div
@@ -503,7 +661,11 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 							</button>
 						</div>
 					) : null}
-					<div className="flex items-center gap-2">
+					<div className="flex items-end gap-2">
+						{/* items-end: przy rozwiniętym komponerze przyciski akcji
+						    i Wyślij zostają PRZYKLEJONE na swojej domyślnej wysokości
+						    (przy ziemi paska) — nie jadą w górę z inputem. Przy normalnej
+						    wysokości (h-11 = h-11) układ identyczny jak items-center. */}
 						<ChatInput
 							value={draft}
 							onChange={(next) => {
@@ -515,6 +677,8 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 							pollPending={sendPollMutation.isPending}
 							onSendLocation={handleSendLocation}
 							locationPending={sendLocationMutation.isPending}
+							onFilesSelected={handleFilesSelected}
+							currentUserName={currentUserName}
 							currentUserId={currentUserId}
 							disabled={!online}
 						/>
@@ -523,7 +687,16 @@ export function ChatView({ currentUserId, currentUserName, isAdmin }: ChatViewPr
 							size="icon"
 							className="h-11 w-11 shrink-0 rounded-full"
 							aria-label="Wyślij"
-							disabled={!draft.trim() || sendMutation.isPending || !online}
+							disabled={
+								(!draft.trim() && attachments.length === 0 && !postPreview) ||
+								sendMutation.isPending ||
+								sendAttachmentsMutation.isPending ||
+								sendPostMutation.isPending ||
+								// isLoading = pending + fetchowanie (wyłączona kwerenda draftu
+								// jest wiecznie „pending" — blokowanie na niej zabiłoby Wyślij).
+								postPreviewQuery.isLoading ||
+								!online
+							}
 						>
 							<SendHorizontal className="h-5 w-5" />
 						</Button>

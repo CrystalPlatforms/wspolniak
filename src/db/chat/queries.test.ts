@@ -610,9 +610,9 @@ describe("voteChatPoll (F2 #215)", () => {
 describe("getChatPollsState (F2 #215)", () => {
 	it("returns my vote and aggregated tallies for live polls, without other voters' identities", async () => {
 		// Mock ręczny: oba zapytania kończą się na .where() — tam resolvują wiersze.
-		const pollWhere = vi.fn().mockResolvedValue([
-			{ id: "m-1", payload: { options: ["Tak", "Nie"] } },
-		]);
+		const pollWhere = vi
+			.fn()
+			.mockResolvedValue([{ id: "m-1", payload: { options: ["Tak", "Nie"] } }]);
 		const pollFrom = vi.fn().mockReturnValue({ where: pollWhere });
 		const votesWhere = vi.fn().mockResolvedValue([
 			{ messageId: "m-1", userId: "user-1", optionIndex: 0 },
@@ -639,7 +639,9 @@ describe("getChatPollsState (F2 #215)", () => {
 	it("returns empty state when there are no live polls (skips the votes query)", async () => {
 		const pollWhere = vi.fn().mockResolvedValue([]);
 		const pollFrom = vi.fn().mockReturnValue({ where: pollWhere });
-		const mockSelect = vi.fn<(table?: unknown) => unknown>().mockImplementationOnce(() => ({ from: pollFrom }));
+		const mockSelect = vi
+			.fn<(table?: unknown) => unknown>()
+			.mockImplementationOnce(() => ({ from: pollFrom }));
 		mockGetDb.mockReturnValue({ select: mockSelect } as never);
 
 		const state = await getChatPollsState("user-1");
@@ -649,13 +651,13 @@ describe("getChatPollsState (F2 #215)", () => {
 	});
 
 	it("ignores votes beyond the option count instead of crashing the list", async () => {
-		const pollWhere = vi.fn().mockResolvedValue([
-			{ id: "m-1", payload: { options: ["Tak", "Nie"] } },
-		]);
+		const pollWhere = vi
+			.fn()
+			.mockResolvedValue([{ id: "m-1", payload: { options: ["Tak", "Nie"] } }]);
 		const pollFrom = vi.fn().mockReturnValue({ where: pollWhere });
-		const votesWhere = vi.fn().mockResolvedValue([
-			{ messageId: "m-1", userId: "user-1", optionIndex: 7 },
-		]);
+		const votesWhere = vi
+			.fn()
+			.mockResolvedValue([{ messageId: "m-1", userId: "user-1", optionIndex: 7 }]);
 		const votesFrom = vi.fn().mockReturnValue({ where: votesWhere });
 		const mockSelect = vi
 			.fn<(table?: unknown) => unknown>()
@@ -681,7 +683,11 @@ describe("deleteChatMessage — CTE czyści głosy ankiety (F2 #215)", () => {
 		const mockExecute = vi.fn().mockResolvedValue(undefined);
 		mockGetDb.mockReturnValue({ select: mockSelect, execute: mockExecute } as never);
 
-		const result = await deleteChatMessage({ id: "m-1", requesterId: "u1", requesterRole: "member" });
+		const result = await deleteChatMessage({
+			id: "m-1",
+			requesterId: "u1",
+			requesterRole: "member",
+		});
 
 		expect(result.ok).toBe(true);
 		expect(mockExecute).toHaveBeenCalledTimes(1);

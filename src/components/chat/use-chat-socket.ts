@@ -2,17 +2,13 @@
 
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { applyPollVoteUpdate, CHAT_POLLS_KEY, type ChatPollVoteUpdate } from "./chat-polls";
 import {
 	applyReactionEvent,
 	CHAT_REACTIONS_KEY,
 	type ChatReactionEvent,
 	type ChatReactionItem,
 } from "./chat-reactions";
-import {
-	applyPollVoteUpdate,
-	CHAT_POLLS_KEY,
-	type ChatPollVoteUpdate,
-} from "./chat-polls";
 import { CHAT_MESSAGES_KEY, type ChatMessageItem } from "./chat-view";
 
 /** Backoff reconnectu: 1s → 2s → 4s → … max 15s; reset po udanym połączeniu. */

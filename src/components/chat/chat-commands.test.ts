@@ -3,9 +3,9 @@
 // - Trigger `/` działa jak trigger `@` z mentionów (#168): `/` na początku
 //   lub po białym znaku, bez białego znaku między `/` a karetą.
 // - `a/b` w środku słowa i `https://…` (bez spacji przed `/`) NIE triggerują.
-// - F1: `/link`; F2 (#215): `/ankieta`; F3 (#216): `/polozenie`. Filtr query
-//   (prefiks, case-insensitive) był gotowy od F1 — nowe komendy go po prostu
-//   zapełniają.
+// - F1: `/link`; F2 (#215): `/ankieta`; F3 (#216): `/polozenie`; F4 (#217):
+//   `/dodaj`; F6 (#219): `/wydarzenie`. Filtr query (prefiks, case-insensitive)
+//   był gotowy od F1 — nowe komendy go po prostu zapełniają.
 import { CHAT_COMMANDS, detectCommandQuery, filterCommands } from "./chat-commands";
 
 describe("detectCommandQuery", () => {
@@ -35,16 +35,18 @@ describe("detectCommandQuery", () => {
 });
 
 describe("filterCommands", () => {
-	it("lists all shipped commands: /link, /ankieta (F2 #215), /polozenie (F3 #216)", () => {
+	it("lists all shipped commands: /link, /ankieta (#215), /polozenie (#216), /dodaj (#217), /wydarzenie (#219)", () => {
 		expect(CHAT_COMMANDS).toEqual([
 			{ name: "/link", description: "Wstaw link" },
 			{ name: "/ankieta", description: "Utwórz ankietę" },
 			{ name: "/polozenie", description: "Udostępnij lokalizację" },
+			{ name: "/dodaj", description: "Załącz pliki" },
+			{ name: "/wydarzenie", description: "Wstaw szablon propozycji daty" },
 		]);
 	});
 
 	it("filters commands by typed prefix", () => {
-		expect(filterCommands("")).toHaveLength(3);
+		expect(filterCommands("")).toHaveLength(5);
 		expect(filterCommands("li")).toEqual([{ name: "/link", description: "Wstaw link" }]);
 		expect(filterCommands("an")).toEqual([{ name: "/ankieta", description: "Utwórz ankietę" }]);
 		expect(filterCommands("pol")).toEqual([

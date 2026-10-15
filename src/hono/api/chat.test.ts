@@ -29,6 +29,13 @@ vi.mock("@/db/chat", async (importOriginal) => {
 	};
 });
 
+// Karty udostępnionych postów (#218): resolucja id → (miniatura, wycinek, autor)
+// idzie przez domenę postów — mockujemy granicę domen (testy listPostsByIds mają
+// własny plik).
+vi.mock("@/db/posts", () => ({
+	listPostsByIds: vi.fn(),
+}));
+
 // Granice pusha (F7 #158): budowa depsów (VAPID) i fan-out — mockowane;
 // test weryfuje ŚCIEŻKĘ wywołania (tylko POST /messages, nigdy reakcje).
 vi.mock("@/core/push-deps", () => ({
@@ -57,6 +64,7 @@ import {
 } from "@/db/chat";
 import { findActiveUserById } from "@/db/identity/queries";
 import { verifySessionCookie } from "@/db/identity/session";
+import { listPostsByIds } from "@/db/posts";
 import chatEndpoint from "./chat";
 
 const mockVerify = vi.mocked(verifySessionCookie);
@@ -70,6 +78,7 @@ const mockVotePoll = vi.mocked(voteChatPoll);
 const mockPollsState = vi.mocked(getChatPollsState);
 const mockBuildPushDeps = vi.mocked(buildPushDeps);
 const mockNotifyChat = vi.mocked(notifyChatMessage);
+const mockListPostsByIds = vi.mocked(listPostsByIds);
 
 function createApi() {
 	const api = new Hono<{
@@ -1160,5 +1169,338 @@ describe("POST /api/chat/messages — lokalizacja (F3 #216)", () => {
 
 		expect(res.status).toBe(400);
 		expect(mockCreateMessage).not.toHaveBeenCalled();
+	});
+});
+
+describe("POST /api/chat/messages — udostępnienie posta (F5 #218)", () => {
+	const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+	const postEnv = { ...env, CLOUDFLARE_IMAGES_ACCOUNT_HASH: "hash123" };
+
+	function postMessage(overrides: Record<string, unknown> = {}) {
+		return {
+			id: "msg-post",
+			authorId: "u1",
+			text: "",
+			kind: "post" as const,
+			payload: { postId: "p1" },
+			replyToId: null,
+			replyText: null,
+			createdAt: now,
+			expiresAt,
+			...overrides,
+		};
+	}
+
+	const resolvedPost = {
+		id: "p1",
+		authorId: "u2",
+		description: "Wakacje nad morzem",
+		videos: [] as never[],
+		createdAt: now,
+		updatedAt: now,
+		author: { id: "u2", name: "Kasia" },
+		images: [{ id: "i1", postId: "p1", cfImageId: "img-1", displayOrder: 0, createdAt: now }],
+	};
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		authedUser();
+		chatRoomStub.checkAndIncrementRateLimit.mockResolvedValue(true);
+		chatRoomStub.broadcastMessage.mockResolvedValue(undefined);
+	});
+
+	it("creates kind='post' with an empty comment and returns the message with the resolved card", async () => {
+		mockCreateMessage.mockResolvedValue(postMessage());
+		mockListPostsByIds.mockResolvedValue([resolvedPost]);
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ kind: "post", payload: { postId: "p1" } }),
+			}),
+			postEnv,
+		);
+
+		expect(res.status).toBe(201);
+		const json = (await res.json()) as { data: { kind: string; post: { thumbnailUrl: string } } };
+		expect(json.data.kind).toBe("post");
+		expect(json.data.post.thumbnailUrl).toContain("imagedelivery.net");
+		expect(json.data.post.thumbnailUrl).toContain("hash123");
+		// Broadcast też niesie gotową kartę — odbiorcy live nie dociągają nic dodatkowo.
+		const broadcast = chatRoomStub.broadcastMessage.mock.calls[0]?.[0] as { post?: unknown };
+		expect(broadcast.post).toBeTruthy();
+	});
+
+	it("uses the YouTube poster for video posts", async () => {
+		mockCreateMessage.mockResolvedValue(postMessage());
+		mockListPostsByIds.mockResolvedValue([
+			{
+				...resolvedPost,
+				images: [],
+				videos: [
+					{ youtubeVideoId: "abc", title: "Wideo", thumbnailUrl: "https://i.ytimg.com/x.jpg" },
+				],
+			},
+		]);
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ kind: "post", text: "Spójrzcie", payload: { postId: "p1" } }),
+			}),
+			postEnv,
+		);
+
+		expect(res.status).toBe(201);
+		// Komentarz nadawcy leci do kolumny `text` (snapshot quote i tak go użyje).
+		const call = mockCreateMessage.mock.calls[0]?.[0] as { text?: string };
+		expect(call.text).toBe("Spójrzcie");
+		const json = (await res.json()) as { data: { post: { thumbnailUrl: string } } };
+		expect(json.data.post.thumbnailUrl).toBe("https://i.ytimg.com/x.jpg");
+	});
+
+	it("attaches post: null when the shared post is already deleted", async () => {
+		mockCreateMessage.mockResolvedValue(postMessage());
+		mockListPostsByIds.mockResolvedValue([]);
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ kind: "post", payload: { postId: "p1" } }),
+			}),
+			postEnv,
+		);
+
+		expect(res.status).toBe(201);
+		const json = (await res.json()) as { data: { post: unknown } };
+		expect(json.data.post).toBeNull();
+	});
+});
+
+describe("POST /api/chat/messages — załączniki (F4 #217)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		authedUser();
+		chatRoomStub.checkAndIncrementRateLimit.mockResolvedValue(true);
+		chatRoomStub.broadcastMessage.mockResolvedValue(undefined);
+	});
+
+	it("stores metadata payload and creates ONE message for text + attachments", async () => {
+		const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+		mockCreateMessage.mockResolvedValue({
+			id: "msg-att",
+			authorId: "u1",
+			text: "Dokumenty z notariusza",
+			kind: "attachments",
+			payload: {
+				attachments: [
+					{
+						key: "9f8c2b1a-1b2c-3d4e-5f6a-7b8c9d0e1f2a",
+						name: "umowa.pdf",
+						size: 2048,
+						mimeType: "application/pdf",
+					},
+				],
+			},
+			replyToId: null,
+			replyText: null,
+			createdAt: now,
+			expiresAt,
+		});
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					kind: "attachments",
+					text: "Dokumenty z notariusza",
+					payload: {
+						attachments: [
+							{
+								key: "9f8c2b1a-1b2c-3d4e-5f6a-7b8c9d0e1f2a",
+								name: "umowa.pdf",
+								size: 2048,
+								mimeType: "application/pdf",
+							},
+						],
+					},
+				}),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(201);
+		// JEDNO wywołanie createChatMessage — tekst i załączniki lecą razem (AC #217).
+		expect(mockCreateMessage).toHaveBeenCalledTimes(1);
+	});
+
+	it("rejects a video attachment in the payload with 400", async () => {
+		const api = createApi();
+		const res = await api.request(
+			"/api/chat/messages",
+			authedRequest({
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					kind: "attachments",
+					payload: {
+						attachments: [
+							{
+								key: "9f8c2b1a-1b2c-3d4e-5f6a-7b8c9d0e1f2a",
+								name: "film.mp4",
+								size: 100,
+								mimeType: "video/mp4",
+							},
+						],
+					},
+				}),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(400);
+		expect(mockCreateMessage).not.toHaveBeenCalled();
+	});
+});
+
+describe("GET /api/chat/messages — karty udostępnionych postów (F5 #218)", () => {
+	const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+	const postEnv = { ...env, CLOUDFLARE_IMAGES_ACCOUNT_HASH: "hash123" };
+
+	function postListItem() {
+		return {
+			id: "msg-post",
+			authorId: "u2",
+			text: "Zobaczcie",
+			kind: "post" as const,
+			payload: { postId: "p1" },
+			replyToId: null,
+			replyText: null,
+			createdAt: now,
+			expiresAt,
+			author: { id: "u2", name: "Kasia" },
+		};
+	}
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		authedUser();
+	});
+
+	it("resolves the card for a live post on every read (edycje widoczne od razu)", async () => {
+		mockListMessages.mockResolvedValue([postListItem()]);
+		mockListPostsByIds.mockResolvedValue([
+			{
+				id: "p1",
+				authorId: "u2",
+				description: "Opis posta",
+				videos: [] as never[],
+				createdAt: now,
+				updatedAt: now,
+				author: { id: "u2", name: "Kasia" },
+				images: [{ id: "i1", postId: "p1", cfImageId: "img-1", displayOrder: 0, createdAt: now }],
+			},
+		]);
+
+		const api = createApi();
+		const res = await api.request("/api/chat/messages", authedRequest(), postEnv);
+
+		expect(res.status).toBe(200);
+		const json = (await res.json()) as {
+			data: Array<{ kind: string; post: { snippet: string; authorName: string } | null }>;
+		};
+		expect(json.data[0]?.post).toMatchObject({ snippet: "Opis posta", authorName: "Kasia" });
+	});
+
+	it("attaches post: null for a deleted post (placeholder zamiast martwego linku)", async () => {
+		mockListMessages.mockResolvedValue([postListItem()]);
+		mockListPostsByIds.mockResolvedValue([]);
+
+		const api = createApi();
+		const res = await api.request("/api/chat/messages", authedRequest(), postEnv);
+
+		expect(res.status).toBe(200);
+		const json = (await res.json()) as { data: Array<{ post: unknown }> };
+		expect(json.data[0]?.post).toBeNull();
+	});
+
+	it("skips the posts lookup entirely when no post messages exist", async () => {
+		mockListMessages.mockResolvedValue([
+			{
+				id: "msg-1",
+				authorId: "u2",
+				text: "Cześć",
+				kind: "text",
+				payload: null,
+				replyToId: null,
+				replyText: null,
+				createdAt: now,
+				expiresAt,
+				author: { id: "u2", name: "Kasia" },
+			},
+		]);
+
+		const api = createApi();
+		const res = await api.request("/api/chat/messages", authedRequest(), postEnv);
+
+		expect(res.status).toBe(200);
+		expect(mockListPostsByIds).not.toHaveBeenCalled();
+	});
+});
+
+describe("GET /api/chat/share-preview/:id (F5 #218)", () => {
+	const postEnv = { ...env, CLOUDFLARE_IMAGES_ACCOUNT_HASH: "hash123" };
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		authedUser();
+	});
+
+	it("returns the preview card for a live post", async () => {
+		mockListPostsByIds.mockResolvedValue([
+			{
+				id: "p1",
+				authorId: "u2",
+				description: "Krótki opis",
+				videos: [] as never[],
+				createdAt: now,
+				updatedAt: now,
+				author: { id: "u2", name: "Kasia" },
+				images: [{ id: "i1", postId: "p1", cfImageId: "img-1", displayOrder: 0, createdAt: now }],
+			},
+		]);
+
+		const api = createApi();
+		const res = await api.request("/api/chat/share-preview/p1", authedRequest(), postEnv);
+
+		expect(res.status).toBe(200);
+		const json = (await res.json()) as {
+			data: { id: string; snippet: string; authorName: string; thumbnailUrl: string };
+		};
+		expect(json.data).toMatchObject({
+			id: "p1",
+			snippet: "Krótki opis",
+			authorName: "Kasia",
+			thumbnailUrl: expect.stringContaining("imagedelivery.net"),
+		});
+	});
+
+	it("returns 404 for a deleted post (draft zrzucany po stronie klienta)", async () => {
+		mockListPostsByIds.mockResolvedValue([]);
+		const api = createApi();
+		const res = await api.request("/api/chat/share-preview/p1", authedRequest(), postEnv);
+		expect(res.status).toBe(404);
 	});
 });

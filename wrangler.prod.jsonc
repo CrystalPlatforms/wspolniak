@@ -26,6 +26,13 @@
 			}
 		]
 	},
+	// Załączniki czatu (F4 #217): prywatny bucket produkcyjny (reguła lifecycle 1 dzień — krok 0 HITL).
+	"r2_buckets": [
+		{
+			"binding": "CHAT_ATTACHMENTS",
+			"bucket_name": "wspolniak-chat-attachments"
+		}
+	],
 	"migrations": [
 		{
 			"tag": "v1-chat-room",

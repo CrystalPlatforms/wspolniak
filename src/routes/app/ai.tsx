@@ -66,14 +66,18 @@ function AiScreen() {
 	};
 
 	return (
-		<div className="flex min-h-dvh flex-col bg-background">
+		// data-lock-scroll: znacznik dla CSS (html:has) — scroll dokumentu ZABLOKOWANY,
+		// bo ta strona scrolluje wyłącznie własny kontener wiadomości (naprawa:
+		// pusty ogon strony pod treścią był przewijalny). h-dvh + overflow-hidden.
+		<div data-lock-scroll className="flex h-dvh flex-col overflow-hidden bg-background">
 			{messages.length === 0 ? (
-				<div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 pb-32">
+				<div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-4 pb-32">
 					<AlLogo className="size-40" />
 					<p className="text-2xl font-bold text-foreground">Cześć, tu AL</p>
 				</div>
 			) : (
-				<div className="mx-auto w-full max-w-2xl flex-1 px-4 py-6 pb-44 sm:pb-32">
+				// Kontener przewijania wiadomości — jedyna scrollowalna strefa na tej stronie.
+				<div className="mx-auto w-full max-w-2xl min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-6 pb-4 sm:pb-4">
 					<div className="flex flex-col gap-4">
 						{messages.map((message, index) => (
 							<ChatBubble
@@ -87,7 +91,9 @@ function AiScreen() {
 				</div>
 			)}
 
-			<div className="sticky bottom-28 z-30 bg-background/95 p-3 backdrop-blur sm:bottom-0">
+			{/* Komposer w normalnym przepływie (nie sticky — dokument nie scrolluje);
+			    dolna odległość mobile = pasek MobileNav (7rem) + margines p-3. */}
+			<div className="z-30 bg-background/95 p-3 pb-[calc(7rem+0.75rem)] backdrop-blur sm:pb-3">
 				<div className="mx-auto max-w-2xl">
 					<BeamBorder active={input.trim() === "" && !isStreaming} className="rounded-2xl">
 						<div className="rounded-2xl border border-primary/30 bg-card/80 p-3">
@@ -103,7 +109,7 @@ function AiScreen() {
 								}}
 								placeholder={online ? "Napisz do AL…" : "AL działa tylko online"}
 								aria-label="Wiadomość do AL"
-								className="h-14 w-full resize-none bg-transparent text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-60"
+								className="no-scrollbar h-14 w-full resize-none bg-transparent text-foreground outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-60"
 							/>
 							<div className="mt-2 flex items-center gap-2">
 								<ModelPicker modelId={modelId} onSelect={setModelId} />

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import L from "leaflet";
 import { Crosshair, MapPin } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
-import L from "leaflet";
 import { Loader } from "@/components/ui/loader";
 import "leaflet/dist/leaflet.css";
 
@@ -59,8 +60,7 @@ export function ChatLocationForm({ onSave, onCancel, pending = false }: ChatLoca
 		// (wymóg licencji kafli OSM, decyzja HITL).
 		map.attributionControl.setPrefix(false);
 		L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
-			attribution:
-				'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+			attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
 			maxZoom: 19,
 		}).addTo(map);
 		map.on("click", (event: L.LeafletMouseEvent) => {
@@ -117,12 +117,13 @@ export function ChatLocationForm({ onSave, onCancel, pending = false }: ChatLoca
 	}
 
 	return (
-		<div data-location-form className="mb-2 rounded-xl border border-border bg-popover p-3 shadow-md">
+		<div
+			data-location-form
+			className="mb-2 rounded-xl border border-border bg-popover p-3 shadow-md"
+		>
 			<div className="flex flex-col gap-2">
 				<div className="flex items-center justify-between gap-2">
-					<p className="text-xs font-medium text-muted-foreground">
-						Wskaż miejsce na mapie
-					</p>
+					<p className="text-xs font-medium text-muted-foreground">Wskaż miejsce na mapie</p>
 					<button
 						type="button"
 						onClick={useMyLocation}
@@ -154,7 +155,10 @@ export function ChatLocationForm({ onSave, onCancel, pending = false }: ChatLoca
 					</p>
 				) : null}
 				<div>
-					<label htmlFor="chat-location-label" className="text-xs font-medium text-muted-foreground">
+					<label
+						htmlFor="chat-location-label"
+						className="text-xs font-medium text-muted-foreground"
+					>
 						Opis (opcjonalnie)
 					</label>
 					<input

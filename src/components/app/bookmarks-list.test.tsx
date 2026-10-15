@@ -33,6 +33,8 @@ vi.mock("@tanstack/react-router", () => ({
 			</a>
 		);
 	},
+	// useNavigate — „Wspomnij na czacie" (F5 #218) w rogu cudzych postów; tu stub.
+	useNavigate: () => vi.fn(),
 }));
 
 function createWrapper() {

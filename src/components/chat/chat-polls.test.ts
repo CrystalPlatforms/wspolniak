@@ -8,10 +8,10 @@
 import { QueryClient } from "@tanstack/react-query";
 import {
 	applyPollVoteUpdate,
+	CHAT_POLLS_KEY,
 	clearMyPollVote,
 	parsePollPayload,
 	setMyPollVote,
-	CHAT_POLLS_KEY,
 } from "./chat-polls";
 
 describe("applyPollVoteUpdate", () => {

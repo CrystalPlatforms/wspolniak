@@ -238,7 +238,10 @@ export async function deleteChatMessage(input: {
  * (brak głosów na opcję = 0). Głosy zagubione (np. po edycji ankiety — dziś
  * niemożliwe) poza zakresem są ignorowane, nie wysypują odpowiedzi.
  */
-export async function getChatPollTallies(messageId: string, optionCount: number): Promise<number[]> {
+export async function getChatPollTallies(
+	messageId: string,
+	optionCount: number,
+): Promise<number[]> {
 	const rows = await getDb()
 		.select({
 			optionIndex: chatPollVotes.optionIndex,
@@ -291,7 +294,9 @@ export async function voteChatPoll(input: {
 	const current = await getDb()
 		.select({ optionIndex: chatPollVotes.optionIndex })
 		.from(chatPollVotes)
-		.where(and(eq(chatPollVotes.messageId, input.messageId), eq(chatPollVotes.userId, input.userId)))
+		.where(
+			and(eq(chatPollVotes.messageId, input.messageId), eq(chatPollVotes.userId, input.userId)),
+		)
 		.limit(1);
 	const existing = current[0];
 
@@ -300,10 +305,7 @@ export async function voteChatPoll(input: {
 		await getDb()
 			.delete(chatPollVotes)
 			.where(
-				and(
-					eq(chatPollVotes.messageId, input.messageId),
-					eq(chatPollVotes.userId, input.userId),
-				),
+				and(eq(chatPollVotes.messageId, input.messageId), eq(chatPollVotes.userId, input.userId)),
 			);
 		const tallies = await getChatPollTallies(input.messageId, parsed.data.options.length);
 		return { ok: true, data: { tallies, myVote: null } };
