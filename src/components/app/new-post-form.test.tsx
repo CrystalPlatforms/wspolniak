@@ -4,6 +4,8 @@ import { fireEvent, render as rtlRender, screen, waitFor, within } from "@testin
 import userEvent from "@testing-library/user-event";
 import type { ReactElement, ReactNode } from "react";
 
+import { putPendingFiles, takePendingFiles } from "@/lib/waiting-room";
+
 import { NewPostForm } from "./new-post-form";
 
 // Pole opisu renderuje GradientAiButton (F2 #189), który czyta stan AL
@@ -383,6 +385,112 @@ describe("NewPostForm", () => {
 
 			await uploadFiles(container, [fileOfSize("duze.jpg", 20 * 1024 * 1024)]);
 			expect(screen.getByRole("button", { name: /za duże: duze\.jpg/i })).toBeDefined();
+		});
+	});
+
+	// Poczekalnia plików (Android Wrapper F1, #220): NewPostForm przy MONTAŻU
+	// odbiera putPendingFiles i pokazuje pliki tak, jakby user wybrał je ręcznie.
+	// Założenia spisane przed RED:
+	// - podział po MIME: image/* → podglądy zdjęć, video/* → karty wideo,
+	//   inne typy (PDF itp.) są ignorowane;
+	// - pickup nie egzekwuje limitów 10 zdjęć / 5 wideo — limity dotyczą ręcznego
+	//   pickera, poczekalnia to zaufane źródło programistyczne (mostek Androida);
+	// - odbiór happens-once przy montażu; put po montażu nie zmienia otwartego
+	//   kompozytora (brak draft protection — decyzja PRD).
+	describe("poczekalnia plików (#220)", () => {
+		function videoFile(name: string): File {
+			return new File(["v"], name, { type: "video/mp4" });
+		}
+
+		beforeEach(() => {
+			// Izolacja: stan poczekalni jest globalny — testy startują na pusto.
+			takePendingFiles();
+		});
+
+		it("pokazuje zdjęcie z poczekalni od razu po załadowaniu, bez akcji usera", () => {
+			const photo = makeFile("wakacje.jpg");
+			putPendingFiles([photo]);
+
+			render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
+
+			const previews = screen.getAllByRole("img");
+			expect(previews).toHaveLength(1);
+			expect(previews[0].getAttribute("alt")).toBe("Podgląd 1");
+		});
+
+		it("pokazuje wideo z poczekalni jako kartę z tytułem z nazwy pliku", () => {
+			putPendingFiles([videoFile("kotek-nad-morzem.mp4")]);
+
+			const { container } = render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
+
+			expect(container.querySelector("video")).not.toBeNull();
+			expect(screen.getByText("kotek-nad-morzem")).toBeDefined();
+		});
+
+		it("przyjmuje zestaw mieszany — zdjęcia jako podglądy, wideo jako karty", () => {
+			putPendingFiles([
+				makeFile("a.jpg"),
+				videoFile("film.mp4"),
+				new File(["x"], "b.png", { type: "image/png" }),
+				videoFile("drugi.mp4"),
+			]);
+
+			const { container } = render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
+
+			expect(screen.getAllByRole("img")).toHaveLength(2);
+			expect(container.querySelectorAll("video")).toHaveLength(2);
+		});
+
+		it("publikacja z poczekalni: onSubmit dostaje pliki i wideo z tytułem (publish path)", async () => {
+			const onSubmit = vi.fn();
+			const photo = makeFile("wakacje.jpg");
+			const video = videoFile("kotek.mp4");
+			putPendingFiles([photo, video]);
+
+			render(<NewPostForm onSubmit={onSubmit} isSubmitting={false} />);
+
+			await userEvent.click(screen.getByRole("button", { name: /opublikuj/i }));
+
+			expect(onSubmit).toHaveBeenCalledTimes(1);
+			expect(onSubmit).toHaveBeenCalledWith(
+				expect.objectContaining({
+					files: [photo],
+					pendingVideos: [{ file: video, title: "kotek" }],
+				}),
+			);
+		});
+
+		it("za duże zdjęcie z poczekalni dostaje czerwoną flagę (istniejąca detekcja 19 MB)", () => {
+			// Ten sam setup detekcji rozmiaru co w „za duże zdjęcie (issue #200)".
+			const big = new File([new Uint8Array(20 * 1024 * 1024)], "duze.jpg", { type: "image/jpeg" });
+			putPendingFiles([big]);
+
+			render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
+
+			const flag = screen.getByRole("button", { name: /za duże: duze\.jpg/i });
+			expect(flag.className).toContain("bg-destructive");
+			expect(flag.querySelector("svg")).not.toBeNull();
+		});
+
+		it("pusta poczekalnia — kompozytor jak dziś: bez podglądów, publikacja zablokowana", () => {
+			const onSubmit = vi.fn();
+
+			render(<NewPostForm onSubmit={onSubmit} isSubmitting={false} />);
+
+			expect(screen.queryAllByRole("img")).toHaveLength(0);
+			expect(screen.getByRole("button", { name: /dodaj zdjęcia/i })).toBeDefined();
+			const publish = screen.getByRole("button", { name: /opublikuj/i }) as HTMLButtonElement;
+			expect(publish.disabled).toBe(true);
+			expect(onSubmit).not.toHaveBeenCalled();
+		});
+
+		it("ignoruje pliki innego typu niż zdjęcie/wideo (np. PDF)", () => {
+			putPendingFiles([new File(["%PDF"], "dokument.pdf", { type: "application/pdf" })]);
+
+			const { container } = render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
+
+			expect(screen.queryAllByRole("img")).toHaveLength(0);
+			expect(container.querySelector("video")).toBeNull();
 		});
 	});
 });

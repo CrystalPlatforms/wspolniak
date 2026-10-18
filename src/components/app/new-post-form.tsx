@@ -13,9 +13,12 @@ import { CSS } from "@dnd-kit/utilities";
 import { AlertTriangle, ArrowLeft, ImagePlus, X } from "lucide-react";
 import {
 	type ChangeEvent,
+	type Dispatch,
 	type FormEvent,
 	type ReactNode,
+	type SetStateAction,
 	useCallback,
+	useEffect,
 	useMemo,
 	useRef,
 	useState,
@@ -33,6 +36,7 @@ import { MAX_DESCRIPTION_LENGTH } from "@/db/posts/schema";
 import type { ImageUploadProgress } from "@/images/upload";
 import { reorder } from "@/lib/reorder";
 import { cn } from "@/lib/utils";
+import { takePendingFiles } from "@/lib/waiting-room";
 
 const ACCEPTED_IMAGE_TYPES = "image/jpeg,image/png,image/webp,image/heic,image/heif";
 const MAX_IMAGES = 10;
@@ -150,6 +154,48 @@ function firstMediaFile(media: MediaItem[]): File | null {
 }
 
 /**
+ * Plik → element listy zdjęć (podgląd + flaga „za duże"). Wspólny dla ręcznego
+ * pickera i odbioru poczekalni (#220) — detekcja rozmiaru w jednym miejscu.
+ */
+function toMediaItem(file: File, index: number): MediaItem {
+	return {
+		id: `img-${Date.now()}-${index}`,
+		file,
+		preview: URL.createObjectURL(file),
+		isOversized: file.size > MAX_FILE_SIZE_BYTES,
+	};
+}
+
+/**
+ * Odbiór poczekalni plików (Android Wrapper F1, #220): pliki włożone przez
+ * putPendingFiles (w F3 mostek Androida) forma bierze raz, przy montażu —
+ * widoczne od razu po załadowaniu /app/new, jakby user wybrał je ręcznie.
+ * Podział po MIME: image/* → podglądy (wspólny toMediaItem), video/* → karty
+ * wideo (tytuł z nazwy pliku, jak prefill w dialogu pickera), reszta ignorowana.
+ * Po odbiorze poczekalnia jest pusta — kolejny put czeka na następny montaż.
+ */
+function applyPendingFiles(
+	setMedia: Dispatch<SetStateAction<MediaItem[]>>,
+	setPendingVideos: Dispatch<SetStateAction<PendingVideo[]>>,
+): void {
+	const pending = takePendingFiles();
+	const photos = pending.filter((f) => f.type.startsWith("image/"));
+	if (photos.length > 0) setMedia((prev) => [...prev, ...photos.map(toMediaItem)]);
+	const videos = pending.filter((f) => f.type.startsWith("video/"));
+	if (videos.length > 0) {
+		setPendingVideos((prev) => [
+			...prev,
+			...videos.map((file) => ({
+				key: `vid-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+				file,
+				title: file.name.replace(/\.[^.]+$/, "").trim(),
+				preview: URL.createObjectURL(file),
+			})),
+		]);
+	}
+}
+
+/**
  * Reviza #187: nagłówek kompozytora — strzałka powrotu, tytuł i slot na
  * parę przycisków AL (po prawej, na wysokości tytułu).
  */
@@ -190,6 +236,9 @@ export function NewPostForm({
 	const [overId, setOverId] = useState<string | null>(null);
 	const [oversizedId, setOversizedId] = useState<string | null>(null);
 	const imageInputRef = useRef<HTMLInputElement>(null);
+
+	// Poczekalnia plików (#220): odbiór raz przy montażu (szczegóły: applyPendingFiles).
+	useEffect(() => applyPendingFiles(setMedia, setPendingVideos), []);
 
 	const images = useMemo(() => media, [media]);
 
@@ -236,15 +285,7 @@ export function NewPostForm({
 
 			// Za duże pliki NIE są odrzucane (issue #200): trafiają na listę jako
 			// oflagowane (czerwony mini z wykrzyknikiem), dialog na klik je naprawia.
-			const newItems: MediaItem[] = incoming.map((file, i) => {
-				const preview = URL.createObjectURL(file);
-				return {
-					id: `img-${Date.now()}-${i}`,
-					file,
-					preview,
-					isOversized: file.size > MAX_FILE_SIZE_BYTES,
-				};
-			});
+			const newItems: MediaItem[] = incoming.map(toMediaItem);
 
 			setMedia((prev) => [...prev, ...newItems]);
 
