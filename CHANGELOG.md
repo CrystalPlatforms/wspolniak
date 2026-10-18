@@ -1,3 +1,10 @@
+# [5.19.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.18.0...v5.19.0) (2026-10-18)
+
+
+### Features
+
+* **composer:** waiting room for pending files — Android Wrapper F1 ([#220](https://github.com/CrystalPlatforms/wspolniak/issues/220)) ([d9ef8d1](https://github.com/CrystalPlatforms/wspolniak/commit/d9ef8d1cdc373a54ebc19c39dd8fc7e170db7a29))
+
 # [5.18.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.17.0...v5.18.0) (2026-10-15)
 
 
