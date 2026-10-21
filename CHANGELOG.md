@@ -1,3 +1,10 @@
+## [5.19.1](https://github.com/CrystalPlatforms/wspolniak/compare/v5.19.0...v5.19.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* **landing:** point repo links at CrystalPlatforms/wspolniak ([#223](https://github.com/CrystalPlatforms/wspolniak/issues/223)) ([5a545a6](https://github.com/CrystalPlatforms/wspolniak/commit/5a545a6d72a84c33860efefda6cb0fe108c8964a))
+
 # [5.19.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.18.0...v5.19.0) (2026-10-18)
 
 
