@@ -30,6 +30,22 @@ describe("LandingPage", () => {
 		expect(link).toBeDefined();
 	});
 
+	it("points all repo links at CrystalPlatforms/wspolniak", () => {
+		render(<LandingPage />);
+
+		const repoUrl = "https://github.com/CrystalPlatforms/wspolniak";
+		const deploy = screen.getByRole("link", { name: /deploy to cloudflare/i });
+		const github = screen.getByRole("link", { name: /^github$/i });
+		const footer = screen.getByRole("link", { name: /wspolniak/i });
+
+		expect(deploy.getAttribute("href")).toBe(
+			`https://deploy.workers.cloudflare.com/?url=${repoUrl}`,
+		);
+		expect(github.getAttribute("href")).toBe(repoUrl);
+		expect(footer.getAttribute("href")).toBe(repoUrl);
+		expect(screen.getByText("CrystalPlatforms/wspolniak")).toBeDefined();
+	});
+
 	it("renders deploy CTA when not authenticated", () => {
 		render(<LandingPage />);
 

@@ -82,7 +82,7 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
 						) : (
 							<Button size="lg" asChild>
 								<a
-									href="https://deploy.workers.cloudflare.com/?url=https://github.com/CrystalGamesStudio/wspolniak"
+									href="https://deploy.workers.cloudflare.com/?url=https://github.com/CrystalPlatforms/wspolniak"
 									target="_blank"
 									rel="noopener noreferrer"
 								>
@@ -94,7 +94,7 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
 
 						<Button variant="outline" size="lg" asChild>
 							<a
-								href="https://github.com/CrystalGamesStudio/wspolniak"
+								href="https://github.com/CrystalPlatforms/wspolniak"
 								target="_blank"
 								rel="noopener noreferrer"
 							>
@@ -197,13 +197,13 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
 						Wspólniak &mdash; open source, AGPL-3.0-or-later
 					</p>
 					<a
-						href="https://github.com/CrystalGamesStudio/wspolniak"
+						href="https://github.com/CrystalPlatforms/wspolniak"
 						target="_blank"
 						rel="noopener noreferrer"
 						className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
 					>
 						<Github className="h-4 w-4" />
-						CrystalGamesStudio/wspolniak
+						CrystalPlatforms/wspolniak
 					</a>
 				</div>
 			</footer>
