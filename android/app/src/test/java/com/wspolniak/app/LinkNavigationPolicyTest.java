@@ -93,4 +93,18 @@ public class LinkNavigationPolicyTest {
         //założenie: błąd parsowania = zostań w aplikacji (WebView zniesie więcej niż handoff)
         assertEquals(WEBVIEW, LinkNavigationPolicy.decide("https://wspolniak.com/app/{niepoprawne znaki}"));
     }
+
+    @Test
+    public void keepsAssetLoaderUrlInWebView() {
+        //F3 (#222): WebViewAssetLoader serwuje bajty udostępnionych plików spod tej domeny —
+        //to infrastruktura aplikacji, nie obca strona
+        assertEquals(WEBVIEW,
+                LinkNavigationPolicy.decide("https://appassets.androidplatform.net/pending/0"));
+    }
+
+    @Test
+    public void doesNotTrustAssetLoaderLookalikeDomain() {
+        assertEquals(BROWSER,
+                LinkNavigationPolicy.decide("https://appassets.androidplatform.net.evil.pl/0"));
+    }
 }

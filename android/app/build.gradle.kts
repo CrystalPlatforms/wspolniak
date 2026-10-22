@@ -28,6 +28,8 @@ android {
 
 dependencies {
     implementation("androidx.activity:activity:1.9.3")
+    // WebViewAssetLoader — serwowanie bajtów content:// pod stałym https hostem (#222)
+    implementation("androidx.webkit:webkit:1.12.1")
     testImplementation("junit:junit:4.13.2")
 
     // kotlin-stdlib ≥1.8 zawiera już klasy jdk7/jdk8 w środku; starsze artefakty androidx

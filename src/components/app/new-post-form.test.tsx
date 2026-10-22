@@ -396,7 +396,9 @@ describe("NewPostForm", () => {
 	// - pickup nie egzekwuje limitów 10 zdjęć / 5 wideo — limity dotyczą ręcznego
 	//   pickera, poczekalnia to zaufane źródło programistyczne (mostek Androida);
 	// - odbiór happens-once przy montażu; put po montażu nie zmienia otwartego
-	//   kompozytora (brak draft protection — decyzja PRD).
+	//   kompozytora (brak draft protection — decyzja PRD);
+	// - F3 (#222): odbiór idzie po await maybeIngestSharedFiles() (mostek Androida,
+	//   no-op poza apką) — to mikro-zadanie po renderze, stąd waitFor w asercjach.
 	describe("poczekalnia plików (#220)", () => {
 		function videoFile(name: string): File {
 			return new File(["v"], name, { type: "video/mp4" });
@@ -407,27 +409,27 @@ describe("NewPostForm", () => {
 			takePendingFiles();
 		});
 
-		it("pokazuje zdjęcie z poczekalni od razu po załadowaniu, bez akcji usera", () => {
+		it("pokazuje zdjęcie z poczekalni od razu po załadowaniu, bez akcji usera", async () => {
 			const photo = makeFile("wakacje.jpg");
 			putPendingFiles([photo]);
 
 			render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
 
+			await waitFor(() => expect(screen.getAllByRole("img")).toHaveLength(1));
 			const previews = screen.getAllByRole("img");
-			expect(previews).toHaveLength(1);
 			expect(previews[0].getAttribute("alt")).toBe("Podgląd 1");
 		});
 
-		it("pokazuje wideo z poczekalni jako kartę z tytułem z nazwy pliku", () => {
+		it("pokazuje wideo z poczekalni jako kartę z tytułem z nazwy pliku", async () => {
 			putPendingFiles([videoFile("kotek-nad-morzem.mp4")]);
 
 			const { container } = render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
 
-			expect(container.querySelector("video")).not.toBeNull();
+			await waitFor(() => expect(container.querySelector("video")).not.toBeNull());
 			expect(screen.getByText("kotek-nad-morzem")).toBeDefined();
 		});
 
-		it("przyjmuje zestaw mieszany — zdjęcia jako podglądy, wideo jako karty", () => {
+		it("przyjmuje zestaw mieszany — zdjęcia jako podglądy, wideo jako karty", async () => {
 			putPendingFiles([
 				makeFile("a.jpg"),
 				videoFile("film.mp4"),
@@ -437,7 +439,7 @@ describe("NewPostForm", () => {
 
 			const { container } = render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
 
-			expect(screen.getAllByRole("img")).toHaveLength(2);
+			await waitFor(() => expect(screen.getAllByRole("img")).toHaveLength(2));
 			expect(container.querySelectorAll("video")).toHaveLength(2);
 		});
 
@@ -449,7 +451,10 @@ describe("NewPostForm", () => {
 
 			render(<NewPostForm onSubmit={onSubmit} isSubmitting={false} />);
 
-			await userEvent.click(screen.getByRole("button", { name: /opublikuj/i }));
+			// przycisk disabled, aż poczekalnia trafi do formy (async odbiór, F3 #222)
+			const publish = screen.getByRole("button", { name: /opublikuj/i }) as HTMLButtonElement;
+			await waitFor(() => expect(publish.disabled).toBe(false));
+			await userEvent.click(publish);
 
 			expect(onSubmit).toHaveBeenCalledTimes(1);
 			expect(onSubmit).toHaveBeenCalledWith(
@@ -460,16 +465,18 @@ describe("NewPostForm", () => {
 			);
 		});
 
-		it("za duże zdjęcie z poczekalni dostaje czerwoną flagę (istniejąca detekcja 19 MB)", () => {
+		it("za duże zdjęcie z poczekalni dostaje czerwoną flagę (istniejąca detekcja 19 MB)", async () => {
 			// Ten sam setup detekcji rozmiaru co w „za duże zdjęcie (issue #200)".
 			const big = new File([new Uint8Array(20 * 1024 * 1024)], "duze.jpg", { type: "image/jpeg" });
 			putPendingFiles([big]);
 
 			render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
 
-			const flag = screen.getByRole("button", { name: /za duże: duze\.jpg/i });
-			expect(flag.className).toContain("bg-destructive");
-			expect(flag.querySelector("svg")).not.toBeNull();
+			await waitFor(() => {
+				const flag = screen.getByRole("button", { name: /za duże: duze\.jpg/i });
+				expect(flag.className).toContain("bg-destructive");
+				expect(flag.querySelector("svg")).not.toBeNull();
+			});
 		});
 
 		it("pusta poczekalnia — kompozytor jak dziś: bez podglądów, publikacja zablokowana", () => {

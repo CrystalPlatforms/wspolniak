@@ -9,6 +9,7 @@ import {
 	usePublishPost,
 	VideoNotConnectedError,
 } from "@/components/app/use-publish-post";
+import { maybeIngestSharedFiles } from "@/lib/android-bridge";
 
 /** ?calendar=1 — wejście z przycisku „Zaproponuj datę" (Kalendarz v2, #163). */
 interface NewPostSearch {
@@ -19,6 +20,14 @@ export const Route = createFileRoute("/app/new")({
 	validateSearch: (search: Record<string, unknown>): NewPostSearch => ({
 		calendar: search.calendar === true || search.calendar === "1",
 	}),
+	loader: async () => {
+		// F3 (#222): pliki z mostka Androida do poczekalni PRZED montażem formy
+		// (forma zjada poczekalnię raz, przy montażu). Guard = SSR nie ma mostka.
+		if (typeof document !== "undefined") {
+			await maybeIngestSharedFiles();
+		}
+		return null;
+	},
 	component: NewPostPage,
 });
 

@@ -5,10 +5,13 @@ import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.ViewGroup;
 import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -16,18 +19,27 @@ import android.widget.Toast;
 
 import androidx.activity.ComponentActivity;
 import androidx.activity.OnBackPressedCallback;
+import androidx.webkit.WebViewAssetLoader;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * Jedyna aktywność wrappera: pełnoekranowy WebView z Wspólniakiem (issue #221).
+ * Jedyna aktywność wrappera: pełnoekranowy WebView z Wspólniakiem (issue #221, F3 #222).
  * Linki wewnętrzne (wspolniak.com) ładują się w aplikacji, zewnętrzne deleguje
  * do przeglądarki ({@link LinkNavigationPolicy}). Cookies/domStorage przeżywają
- * restart procesu, back wraca w historii WebView.
+ * restart procesu, back wraca w historii WebView. Udostępnienie zdjęć/wideo
+ * (ACTION_SEND / ACTION_SEND_MULTIPLE) ląduje w {@link PendingShareStore}, a strona
+ * odbiera je przez {@link WspolniakBridge} na formie nowego posta.
  */
 public class MainActivity extends ComponentActivity {
 
+    private static final String TAG = "WspolniakShell";
     private static final String START_URL = "https://wspolniak.com/app";
+    private static final String NEW_POST_URL = "https://wspolniak.com/app/new";
 
     private WebView webView;
+    private WebViewAssetLoader assetLoader;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -44,9 +56,15 @@ public class MainActivity extends ComponentActivity {
         configureWebView();
         configureBackNavigation();
 
-        Uri link = getIntent().getData();
+        Intent intent = getIntent();
+        boolean shared = handleShareIntent(intent);
+        Uri link = intent.getData();
+        Log.d(TAG, "onCreate action=" + intent.getAction() + " shared=" + shared + " link=" + link);
         if (savedInstanceState != null) {
             webView.restoreState(savedInstanceState);
+        } else if (shared) {
+            // Zimny start z udostępnienia — od razu forma nowego posta z plikami w poczekalni.
+            webView.loadUrl(NEW_POST_URL);
         } else if (link != null && LinkNavigationPolicy.decide(link.toString())
                 == LinkNavigationPolicy.Decision.LOAD_IN_WEBVIEW) {
             // Zimny start z magic linka (mail/SMS) — lądujemy od razu na linku.
@@ -63,7 +81,15 @@ public class MainActivity extends ComponentActivity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+        Log.d(TAG, "onNewIntent action=" + intent.getAction() + " type=" + intent.getType()
+                + " hasStream=" + intent.hasExtra(Intent.EXTRA_STREAM));
+        if (handleShareIntent(intent)) {
+            Log.d(TAG, "onNewIntent shared=true -> loadUrl(NEW_POST_URL)");
+            webView.loadUrl(NEW_POST_URL);
+            return;
+        }
         Uri data = intent.getData();
+        Log.d(TAG, "onNewIntent shared=false data=" + data);
         if (data == null) {
             return;
         }
@@ -97,6 +123,77 @@ public class MainActivity extends ComponentActivity {
         super.onDestroy();
     }
 
+    /**
+     * Wyciąga udostępnione pliki do poczekalni. @return true, gdy intent przyniósł media
+     * i należy otworzyć formę nowego posta; text-only / cudze akcje → false.
+     */
+    private boolean handleShareIntent(Intent intent) {
+        String action = intent.getAction();
+        if (!Intent.ACTION_SEND.equals(action)
+                && !Intent.ACTION_SEND_MULTIPLE.equals(action)) {
+            return false;
+        }
+        List<Uri> uris = extractStreamUris(intent);
+        List<String> uriStrings = new ArrayList<>();
+        for (Uri uri : uris) {
+            uriStrings.add(uri != null ? uri.toString() : null);
+        }
+        List<ShareIntentPolicy.PendingFile> files = ShareIntentPolicy.parse(
+                intent.getType(),
+                uriStrings,
+                uri -> {
+                    try {
+                        return getContentResolver().getType(Uri.parse(uri));
+                    } catch (Exception e) {
+                        // provider może odmówić metadanych — zostaje typ intentu / octet-stream
+                        return null;
+                    }
+                });
+        Log.d(TAG, "handleShareIntent action=" + action + " type=" + intent.getType()
+                + " uris=" + uriStrings + " files=" + files.size());
+        if (files.isEmpty()) {
+            return false;
+        }
+        PendingShareStore.getInstance().set(files);
+        persistUriPermissions(intent, uris);
+        return true;
+    }
+
+    @SuppressWarnings("deprecation")
+    private List<Uri> extractStreamUris(Intent intent) {
+        List<Uri> uris = new ArrayList<>();
+        if (Intent.ACTION_SEND_MULTIPLE.equals(intent.getAction())) {
+            ArrayList<Uri> stream = intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
+            if (stream != null) {
+                uris.addAll(stream);
+            }
+        } else {
+            Uri stream = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+            if (stream != null) {
+                uris.add(stream);
+            }
+        }
+        return uris;
+    }
+
+    /** Best effort: gdy nadawca dał flagę persistable, URI przeżyje śmierć procesu. */
+    private void persistUriPermissions(Intent intent, List<Uri> uris) {
+        if ((intent.getFlags() & Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION) == 0) {
+            return;
+        }
+        for (Uri uri : uris) {
+            if (uri == null) {
+                continue;
+            }
+            try {
+                getContentResolver().takePersistableUriPermission(
+                        uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            } catch (SecurityException e) {
+                // nadawca nie dał naprawdę persistable — pliki żyją tylko w tym procesie
+            }
+        }
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     private void configureWebView() {
         CookieManager cookies = CookieManager.getInstance();
@@ -107,6 +204,16 @@ public class MainActivity extends ComponentActivity {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
 
+        WspolniakBridge bridge =
+                new WspolniakBridge(PendingShareStore.getInstance(), getContentResolver());
+        webView.addJavascriptInterface(bridge, "WspolniakBridge");
+
+        assetLoader = new WebViewAssetLoader.Builder()
+                .setDomain(WspolniakBridge.ASSET_LOADER_HOST)
+                .addPathHandler("/pending/",
+                        path -> bridge.servePending(path))
+                .build();
+
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
@@ -116,6 +223,12 @@ public class MainActivity extends ComponentActivity {
                     return openExternally(url);
                 }
                 return false;
+            }
+
+            @Override
+            public WebResourceResponse shouldInterceptRequest(
+                    WebView view, WebResourceRequest request) {
+                return assetLoader.shouldInterceptRequest(request.getUrl());
             }
         });
         webView.setWebChromeClient(new WebChromeClient());

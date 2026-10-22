@@ -36,6 +36,7 @@ import { MAX_DESCRIPTION_LENGTH } from "@/db/posts/schema";
 import type { ImageUploadProgress } from "@/images/upload";
 import { reorder } from "@/lib/reorder";
 import { cn } from "@/lib/utils";
+import { maybeIngestSharedFiles } from "@/lib/android-bridge";
 import { takePendingFiles } from "@/lib/waiting-room";
 
 const ACCEPTED_IMAGE_TYPES = "image/jpeg,image/png,image/webp,image/heic,image/heif";
@@ -238,7 +239,20 @@ export function NewPostForm({
 	const imageInputRef = useRef<HTMLInputElement>(null);
 
 	// Poczekalnia plików (#220): odbiór raz przy montażu (szczegóły: applyPendingFiles).
-	useEffect(() => applyPendingFiles(setMedia, setPendingVideos), []);
+	// F3 (#222): przed odbiorem zasilamy poczekalnię z mostka Androida. Share wchodzi
+	// jako pełne ładowanie strony (SSR + hydratacja), a loader trasy nie odpala się
+	// wtedy po stronie klienta — stąd mostek obsługujemy tu, przed takePendingFiles.
+	// Poza apką (zwykła przeglądarka/PWA) to no-op.
+	useEffect(() => {
+		let cancelled = false;
+		void (async () => {
+			await maybeIngestSharedFiles();
+			if (!cancelled) applyPendingFiles(setMedia, setPendingVideos);
+		})();
+		return () => {
+			cancelled = true;
+		};
+	}, []);
 
 	const images = useMemo(() => media, [media]);
 

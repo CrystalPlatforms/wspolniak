@@ -32,6 +32,17 @@
                 <data android:scheme="http" android:host="wspolniak.com" />
                 <data android:scheme="http" android:host="www.wspolniak.com" />
             </intent-filter>
+
+            <!-- F3 (#222): przyjmowanie udostępnionych mediów (tylko image/video —
+                 tekst celowo nie oferuje Wspólniaka w chooserze). -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+
+                <data android:mimeType="image/*" />
+                <data android:mimeType="video/*" />
+            </intent-filter>
         </activity>
     </application>
 </manifest>

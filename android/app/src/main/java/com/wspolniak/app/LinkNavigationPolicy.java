@@ -21,6 +21,12 @@ public enum LinkNavigationPolicy {
 
     private static final String INTERNAL_DOMAIN = "wspolniak.com";
 
+    /**
+     * Stały host WebViewAssetLoader (#222) — serwuje bajty udostępnionych plików.
+     * Infrastruktura aplikacji: dokładnie ten host, bez subdomen.
+     */
+    private static final String ASSET_LOADER_HOST = "appassets.androidplatform.net";
+
     private LinkNavigationPolicy() {
     }
 
@@ -45,7 +51,9 @@ public enum LinkNavigationPolicy {
             return Decision.OPEN_IN_BROWSER;
         }
         String normalized = host.toLowerCase(Locale.ROOT);
-        if (normalized.equals(INTERNAL_DOMAIN) || normalized.endsWith("." + INTERNAL_DOMAIN)) {
+        if (normalized.equals(ASSET_LOADER_HOST)
+                || normalized.equals(INTERNAL_DOMAIN)
+                || normalized.endsWith("." + INTERNAL_DOMAIN)) {
             return Decision.LOAD_IN_WEBVIEW;
         }
         return Decision.OPEN_IN_BROWSER;
