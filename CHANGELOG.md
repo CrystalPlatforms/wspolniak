@@ -1,3 +1,10 @@
+# [5.21.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.20.0...v5.21.0) (2026-10-22)
+
+
+### Features
+
+* **nav:** replace refresh button with chat tab in mobile bottom bar ([9c3c7cc](https://github.com/CrystalPlatforms/wspolniak/commit/9c3c7cc13876dcc0857dc301a81237e493cf6ecd))
+
 # [5.20.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.19.2...v5.20.0) (2026-10-22)
 
 
