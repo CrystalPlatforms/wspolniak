@@ -100,4 +100,47 @@ public class DownloadPolicyTest {
         assertEquals("plik-z-wspolniaka", DownloadPolicy.filename(
                 null, "https://wspolniak.com/images/"));
     }
+
+    //_iteracja 3 (#225): przechwycenie nawigacji na trasę attachment w shouldOverrideUrlLoading
+
+    @Test
+    public void treatsInternalDownloadPathAsAttachment() {
+        assertTrue(DownloadPolicy.isAttachmentDownload(
+                "https://wspolniak.com/api/app/images/cf-1/download?name=x.jpg"));
+    }
+
+    @Test
+    public void treatsWwwDownloadPathAsAttachment() {
+        assertTrue(DownloadPolicy.isAttachmentDownload(
+                "https://www.wspolniak.com/api/app/images/cf-1/download"));
+    }
+
+    @Test
+    public void ignoresForeignDownloadPath() {
+        assertFalse(DownloadPolicy.isAttachmentDownload(
+                "https://youtube.com/api/app/images/cf-1/download"));
+    }
+
+    @Test
+    public void ignoresInternalPagesWithoutDownloadPath() {
+        assertFalse(DownloadPolicy.isAttachmentDownload("https://wspolniak.com/app/new"));
+    }
+
+    @Test
+    public void rejectsNullUrlAsAttachment() {
+        assertFalse(DownloadPolicy.isAttachmentDownload(null));
+    }
+
+    @Test
+    public void filenamePrefersQueryNameOverUrlBasename() {
+        assertEquals("wakacje.jpg", DownloadPolicy.filename(null,
+                "https://wspolniak.com/api/app/images/cf-1/download?name=wakacje.jpg"));
+    }
+
+    @Test
+    public void dispositionStillWinsOverQueryName() {
+        assertEquals("z-disposition.jpg", DownloadPolicy.filename(
+                "attachment; filename=\"z-disposition.jpg\"",
+                "https://wspolniak.com/api/app/images/cf-1/download?name=z-query.jpg"));
+    }
 }

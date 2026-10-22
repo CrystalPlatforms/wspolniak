@@ -13,11 +13,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AddToAlbumButton } from "@/components/app/add-to-album-button";
 import { Loader } from "@/components/ui/loader";
-import {
-	downloadImage,
-	downloadImageNative,
-	isAndroidWrapper,
-} from "@/lib/download-image";
+import { downloadImage, isAndroidWrapper, saveBlobViaBridge } from "@/lib/download-image";
 import { clampOffset, MAX_ZOOM, MIN_ZOOM, usePinchZoom } from "./use-pinch-zoom";
 
 interface LightboxImage {
@@ -377,18 +373,16 @@ export function ImageLightbox({
 				downloadProgress={downloadProgress}
 				showAddToAlbum={showAddToAlbum}
 				onDownload={() => {
-					// Powłoka Androida: blob+a[download] nie działa w WebView (#225) —
-					// kierujemy na trasę attachment, którą łapie DownloadManager.
-					// Bez cfImageId (teoretycznie) — stara ścieżka, nie blokujemy.
-					if (isAndroidWrapper() && image.cfImageId) {
-						downloadImageNative(image.cfImageId, `wspolniak-${image.id}.jpg`);
-						return;
-					}
 					setDownloading(true);
 					setDownloadProgress(0);
-					downloadImage(image.src, `wspolniak-${image.id}.jpg`, (loaded, total) => {
-						setDownloadProgress(Math.round((loaded / total) * 100));
-					}).finally(() => setDownloading(false));
+					downloadImage(
+						image.src,
+						`wspolniak-${image.id}.jpg`,
+						(loaded, total) => setDownloadProgress(Math.round((loaded / total) * 100)),
+						// Powłoka Androida (#225): blob mostkiem do MediaStore — zero
+						// nawigacji, lightbox zostaje. Przeglądarka: bez saveOverride.
+						isAndroidWrapper() ? saveBlobViaBridge : undefined,
+					).finally(() => setDownloading(false));
 				}}
 				onClose={handleClose}
 			/>

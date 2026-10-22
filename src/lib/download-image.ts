@@ -11,21 +11,39 @@ export function isAndroidWrapper(): boolean {
 }
 
 /**
- * Pobieranie w powłoce (#225): nawigacja top-level na trasę attachment — WebView
- * oddaje ją do DownloadListener (DownloadManager), a przeglądarka dostaje plik
- * dzięki Content-Disposition. Renderowana strona (lightbox) przeżywa: odpowiedź
- * attachment nie podmienia dokumentu.
+ * Pobieranie w powłoce (#225, iteracja 4): bajty przekazane mostkiem do zapisu
+ * (MediaStore Downloads po stronie shellu). ZERO nawigacji — dokument zostaje,
+ * więc lightbox nie znika. Nawigacja na trasę attachment okazała się złym
+ * pomysłem: pełne przeładowanie dokumentu zabija stan SPA.
+ * @returns true, gdy powłoka potwierdziła zapis.
  */
-export function downloadImageNative(cfImageId: string, filename: string): void {
-	window.location.assign(
-		`/api/app/images/${encodeURIComponent(cfImageId)}/download?name=${encodeURIComponent(filename)}`,
-	);
+export async function saveBlobViaBridge(blob: Blob, filename: string): Promise<boolean> {
+	const bridge = findAndroidBridge();
+	if (!bridge?.saveFile) {
+		return false;
+	}
+	const base64 = await blobToBase64(blob);
+	return bridge.saveFile(filename, blob.type || "application/octet-stream", base64);
+}
+
+function blobToBase64(blob: Blob): Promise<string> {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+		reader.onload = () => {
+			const result = String(reader.result ?? "");
+			const comma = result.indexOf(",");
+			resolve(comma >= 0 ? result.slice(comma + 1) : result);
+		};
+		reader.onerror = () => reject(new Error("FileReader nie przeczytał bloba"));
+		reader.readAsDataURL(blob);
+	});
 }
 
 export async function downloadImage(
 	url: string,
 	filename: string,
 	onProgress?: (loaded: number, total: number) => void,
+	saveOverride?: (blob: Blob, filename: string) => Promise<boolean> | boolean,
 ): Promise<void> {
 	try {
 		const response = await fetch(url);
@@ -39,7 +57,7 @@ export async function downloadImage(
 
 		if (!response.body || !total) {
 			const blob = await response.blob();
-			triggerDownload(blob, url, filename);
+			await finishDownload(blob, url, filename, saveOverride);
 			return;
 		}
 
@@ -71,10 +89,23 @@ export async function downloadImage(
 			}
 		}
 
-		triggerDownload(blob, url, filename);
+		await finishDownload(blob, url, filename, saveOverride);
 	} catch {
 		window.open(url, "_blank");
 	}
+}
+
+/** saveOverride (powłoka: mostek → MediaStore) wygrywa; bez niego/porażka → kotwica. */
+async function finishDownload(
+	blob: Blob,
+	fallbackUrl: string,
+	filename: string,
+	saveOverride?: (blob: Blob, filename: string) => Promise<boolean> | boolean,
+): Promise<void> {
+	if (saveOverride && (await saveOverride(blob, filename))) {
+		return;
+	}
+	triggerDownload(blob, fallbackUrl, filename);
 }
 
 function triggerDownload(blob: Blob, fallbackUrl: string, filename: string) {

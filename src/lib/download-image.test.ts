@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { downloadImage, downloadImageNative, isAndroidWrapper } from "@/lib/download-image";
+import { downloadImage, isAndroidWrapper, saveBlobViaBridge } from "@/lib/download-image";
 
 function mockFetchSuccess() {
 	const mockBlob = new Blob(["fake-image-data"], { type: "image/jpeg" });
@@ -81,13 +81,48 @@ describe("powłoka Androida (#225)", () => {
 		vi.restoreAllMocks();
 	});
 
-	it("downloadImageNative kieruje na trasę attachment z nazwą w query", () => {
-		const assignSpy = vi.fn();
-		vi.stubGlobal("window", { ...window, location: { assign: assignSpy } });
+	it("saveBlobViaBridge przekazuje base64 do mostka i raportuje sukces", async () => {
+		const saveFile = vi.fn((_name: string, _mime: string, _base64: string) => true);
+		(globalThis as Record<string, unknown>).WspolniakBridge = {
+			getPendingFiles: () => "[]",
+			clearPendingFiles: () => {},
+			saveFile,
+		};
 
-		downloadImageNative("cf-9", "wakacje.jpg");
+		const result = await saveBlobViaBridge(
+			new Blob(["abc"], { type: "image/jpeg" }),
+			"wakacje.jpg",
+		);
 
-		expect(assignSpy).toHaveBeenCalledWith("/api/app/images/cf-9/download?name=wakacje.jpg");
+		expect(result).toBe(true);
+		expect(saveFile).toHaveBeenCalledWith(
+			"wakacje.jpg",
+			"image/jpeg",
+			expect.not.stringContaining("data:"),
+		);
+		const base64 = saveFile.mock.calls[0]?.[2] ?? "";
+		expect(atob(base64)).toBe("abc");
+	});
+
+	it("saveBlobViaBridge bez mostka zwraca false", async () => {
+		expect(await saveBlobViaBridge(new Blob(["abc"]), "x.jpg")).toBe(false);
+	});
+
+	it("downloadImage używa saveOverride zamiast kotwicy (powłoka)", async () => {
+		mockFetchSuccess();
+		const createObjectSpy = vi.fn(() => "blob:http://localhost/fake");
+		vi.stubGlobal("URL", {
+			...URL,
+			createObjectURL: createObjectSpy,
+			revokeObjectURL: vi.fn(),
+		});
+		const saveOverride = vi.fn(async (_blob: Blob, _filename: string) => true);
+
+		await downloadImage("https://example.com/image.jpg", "photo.jpg", undefined, saveOverride);
+
+		expect(saveOverride).toHaveBeenCalledTimes(1);
+		expect(saveOverride.mock.calls[0]?.[1]).toBe("photo.jpg");
+		expect(createObjectSpy).not.toHaveBeenCalled();
 	});
 
 	it("isAndroidWrapper rozpoznaje obecność i brak mostka", () => {

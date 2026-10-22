@@ -198,8 +198,8 @@ public class MainActivity extends ComponentActivity {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
 
-        WspolniakBridge bridge =
-                new WspolniakBridge(PendingShareStore.getInstance(), getContentResolver());
+        WspolniakBridge bridge = new WspolniakBridge(
+                PendingShareStore.getInstance(), getContentResolver(), getApplicationContext());
         webView.addJavascriptInterface(bridge, "WspolniakBridge");
 
         assetLoader = new WebViewAssetLoader.Builder()
@@ -212,6 +212,13 @@ public class MainActivity extends ComponentActivity {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri url = request.getUrl();
+                // Trasa attachment (#225): skonsumuj PRZED nawigacją — inaczej WebView
+                // przeładowuje dokument i lightbox znika, mimo że plik i tak leci
+                // do DownloadManagera.
+                if (DownloadPolicy.isAttachmentDownload(url.toString())) {
+                    enqueueDownload(url.toString(), null);
+                    return true;
+                }
                 if (LinkNavigationPolicy.decide(url.toString())
                         == LinkNavigationPolicy.Decision.OPEN_IN_BROWSER) {
                     return openExternally(url);
@@ -233,28 +240,7 @@ public class MainActivity extends ComponentActivity {
             if (!DownloadPolicy.shouldDownload(url)) {
                 return; // pobieramy tylko z domeny Wspólniaka (założenie z planu)
             }
-            String name = DownloadPolicy.filename(contentDisposition, url);
-            DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
-            request.setTitle(name);
-            request.setDescription(getString(R.string.download_description));
-            request.setMimeType(mimeType);
-            String cookie = CookieManager.getInstance().getCookie(url);
-            if (cookie != null) {
-                request.addRequestHeader("Cookie", cookie); // pobieranie pod zalogowaną sesją
-            }
-            if (userAgent != null) {
-                request.addRequestHeader("User-Agent", userAgent);
-            }
-            request.setNotificationVisibility(
-                    DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-            if (Build.VERSION.SDK_INT >= 29) {
-                // Android 10+: jawnie do Pobranych (widoczne w Plikach/Galerii), bez uprawnień
-                request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name);
-            } // starsze Androidy: domyślne miejsce DownloadManagera — bez WRITE_EXTERNAL_STORAGE
-            DownloadManager manager = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
-            manager.enqueue(request);
-            Toast.makeText(this, getString(R.string.download_started, name), Toast.LENGTH_SHORT)
-                    .show();
+            enqueueDownload(url, contentDisposition);
         });
     }
 
@@ -282,5 +268,32 @@ public class MainActivity extends ComponentActivity {
             Toast.makeText(this, R.string.no_browser_found, Toast.LENGTH_SHORT).show();
         }
         return true;
+    }
+
+    /**
+     * Wspólny enqueue do systemowego DownloadManagera: dla DownloadListenera
+     * (odpowiedzi attachment) i dla przechwyconych nawigacji na /download (#225).
+     */
+    private void enqueueDownload(String url, String contentDisposition) {
+        String name = DownloadPolicy.filename(contentDisposition, url);
+        DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
+        request.setTitle(name);
+        request.setDescription(getString(R.string.download_description));
+        String cookie = CookieManager.getInstance().getCookie(url);
+        if (cookie != null) {
+            request.addRequestHeader("Cookie", cookie); // pobieranie pod zalogowaną sesją
+        }
+        request.addRequestHeader(
+                "User-Agent", webView.getSettings().getUserAgentString());
+        request.setNotificationVisibility(
+                DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+        if (Build.VERSION.SDK_INT >= 29) {
+            // Android 10+: jawnie do Pobranych (widoczne w Plikach/Galerii), bez uprawnień
+            request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name);
+        } // starsze Androidy: domyślne miejsce DownloadManagera — bez WRITE_EXTERNAL_STORAGE
+        DownloadManager manager = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+        manager.enqueue(request);
+        Toast.makeText(this, getString(R.string.download_started, name), Toast.LENGTH_SHORT)
+                .show();
     }
 }

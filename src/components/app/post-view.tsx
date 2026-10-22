@@ -21,11 +21,7 @@ import {
 	VideoPosterButton,
 } from "@/components/app/video-player-dialog";
 import { getImageUrl } from "@/images/client";
-import {
-	downloadImage,
-	downloadImageNative,
-	isAndroidWrapper,
-} from "@/lib/download-image";
+import { downloadImage, isAndroidWrapper, saveBlobViaBridge } from "@/lib/download-image";
 
 /**
  * Etapy choreografii widoku posta (#147) — kolejność ODWROTNA do feedu:
@@ -218,17 +214,15 @@ export function PostView({
 								)}
 								<button
 									type="button"
-									onClick={() => {
-										// Powłoka Androida: blob+a[download] nie działa w WebView (#225)
-										if (isAndroidWrapper()) {
-											downloadImageNative(
-												image.cfImageId,
-												`post-${image.displayOrder + 1}.jpg`,
-											);
-											return;
-										}
-										downloadImage(src, `post-${image.displayOrder + 1}.jpg`);
-									}}
+									onClick={() =>
+										downloadImage(
+											src,
+											`post-${image.displayOrder + 1}.jpg`,
+											undefined,
+											// Powłoka Androida (#225): mostek → MediaStore, bez nawigacji
+											isAndroidWrapper() ? saveBlobViaBridge : undefined,
+										)
+									}
 									className="rounded-full bg-background/80 p-2 text-foreground backdrop-blur-sm transition-colors hover:bg-background"
 									aria-label={`Pobierz zdjęcie ${image.displayOrder + 1}`}
 								>

@@ -1,16 +1,25 @@
 package com.wspolniak.app;
 
 import android.content.ContentResolver;
+import android.content.ContentValues;
+import android.content.Context;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Build;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.provider.OpenableColumns;
+import android.util.Base64;
 import android.webkit.WebResourceResponse;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -33,13 +42,16 @@ public class WspolniakBridge {
 
     private final PendingShareStore store;
     private final ContentResolver resolver;
+    private final Context appContext;
 
     /** Snapshot, z którego getPendingFiles podała metadane — bajty idą z tego samego rzutu. */
     private volatile List<ShareIntentPolicy.PendingFile> serving = null;
 
-    public WspolniakBridge(PendingShareStore store, ContentResolver resolver) {
+    public WspolniakBridge(
+            PendingShareStore store, ContentResolver resolver, Context appContext) {
         this.store = store;
         this.resolver = resolver;
+        this.appContext = appContext;
     }
 
     @android.webkit.JavascriptInterface
@@ -68,6 +80,57 @@ public class WspolniakBridge {
     public void clearPendingFiles() {
         store.clear();
         serving = null;
+    }
+
+    /**
+     * Zapis bajtów (base64) do Pobranych — pobieranie zdjęć z lightboxa (#225, iteracja 4).
+     * Web fetchuje plik i przekazuje przez mostek, więc dokument się NIE przeładowuje
+     * (lightbox zostaje). API 29+: MediaStore Downloads (widoczne w Plikach/Galerii,
+     * bez uprawnień); starsze: katalog aplikacji.
+     *
+     * @return true, gdy plik zapisany.
+     */
+    @android.webkit.JavascriptInterface
+    public boolean saveFile(String name, String mime, String base64) {
+        if (name == null || base64 == null) {
+            return false;
+        }
+        try {
+            byte[] bytes = Base64.decode(base64, Base64.DEFAULT);
+            if (Build.VERSION.SDK_INT >= 29) {
+                ContentValues values = new ContentValues();
+                values.put(MediaStore.MediaColumns.DISPLAY_NAME, name);
+                values.put(MediaStore.MediaColumns.MIME_TYPE,
+                        mime != null ? mime : "application/octet-stream");
+                values.put(MediaStore.MediaColumns.RELATIVE_PATH,
+                        Environment.DIRECTORY_DOWNLOADS);
+                Uri target = resolver.insert(
+                        MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                if (target == null) {
+                    return false;
+                }
+                try (OutputStream out = resolver.openOutputStream(target)) {
+                    if (out == null) {
+                        return false;
+                    }
+                    out.write(bytes);
+                }
+                return true;
+            }
+            File dir = new File(
+                    appContext.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS),
+                    "wspolniak");
+            if (!dir.exists() && !dir.mkdirs()) {
+                return false;
+            }
+            File target = new File(dir, name);
+            try (FileOutputStream out = new FileOutputStream(target)) {
+                out.write(bytes);
+            }
+            return true;
+        } catch (IOException | IllegalArgumentException | SecurityException e) {
+            return false;
+        }
     }
 
     /** Obsługa {@code /pending/N} dla WebViewAssetLoader; 404 poza zakresem / przy błędzie. */

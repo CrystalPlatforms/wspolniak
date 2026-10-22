@@ -22,6 +22,8 @@ export interface PendingBridgeFile {
 export interface WspolniakBridgeLike {
 	getPendingFiles(): string;
 	clearPendingFiles(): void;
+	/** Zapis bajtów do Pobranych (#225, iteracja 4) — brak w starszych shellach. */
+	saveFile?(name: string, mime: string, base64: string): boolean;
 }
 
 function isBridge(candidate: unknown): candidate is WspolniakBridgeLike {

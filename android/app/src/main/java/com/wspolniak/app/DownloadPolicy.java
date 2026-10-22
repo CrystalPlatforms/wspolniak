@@ -1,5 +1,7 @@
 package com.wspolniak.app;
 
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.util.regex.Matcher;
@@ -31,8 +33,27 @@ public enum DownloadPolicy {
     }
 
     /**
-     * Nazwa pliku: Content-Disposition → basename z URL (bez query, zdekodowany) → stała.
-     * Separatory ścieżek z disposition zamieniane na „_" (higiena przed DownloadManagerem).
+     * Czy URL to nasza trasa attachment („…/download")? Przechwycenie jej w
+     * shouldOverrideUrlLoading konsumuje pobranie PRZED nawigacją — inaczej WebView
+     * przeładowuje dokument i lightbox znika, mimo że plik i tak leci do
+     * DownloadManagera (#225, iteracja 3).
+     */
+    public static boolean isAttachmentDownload(String url) {
+        if (!shouldDownload(url)) {
+            return false;
+        }
+        try {
+            String path = new URI(url).getPath();
+            return path != null && path.endsWith("/download");
+        } catch (URISyntaxException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Nazwa pliku: Content-Disposition → parametr „name" z query (nasza trasa
+     * attachment) → basename z URL (bez query, zdekodowany) → stała. Separatory
+     * ścieżek z disposition zamieniane na „_" (higiena przed DownloadManagerem).
      */
     public static String filename(String contentDisposition, String url) {
         if (contentDisposition != null) {
@@ -45,8 +66,35 @@ public enum DownloadPolicy {
                 }
             }
         }
+        String fromQuery = queryParamName(url);
+        if (fromQuery != null) {
+            return fromQuery;
+        }
         String basename = urlBasename(url);
         return basename != null ? basename : FALLBACK_FILENAME;
+    }
+
+    private static String queryParamName(String url) {
+        if (url == null) {
+            return null;
+        }
+        try {
+            String query = new URI(url).getQuery();
+            if (query == null) {
+                return null;
+            }
+            for (String pair : query.split("&")) {
+                int eq = pair.indexOf('=');
+                if (eq > 0 && "name".equals(pair.substring(0, eq))) {
+                    String value = pair.substring(eq + 1);
+                    return value.isEmpty() ? null
+                            : URLDecoder.decode(value, StandardCharsets.UTF_8);
+                }
+            }
+        } catch (URISyntaxException | IllegalArgumentException e) {
+            // nietrawestowalny query — spada do basename / stałej
+        }
+        return null;
     }
 
     private static String urlBasename(String url) {
