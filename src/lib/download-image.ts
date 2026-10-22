@@ -1,7 +1,25 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { findAndroidBridge } from "./android-bridge";
 
 function isMobileDevice(): boolean {
 	return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+}
+
+/** Czy strona działa w powłoce Androida (mostek z F3, #222). */
+export function isAndroidWrapper(): boolean {
+	return findAndroidBridge() !== null;
+}
+
+/**
+ * Pobieranie w powłoce (#225): nawigacja top-level na trasę attachment — WebView
+ * oddaje ją do DownloadListener (DownloadManager), a przeglądarka dostaje plik
+ * dzięki Content-Disposition. Renderowana strona (lightbox) przeżywa: odpowiedź
+ * attachment nie podmienia dokumentu.
+ */
+export function downloadImageNative(cfImageId: string, filename: string): void {
+	window.location.assign(
+		`/api/app/images/${encodeURIComponent(cfImageId)}/download?name=${encodeURIComponent(filename)}`,
+	);
 }
 
 export async function downloadImage(

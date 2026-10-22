@@ -1,10 +1,13 @@
 package com.wspolniak.app;
 
 import android.annotation.SuppressLint;
+import android.app.DownloadManager;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
 import android.view.ViewGroup;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
@@ -223,6 +226,36 @@ public class MainActivity extends ComponentActivity {
             }
         });
         webView.setWebChromeClient(new WebChromeClient());
+
+        // Pobrania z WebView (#225): bez listenera WebView po cichu gubi odpowiedzi
+        // z Content-Disposition: attachment (przycisk „pobierz" robiłby nic).
+        webView.setDownloadListener((url, userAgent, contentDisposition, mimeType, contentLength) -> {
+            if (!DownloadPolicy.shouldDownload(url)) {
+                return; // pobieramy tylko z domeny Wspólniaka (założenie z planu)
+            }
+            String name = DownloadPolicy.filename(contentDisposition, url);
+            DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
+            request.setTitle(name);
+            request.setDescription(getString(R.string.download_description));
+            request.setMimeType(mimeType);
+            String cookie = CookieManager.getInstance().getCookie(url);
+            if (cookie != null) {
+                request.addRequestHeader("Cookie", cookie); // pobieranie pod zalogowaną sesją
+            }
+            if (userAgent != null) {
+                request.addRequestHeader("User-Agent", userAgent);
+            }
+            request.setNotificationVisibility(
+                    DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            if (Build.VERSION.SDK_INT >= 29) {
+                // Android 10+: jawnie do Pobranych (widoczne w Plikach/Galerii), bez uprawnień
+                request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, name);
+            } // starsze Androidy: domyślne miejsce DownloadManagera — bez WRITE_EXTERNAL_STORAGE
+            DownloadManager manager = (DownloadManager) getSystemService(DOWNLOAD_SERVICE);
+            manager.enqueue(request);
+            Toast.makeText(this, getString(R.string.download_started, name), Toast.LENGTH_SHORT)
+                    .show();
+        });
     }
 
     private void configureBackNavigation() {

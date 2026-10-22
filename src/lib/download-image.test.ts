@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { downloadImage } from "@/lib/download-image";
+import { downloadImage, downloadImageNative, isAndroidWrapper } from "@/lib/download-image";
 
 function mockFetchSuccess() {
 	const mockBlob = new Blob(["fake-image-data"], { type: "image/jpeg" });
@@ -67,5 +67,36 @@ describe("downloadImage", () => {
 		await downloadImage("https://example.com/image.jpg", "photo.jpg");
 
 		expect(openSpy).toHaveBeenCalledWith("https://example.com/image.jpg", "_blank");
+	});
+});
+
+// Powłoka Androida (#225): blob+a[download] nie działa w WebView — pobieranie idzie
+// przez nawigację na trasę attachment /api/app/images/:id/download, którą łapie
+// DownloadListener (DownloadManager). Założenia: nazwa leci w query, cfImageId
+// identyfikuje zdjęcie po stronie serwera (sesja autoryzuje).
+describe("powłoka Androida (#225)", () => {
+	afterEach(() => {
+		delete (globalThis as Record<string, unknown>).WspolniakBridge;
+		vi.unstubAllGlobals();
+		vi.restoreAllMocks();
+	});
+
+	it("downloadImageNative kieruje na trasę attachment z nazwą w query", () => {
+		const assignSpy = vi.fn();
+		vi.stubGlobal("window", { ...window, location: { assign: assignSpy } });
+
+		downloadImageNative("cf-9", "wakacje.jpg");
+
+		expect(assignSpy).toHaveBeenCalledWith("/api/app/images/cf-9/download?name=wakacje.jpg");
+	});
+
+	it("isAndroidWrapper rozpoznaje obecność i brak mostka", () => {
+		expect(isAndroidWrapper()).toBe(false);
+
+		(globalThis as Record<string, unknown>).WspolniakBridge = {
+			getPendingFiles: () => "[]",
+			clearPendingFiles: () => {},
+		};
+		expect(isAndroidWrapper()).toBe(true);
 	});
 });

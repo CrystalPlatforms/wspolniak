@@ -2,4 +2,6 @@
 <resources>
     <string name="app_name">Wspólniak</string>
     <string name="no_browser_found">Nie znaleziono przeglądarki na tym telefonie</string>
+    <string name="download_description">Pobieranie z Wspólniaka</string>
+    <string name="download_started">Pobieram %1$s…</string>
 </resources>

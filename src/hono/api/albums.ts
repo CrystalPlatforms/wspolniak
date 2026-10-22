@@ -5,6 +5,7 @@ import { albumDownloadNames, buildAlbumVideosHtml } from "@/core/album-downloads
 import { canManageAlbum } from "@/core/authorization";
 import { AppError } from "@/core/errors";
 import type { AlbumItem } from "@/db/albums";
+import { contentDispositionAttachment } from "@/lib/content-disposition";
 import {
 	addAlbumItems,
 	addAlbumItemsSchema,
@@ -226,13 +227,6 @@ albumsEndpoint.delete("/:id/items/:itemId", async (c) => {
 
 	return c.json({ data: { id: removed.id } });
 });
-
-// Content-Disposition z polskimi znakami w nazwie: fallback ASCII (zna-
-// ki spoza 20–7E i cudzysłowy → „_") + RFC 5987 filename* (UTF-8).
-function contentDispositionAttachment(filename: string): string {
-	const ascii = filename.replace(/[^\x20-\x7E]/g, "_").replace(/["\\]/g, "_");
-	return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
-}
 
 // GET /albums/:id/photos.zip — streaming ZIP zdjęć (#175): największy wariant
 // JPEG („public") z Cloudflare Images, fetchowany LAZILY — zdjęcie leci z CF

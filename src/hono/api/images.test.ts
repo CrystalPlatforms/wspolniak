@@ -13,6 +13,9 @@ vi.mock("@/db/identity/queries", () => ({
 vi.mock("@/images/client", () => ({
 	createDirectUploadUrl: vi.fn(),
 	createDirectUploadUrlBatch: vi.fn(),
+	getImageUrl: vi.fn(
+		(cfg: { cfImageId: string }) => `https://imagedelivery.test/${cfg.cfImageId}/public`,
+	),
 }));
 
 import { findActiveUserById } from "@/db/identity/queries";
@@ -199,5 +202,76 @@ describe("POST /api/app/images/upload-urls (batch)", () => {
 
 		expect(res.status).toBe(400);
 		expect(mockCreateUploadBatch).not.toHaveBeenCalled();
+	});
+});
+
+describe("GET /api/app/images/:cfImageId/download (#225)", () => {
+	function stubUpstream(body: string, init?: ResponseInit) {
+		const upstream = new Response(body, init ?? { headers: { "content-type": "image/jpeg" } });
+		vi.stubGlobal("fetch", vi.fn().mockResolvedValue(upstream));
+	}
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it("streamuje zdjęcie z nagłówkiem attachment i nazwą z query", async () => {
+		authMember();
+		stubUpstream("BYTES");
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/images/cf-9/download?name=wakacje.jpg",
+			{ headers: { Cookie: "session=valid-jwt" } },
+			env,
+		);
+
+		expect(res.status).toBe(200);
+		expect(res.headers.get("content-type")).toBe("image/jpeg");
+		expect(res.headers.get("content-disposition")).toContain(
+			'attachment; filename="wakacje.jpg"',
+		);
+		expect(await res.text()).toBe("BYTES");
+		const fetchMock = vi.mocked(globalThis.fetch);
+		expect(String(fetchMock.mock.calls[0]?.[0])).toBe("https://imagedelivery.test/cf-9/public");
+	});
+
+	it("returns 401 without session", async () => {
+		const api = createApi();
+		const res = await api.request("/api/app/images/cf-9/download", {}, env);
+
+		expect(res.status).toBe(401);
+	});
+
+	it("zwraca 404 gdy Cloudflare nie zna zdjęcia", async () => {
+		authMember();
+		stubUpstream("nope", { status: 404 });
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/images/missing/download",
+			{ headers: { Cookie: "session=valid-jwt" } },
+			env,
+		);
+
+		expect(res.status).toBe(404);
+	});
+
+	it("sanityzuje nazwę z query (cudzysłowy i znaki kontrolne nie wchodzą do nagłówka)", async () => {
+		authMember();
+		stubUpstream("BYTES");
+		const api = createApi();
+		const res = await api.request(
+			`/api/app/images/cf-9/download?name=${encodeURIComponent('w"ak\r\nacje.jpg')}`,
+			{ headers: { Cookie: "session=valid-jwt" } },
+			env,
+		);
+
+		expect(res.status).toBe(200);
+		const disposition = res.headers.get("content-disposition") ?? "";
+		// część ASCII po sanityzacji: " → _, CR/LF → _
+		expect(disposition).toContain('filename="w_ak__acje.jpg"');
+		expect(disposition).not.toContain("\r");
+		expect(disposition).not.toContain("\n");
+		// filename* = zakodowana oryginalna nazwa (procentowo, więc bezpieczna)
+		expect(disposition).toContain("filename*=UTF-8''");
 	});
 });
