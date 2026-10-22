@@ -2,6 +2,7 @@
 
 import { WifiOff } from "lucide-react";
 import { useEffect, useState } from "react";
+import { isAndroidWrapper } from "@/lib/download-image";
 import { isIOSSafari, isStandalone } from "@/pwa/detect";
 import { useInstallPrompt } from "@/pwa/use-install-prompt";
 import { useOnlineStatus } from "@/pwa/use-online-status";
@@ -31,6 +32,21 @@ export function PwaShell({ children }: { children: React.ReactNode }) {
 				for (const registration of registrations) {
 					void registration.unregister();
 				}
+			});
+			return;
+		}
+		// Powłoka Androida (#225/#226): wrapper nie potrzebuje offline-cache PWA,
+		// a stary worker serwował po deployach nieistniejące assety („Importing a
+		// module script failed"). Wyrejestrowanie + czyszczenie cache powoduje, że
+		// kolejne uruchomienie apki zawsze widzi świeży kod z serwera.
+		if (isAndroidWrapper()) {
+			void navigator.serviceWorker.getRegistrations().then((registrations) => {
+				for (const registration of registrations) {
+					void registration.unregister();
+				}
+			});
+			void caches.keys().then((keys) => {
+				for (const key of keys) void caches.delete(key);
 			});
 			return;
 		}
