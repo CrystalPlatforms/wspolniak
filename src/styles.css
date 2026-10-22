@@ -732,3 +732,23 @@ html:has([data-lock-scroll]) {
 .no-scrollbar::-webkit-scrollbar {
 	display: none;
 }
+
+/* ── iOS: blokada auto-zoomu do pola przy focusie (#224) ─────────────────────
+   Safari na iPhone/iPadzie zoomuje ekran do pola tekstowego, którego font-size
+   jest mniejszy niż 16px. Zamiast łatać każde pole osobno (kompozytor czatu,
+   formularze ankiety/linku/lokalizacji, wyszukiwarka, mention-input — wszystkie
+   miały text-sm), jedna reguła gwarantuje min. 16px dla KAŻDEGO edytowalnego
+   pola: max(16px, 1em) podbija za małe, a większe zostawia (1em przy font-size
+   liczy się z rodzica). !important jest konieczne — klasa Tailwind (np. text-sm)
+   ma wyższą specyficzność niż selektor typu. Skopane do WebKitu dotykowego
+   (-webkit-touch-callout — hack na iOS/iPadOS): desktop i Android nie zoomują,
+   więc tam fonty zostają bez zmian. Cellowo NIE używamy maximum-scale=1 w meta
+   viewport — blokowałoby to pinch-zoom (WCAG 1.4.4). */
+@supports (-webkit-touch-callout: none) {
+	input,
+	textarea,
+	select,
+	[contenteditable] {
+		font-size: max(16px, 1em) !important;
+	}
+}
