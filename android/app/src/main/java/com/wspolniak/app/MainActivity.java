@@ -5,7 +5,6 @@ import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.ViewGroup;
 import android.webkit.CookieManager;
 import android.webkit.JavascriptInterface;
@@ -34,7 +33,6 @@ import java.util.List;
  */
 public class MainActivity extends ComponentActivity {
 
-    private static final String TAG = "WspolniakShell";
     private static final String START_URL = "https://wspolniak.com/app";
     private static final String NEW_POST_URL = "https://wspolniak.com/app/new";
 
@@ -59,7 +57,6 @@ public class MainActivity extends ComponentActivity {
         Intent intent = getIntent();
         boolean shared = handleShareIntent(intent);
         Uri link = intent.getData();
-        Log.d(TAG, "onCreate action=" + intent.getAction() + " shared=" + shared + " link=" + link);
         if (savedInstanceState != null) {
             webView.restoreState(savedInstanceState);
         } else if (shared) {
@@ -81,15 +78,11 @@ public class MainActivity extends ComponentActivity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        Log.d(TAG, "onNewIntent action=" + intent.getAction() + " type=" + intent.getType()
-                + " hasStream=" + intent.hasExtra(Intent.EXTRA_STREAM));
         if (handleShareIntent(intent)) {
-            Log.d(TAG, "onNewIntent shared=true -> loadUrl(NEW_POST_URL)");
             webView.loadUrl(NEW_POST_URL);
             return;
         }
         Uri data = intent.getData();
-        Log.d(TAG, "onNewIntent shared=false data=" + data);
         if (data == null) {
             return;
         }
@@ -149,8 +142,6 @@ public class MainActivity extends ComponentActivity {
                         return null;
                     }
                 });
-        Log.d(TAG, "handleShareIntent action=" + action + " type=" + intent.getType()
-                + " uris=" + uriStrings + " files=" + files.size());
         if (files.isEmpty()) {
             return false;
         }
