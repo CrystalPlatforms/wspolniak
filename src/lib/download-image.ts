@@ -32,7 +32,11 @@ export async function saveBlobViaBridge(blob: Blob, filename: string): Promise<b
 		return false;
 	}
 	const ok = bridge.saveFile(filename, blob.type || "application/octet-stream", base64);
-	alert(ok ? "Diag OK: zapisano do Pobranych" : "Diag 3: powłoka odrzuciła zapis (saveFile=false)");
+	alert(
+		ok
+			? "Zapisano do galerii, jeśli nie ma — powinno być w Pobranych"
+			: "Diag 3: powłoka odrzuciła zapis (saveFile=false)",
+	);
 	return ok;
 }
 
