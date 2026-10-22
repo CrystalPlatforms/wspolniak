@@ -20,10 +20,20 @@ export function isAndroidWrapper(): boolean {
 export async function saveBlobViaBridge(blob: Blob, filename: string): Promise<boolean> {
 	const bridge = findAndroidBridge();
 	if (!bridge?.saveFile) {
+		// DIAGNOSTYKA #225 (tymczasowa): widoczny sygnał warstwy, która zawiodła
+		alert("Diag 1: brak mostka/saveFile w WebView");
 		return false;
 	}
-	const base64 = await blobToBase64(blob);
-	return bridge.saveFile(filename, blob.type || "application/octet-stream", base64);
+	let base64: string;
+	try {
+		base64 = await blobToBase64(blob);
+	} catch {
+		alert("Diag 2: czytanie bloba (FileReader) nie powiodło się");
+		return false;
+	}
+	const ok = bridge.saveFile(filename, blob.type || "application/octet-stream", base64);
+	alert(ok ? "Diag OK: zapisano do Pobranych" : "Diag 3: powłoka odrzuciła zapis (saveFile=false)");
+	return ok;
 }
 
 function blobToBase64(blob: Blob): Promise<string> {
@@ -77,21 +87,30 @@ export async function downloadImage(
 			type: response.headers.get("content-type") || "image/jpeg",
 		});
 
-		if (isMobileDevice()) {
-			const file = new File([blob], filename, { type: blob.type || "image/jpeg" });
-			if (navigator.share && navigator.canShare?.({ files: [file] })) {
-				try {
-					await navigator.share({ files: [file] });
-					return;
-				} catch {
-					// User cancelled share sheet — fall through to download
-				}
-			}
+		if (await tryShareOnMobile(blob, filename)) {
+			return;
 		}
 
 		await finishDownload(blob, url, filename, saveOverride);
 	} catch {
 		window.open(url, "_blank");
+	}
+}
+
+/** Mobilne przeglądarki: systemowy arkusz udostępniania z plikiem (#37). */
+async function tryShareOnMobile(blob: Blob, filename: string): Promise<boolean> {
+	if (!isMobileDevice()) {
+		return false;
+	}
+	const file = new File([blob], filename, { type: blob.type || "image/jpeg" });
+	if (!navigator.share || !navigator.canShare?.({ files: [file] })) {
+		return false;
+	}
+	try {
+		await navigator.share({ files: [file] });
+		return true;
+	} catch {
+		return false; // user zamknął arkusz — spadamy do zwykłego zapisu
 	}
 }
 

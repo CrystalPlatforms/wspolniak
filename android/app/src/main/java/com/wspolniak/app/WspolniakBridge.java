@@ -128,7 +128,8 @@ public class WspolniakBridge {
                 out.write(bytes);
             }
             return true;
-        } catch (IOException | IllegalArgumentException | SecurityException e) {
+        } catch (Throwable t) {
+            // mostek NIGDY nie może wywalić procesu apki — każda porażka = false
             return false;
         }
     }

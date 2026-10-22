@@ -4,6 +4,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -30,6 +31,21 @@ public enum DownloadPolicy {
     public static boolean shouldDownload(String url) {
         return LinkNavigationPolicy.decide(url)
                 == LinkNavigationPolicy.Decision.LOAD_IN_WEBVIEW;
+    }
+
+    /**
+     * Schematy wewnętrzne (blob:, data:, javascript:) — WebView ma je SKONSUMOWAĆ
+     * po cichu. Przekazanie ich do przeglądarki (ACTION_VIEW) bywa na różnych
+     * nakładkach przyczyną „znikającego" widoku przy pobieraniu bloba (#225).
+     */
+    public static boolean shouldConsumeSilently(String url) {
+        if (url == null) {
+            return false;
+        }
+        String lower = url.toLowerCase(Locale.ROOT);
+        return lower.startsWith("blob:")
+                || lower.startsWith("data:")
+                || lower.startsWith("javascript:");
     }
 
     /**
@@ -72,6 +88,35 @@ public enum DownloadPolicy {
         }
         String basename = urlBasename(url);
         return basename != null ? basename : FALLBACK_FILENAME;
+    }
+
+    /**
+     * cfImageId z delivery URL-a Cloudflare Images (…/<hash>/<id>/<variant>) —
+     * dla natywnego „przytrzymaj zdjęcie" (#225, iteracja 5). Null poza
+     * imagedelivery.net lub przy braku segmentu z id.
+     */
+    public static String cfImageIdFromDeliveryUrl(String url) {
+        if (url == null) {
+            return null;
+        }
+        URI uri;
+        try {
+            uri = new URI(url);
+        } catch (URISyntaxException e) {
+            return null;
+        }
+        String host = uri.getHost();
+        if (host == null
+                || !host.equals("imagedelivery.net")
+                && !host.endsWith(".imagedelivery.net")) {
+            return null;
+        }
+        String path = uri.getPath();
+        if (path == null) {
+            return null;
+        }
+        String[] parts = path.split("/");
+        return parts.length >= 3 && !parts[2].isEmpty() ? parts[2] : null;
     }
 
     private static String queryParamName(String url) {

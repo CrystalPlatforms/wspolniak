@@ -212,6 +212,11 @@ public class MainActivity extends ComponentActivity {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri url = request.getUrl();
+                // Schematy wewnętrzne (blob: itd.) konsumujemy po cichu — nigdy
+                // do przeglądarki (źródło „znikających" widoków przy pobieraniu).
+                if (DownloadPolicy.shouldConsumeSilently(url.toString())) {
+                    return true;
+                }
                 // Trasa attachment (#225): skonsumuj PRZED nawigacją — inaczej WebView
                 // przeładowuje dokument i lightbox znika, mimo że plik i tak leci
                 // do DownloadManagera.
@@ -241,6 +246,26 @@ public class MainActivity extends ComponentActivity {
                 return; // pobieramy tylko z domeny Wspólniaka (założenie z planu)
             }
             enqueueDownload(url, contentDisposition);
+        });
+
+        // Natywna ścieżka pobierania niezależna od kodu strony (#225, iteracja 5):
+        // przytrzymanie palca na zdjęciu → zapis przez trasę attachment. Działa
+        // zawsze — nawet gdy WebView ma w cache starą wersję strony.
+        webView.setOnLongClickListener(v -> {
+            WebView.HitTestResult hit = webView != null ? webView.getHitTestResult() : null;
+            if (hit == null || hit.getType() != WebView.HitTestResult.IMAGE_TYPE) {
+                return false;
+            }
+            String cfImageId = DownloadPolicy.cfImageIdFromDeliveryUrl(hit.getExtra());
+            if (cfImageId == null) {
+                return false; // obcy obrazek — domyślne zachowanie WebView
+            }
+            enqueueDownload(
+                    "https://wspolniak.com/api/app/images/"
+                            + Uri.encode(cfImageId)
+                            + "/download",
+                    null);
+            return true;
         });
     }
 

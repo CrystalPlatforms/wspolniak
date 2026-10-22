@@ -143,4 +143,59 @@ public class DownloadPolicyTest {
                 "attachment; filename=\"z-disposition.jpg\"",
                 "https://wspolniak.com/api/app/images/cf-1/download?name=z-query.jpg"));
     }
+
+    //_iteracja 5 (#225): natywne „przytrzymaj zdjęcie" — id z delivery URL-a Cloudflare
+
+    @Test
+    public void extractsCfImageIdFromDeliveryUrl() {
+        assertEquals("abc-123-uuid", DownloadPolicy.cfImageIdFromDeliveryUrl(
+                "https://imagedelivery.net/HASH123/abc-123-uuid/public"));
+    }
+
+    @Test
+    public void extractsCfImageIdFromDeliveryUrlOtherVariant() {
+        assertEquals("xyz", DownloadPolicy.cfImageIdFromDeliveryUrl(
+                "https://imagedelivery.net/HASH123/xyz/thumbnail"));
+    }
+
+    @Test
+    public void nonDeliveryUrlHasNoCfImageId() {
+        assertEquals(null, DownloadPolicy.cfImageIdFromDeliveryUrl(
+                "https://wspolniak.com/images/abc"));
+    }
+
+    @Test
+    public void malformedDeliveryUrlHasNoCfImageId() {
+        assertEquals(null, DownloadPolicy.cfImageIdFromDeliveryUrl(
+                "https://imagedelivery.net/HASH123"));
+    }
+
+    //_schematy nie-nawigacyjne: konsumowane po cichu (nigdy do przeglądarki)
+
+    @Test
+    public void consumesBlobSchemeSilently() {
+        assertTrue(DownloadPolicy.shouldConsumeSilently(
+                "blob:https://wspolniak.com/9c1a4f2e-83c1-4d10"));
+    }
+
+    @Test
+    public void consumesDataSchemeSilently() {
+        assertTrue(DownloadPolicy.shouldConsumeSilently(
+                "data:image/png;base64,iVBOR"));
+    }
+
+    @Test
+    public void consumesJavascriptSchemeSilently() {
+        assertTrue(DownloadPolicy.shouldConsumeSilently("javascript:void(0)"));
+    }
+
+    @Test
+    public void doesNotConsumeRegularHttps() {
+        assertFalse(DownloadPolicy.shouldConsumeSilently("https://wspolniak.com/app"));
+    }
+
+    @Test
+    public void doesNotConsumeNull() {
+        assertFalse(DownloadPolicy.shouldConsumeSilently(null));
+    }
 }
