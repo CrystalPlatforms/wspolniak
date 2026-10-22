@@ -1,3 +1,10 @@
+# [5.20.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.19.2...v5.20.0) (2026-10-22)
+
+
+### Features
+
+* **android:** WebView shell skeleton with full-domain link capture ([#221](https://github.com/CrystalPlatforms/wspolniak/issues/221)) ([b443d1c](https://github.com/CrystalPlatforms/wspolniak/commit/b443d1cad13e6c62fc38ac504bd3778b69a06b34))
+
 ## [5.19.2](https://github.com/CrystalPlatforms/wspolniak/compare/v5.19.1...v5.19.2) (2026-10-22)
 
 
