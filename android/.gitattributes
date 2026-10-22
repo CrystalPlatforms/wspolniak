@@ -1,0 +1,3 @@
+# EOL krytyczne dla skryptów wrappera (świeży klon na Windows z autocrlf).
+gradlew text eol=lf
+gradlew.bat text eol=crlf
