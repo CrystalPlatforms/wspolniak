@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { Link, useLocation } from "@tanstack/react-router";
-import { Home, Plus, RefreshCw } from "lucide-react";
+import { Home, MessageSquare, Plus } from "lucide-react";
 import { MobileSidebar } from "@/components/app/mobile-sidebar";
 import { Button } from "@/components/ui/button";
 import { useBootReveal } from "@/core/boot-splash";
@@ -23,6 +23,7 @@ export function MobileNav({
 	const { pathname } = useLocation();
 	const bootRevealed = useBootReveal();
 	const isHomeActive = pathname === "/app";
+	const isChatActive = pathname.startsWith("/app/chat");
 
 	return (
 		<nav
@@ -53,15 +54,21 @@ export function MobileNav({
 					<span className="text-xs text-muted-foreground">Dodaj</span>
 				</Link>
 
-				<button
-					type="button"
-					onClick={() => window.location.reload()}
-					className="flex flex-col items-center gap-1.5 rounded-md p-1.5"
-					aria-label="Odśwież"
-				>
-					<RefreshCw className="h-6 w-6 text-foreground" />
-					<span className="text-xs text-muted-foreground">Odśwież</span>
-				</button>
+				{featureFlags.chat && (
+					<Link
+						to="/app/chat"
+						className={cn(
+							"flex flex-col items-center gap-1.5 rounded-md p-1.5",
+							isChatActive && "font-bold",
+						)}
+					>
+						<MessageSquare
+							className="h-6 w-6 text-foreground"
+							fill={isChatActive ? "currentColor" : "none"}
+						/>
+						<span className="text-xs text-muted-foreground">Chat</span>
+					</Link>
+				)}
 			</div>
 		</nav>
 	);
