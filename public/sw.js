@@ -43,7 +43,10 @@ self.addEventListener("fetch", (event) => {
 	// #148: /app (PWA start_url) cached too — its SSR HTML carries the
 	// dehydrated feed state, so an offline cold start renders the cached
 	// feed instead of a network error page.
-	if (event.request.mode === "navigate" && (url.pathname === "/" || url.pathname === "/app")) {
+	// #226: network-first covers ALL app navigations (/app/*), nie tylko
+	// start_url — stary HTML z cache referencjuje assety poprzedniego builda,
+	// które po deployu znikają z Workera („Importing a module script failed").
+	if (event.request.mode === "navigate" && isAppRoute(url.pathname)) {
 		event.respondWith(
 			fetch(event.request)
 				.then((response) => {
@@ -92,6 +95,10 @@ self.addEventListener("fetch", (event) => {
 		return;
 	}
 });
+
+function isAppRoute(pathname) {
+	return pathname === "/" || pathname === "/app" || pathname.startsWith("/app/");
+}
 
 function isStaticAsset(pathname) {
 	return /\.(js|css|png|jpg|jpeg|svg|gif|ico|woff2?|ttf|eot|webp|avif)$/i.test(pathname);

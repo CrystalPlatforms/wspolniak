@@ -6,6 +6,7 @@ import { isAndroidWrapper } from "@/lib/download-image";
 import { isIOSSafari, isStandalone } from "@/pwa/detect";
 import { useInstallPrompt } from "@/pwa/use-install-prompt";
 import { useOnlineStatus } from "@/pwa/use-online-status";
+import { useSwUpdateReload } from "@/pwa/use-sw-update-reload";
 import { InstallBanner } from "./install-banner";
 import { IOSInstallBanner } from "./ios-install-banner";
 import { PushPrompt } from "./push-prompt";
@@ -13,6 +14,7 @@ import { PushPrompt } from "./push-prompt";
 export function PwaShell({ children }: { children: React.ReactNode }) {
 	const online = useOnlineStatus();
 	const { canInstall, promptInstall } = useInstallPrompt();
+	useSwUpdateReload();
 	const [iosSafari, setIOSSafari] = useState(false);
 	const [standalone, setStandalone] = useState(false);
 

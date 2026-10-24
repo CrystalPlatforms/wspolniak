@@ -239,15 +239,76 @@ describe("public/sw.js caching strategy (issue #62)", () => {
 			expect(await response?.text()).toContain("app-cached");
 		});
 
-		it("leaves /app deep links untouched — only the feed shell (start_url) is cached", async () => {
-			const { listeners, fetchMock } = loadSw();
-			const fetchHandler = listeners.get("fetch");
+		describe("HTML navigation /app/* deep links: network-first (#226)", () => {
+			it("serves fresh deep-link HTML after deploy — stale cache must not win", async () => {
+				const { listeners, cacheStorage, fetchMock } = loadSw();
 
-			const event = makeFetchEvent("https://wspolniak.com/app/video", "navigate");
-			fetchHandler?.(event as unknown);
+				// Poprzedni build zcache'ował HTML deep linku z hashami starych assetów.
+				const cache = await cacheStorage.open(`wspolniak-${TEST_BUILD_ID}`);
+				await cache.put(
+					"https://wspolniak.com/app/posts/abc",
+					new Response('<html data-version="old"></html>'),
+				);
 
-			expect(event.responded).toBeUndefined();
-			expect(fetchMock).not.toHaveBeenCalled();
+				// Po deployu sieć zwraca świeży HTML z hashami nowego builda.
+				fetchMock.mockResolvedValueOnce(
+					new Response('<html data-version="new"></html>', { status: 200 }),
+				);
+
+				const fetchHandler = listeners.get("fetch");
+				const event = makeFetchEvent("https://wspolniak.com/app/posts/abc", "navigate");
+				fetchHandler?.(event as unknown);
+
+				const response = await event.responded;
+				expect(await response?.text()).toContain('data-version="new"');
+				expect(fetchMock).toHaveBeenCalled();
+			});
+
+			it("caches the fresh deep-link HTML for the next offline start", async () => {
+				const { listeners, cacheStorage, fetchMock } = loadSw();
+				fetchMock.mockResolvedValueOnce(
+					new Response('<html data-view="post-fresh"></html>', { status: 200 }),
+				);
+
+				const fetchHandler = listeners.get("fetch");
+				const event = makeFetchEvent("https://wspolniak.com/app/posts/abc", "navigate");
+				fetchHandler?.(event as unknown);
+				await event.responded;
+
+				const cache = await cacheStorage.open(`wspolniak-${TEST_BUILD_ID}`);
+				const cached = await cache.match("https://wspolniak.com/app/posts/abc");
+				expect(cached).toBeDefined();
+				expect(await cached?.text()).toContain("post-fresh");
+			});
+
+			it("falls back to the cached deep-link HTML when offline", async () => {
+				const { listeners, cacheStorage, fetchMock } = loadSw();
+
+				const cache = await cacheStorage.open(`wspolniak-${TEST_BUILD_ID}`);
+				await cache.put(
+					"https://wspolniak.com/app/posts/abc",
+					new Response('<html data-view="post-cached"></html>'),
+				);
+
+				fetchMock.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+				const fetchHandler = listeners.get("fetch");
+				const event = makeFetchEvent("https://wspolniak.com/app/posts/abc", "navigate");
+				fetchHandler?.(event as unknown);
+
+				const response = await event.responded;
+				expect(await response?.text()).toContain("post-cached");
+			});
+
+			it("leaves /app module subresources untouched — no SW interference", async () => {
+				const { listeners, fetchMock } = loadSw();
+
+				const event = makeFetchEvent("https://wspolniak.com/app/chunk-abc.js");
+				listeners.get("fetch")?.(event as unknown);
+
+				expect(event.responded).toBeUndefined();
+				expect(fetchMock).not.toHaveBeenCalled();
+			});
 		});
 	});
 
