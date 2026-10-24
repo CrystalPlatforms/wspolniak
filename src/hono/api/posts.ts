@@ -6,6 +6,7 @@ import { buildPushDeps } from "@/core/push-deps";
 import { deleteAlbumItemsByRefs } from "@/db/albums";
 import { deleteBookmarksByPost } from "@/db/bookmarks";
 import { createMentions, deleteMentionsByPost } from "@/db/mentions/queries";
+import { listPinnedPostIds } from "@/db/pinned-posts";
 import {
 	addPostImages,
 	countUserPostsToday,
@@ -86,12 +87,18 @@ postsEndpoint.get("/", async (c) => {
 });
 
 postsEndpoint.get("/:id", async (c) => {
-	const post = await getPostById(c.req.param("id"));
+	// #227: feed dokleja flagę `pinned` w assembleFeedPage — widok posta pobiera
+	// pojedynczy rekord, więc tu musi sam oznaczyć przypięcie, inaczej menu
+	// admina pokazuje „Przypnij post" także dla już przypiętych.
+	const [post, pinnedIds] = await Promise.all([
+		getPostById(c.req.param("id")),
+		listPinnedPostIds(),
+	]);
 	if (!post) {
 		return c.json({ error: "Not found" }, 404);
 	}
 	return c.json({
-		data: post,
+		data: { ...post, pinned: pinnedIds.includes(post.id) },
 		meta: { imageAccountHash: c.env.CLOUDFLARE_IMAGES_ACCOUNT_HASH },
 	});
 });

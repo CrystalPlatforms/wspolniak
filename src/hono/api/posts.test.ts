@@ -55,6 +55,7 @@ import { deleteBookmarksByPost } from "@/db/bookmarks";
 import { findActiveUserById } from "@/db/identity/queries";
 import { verifySessionCookie } from "@/db/identity/session";
 import { createMentions, deleteMentionsByPost } from "@/db/mentions/queries";
+import { listPinnedPostIds } from "@/db/pinned-posts";
 import {
 	addPostImages,
 	countUserPostsToday,
@@ -69,6 +70,7 @@ import { fireAndForgetYoutubeDelete } from "@/hono/api/video";
 import postsEndpoint from "./posts";
 
 const mockVerify = vi.mocked(verifySessionCookie);
+const mockListPinnedIds = vi.mocked(listPinnedPostIds);
 const mockFindUser = vi.mocked(findActiveUserById);
 const mockCreatePost = vi.mocked(createPost);
 const mockCountToday = vi.mocked(countUserPostsToday);
@@ -387,6 +389,7 @@ describe("GET /api/app/posts", () => {
 describe("GET /api/app/posts/:id", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mockListPinnedIds.mockResolvedValue([]);
 		mockVerify.mockResolvedValue({ userId: "u1", name: "Tomek", role: "member" });
 		mockFindUser.mockResolvedValue({
 			id: "u1",
@@ -423,6 +426,38 @@ describe("GET /api/app/posts/:id", () => {
 		expect(res.status).toBe(200);
 		const body = (await res.json()) as { data: { id: string } };
 		expect(body.data.id).toBe("post-1");
+	});
+
+	it("marks a pinned post with pinned: true so the menu shows „Odepnij” (#227)", async () => {
+		mockGetPost.mockResolvedValue(samplePost);
+		mockListPinnedIds.mockResolvedValue(["post-1"]);
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/posts/post-1",
+			authedRequest("/api/app/posts/post-1"),
+			env,
+		);
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { data: { pinned: boolean } };
+		expect(body.data.pinned).toBe(true);
+	});
+
+	it("marks an unpinned post with pinned: false (#227)", async () => {
+		mockGetPost.mockResolvedValue(samplePost);
+		mockListPinnedIds.mockResolvedValue(["post-other"]);
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/posts/post-1",
+			authedRequest("/api/app/posts/post-1"),
+			env,
+		);
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { data: { pinned: boolean } };
+		expect(body.data.pinned).toBe(false);
 	});
 
 	it("returns 404 for non-existent post", async () => {
