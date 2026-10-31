@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { IconPhotoPlus, IconX } from "@tabler/icons-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ImagePlus, X } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { ComposerVideoPicker, type PendingVideo } from "@/components/app/composer-video-picker";
 import { Button } from "@/components/ui/button";
@@ -268,7 +269,7 @@ export function AlbumEditForm({ albumId, onSaved, onDeleted, backButton }: Album
 			    Upload rusza przy „Zapisz zmiany". */}
 			<div className="space-y-2">
 				<Label>Zawartość albumu</Label>
-				{/* Istniejące elementy — X wyciąga z albumu (źródło nietknięte, #173). */}
+				{/* Istniejące elementy — IconX wyciąga z albumu (źródło nietknięte, #173). */}
 				{data && data.data.items.length > 0 && (
 					<div className="grid max-h-64 grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3">
 						{data.data.items.map((item) => {
@@ -302,7 +303,7 @@ export function AlbumEditForm({ albumId, onSaved, onDeleted, backButton }: Album
 										aria-label={`Usuń z albumu: ${isVideo ? (item.video?.title ?? "wideo") : `zdjęcie ${item.ref}`}`}
 										className="absolute right-1 top-1 flex size-6 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-90 transition-opacity hover:opacity-100"
 									>
-										<X className="h-3 w-3" />
+										<IconX className="h-3 w-3" aria-hidden="true" />
 									</button>
 								</div>
 							);
@@ -330,7 +331,7 @@ export function AlbumEditForm({ albumId, onSaved, onDeleted, backButton }: Album
 						onClick={() => imageInputRef.current?.click()}
 						title={pendingPhotos.length > 0 ? `${pendingPhotos.length} zdjęć` : "Dodaj zdjęcia"}
 					>
-						<ImagePlus className="h-5 w-5" />
+						<IconPhotoPlus className="h-5 w-5" aria-hidden="true" />
 						Dodaj zdjęcia {pendingPhotos.length > 0 ? `(${pendingPhotos.length})` : ""}
 					</Button>
 					<ComposerVideoPicker videos={pendingVideos} onChange={setPendingVideos} />
@@ -355,7 +356,7 @@ export function AlbumEditForm({ albumId, onSaved, onDeleted, backButton }: Album
 									aria-label={`Usuń zdjęcie ${index + 1}`}
 									className="absolute right-1 top-1 flex size-6 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-90 transition-opacity hover:opacity-100"
 								>
-									<X className="h-3 w-3" />
+									<IconX className="h-3 w-3" aria-hidden="true" />
 								</button>
 							</div>
 						))}

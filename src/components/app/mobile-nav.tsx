@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { IconHome, IconMessage, IconPlus } from "@tabler/icons-react";
 import { Link, useLocation } from "@tanstack/react-router";
-import { Home, MessageSquare, Plus } from "lucide-react";
 import { MobileSidebar } from "@/components/app/mobile-sidebar";
 import { Button } from "@/components/ui/button";
 import { useBootReveal } from "@/core/boot-splash";
@@ -42,14 +42,14 @@ export function MobileNav({
 						isHomeActive && "font-bold",
 					)}
 				>
-					<Home className="h-6 w-6 text-foreground" />
+					<IconHome className="h-6 w-6 text-foreground" aria-hidden="true" />
 					<span className="text-xs text-muted-foreground">Home</span>
 				</Link>
 
 				<Link to="/app/new" className="flex flex-col items-center gap-1.5">
 					<Button size="lg" className="h-14 w-14 rounded-full px-0">
 						{/* size-* omija nadpisanie [&_svg]:size-4 z Buttona (h-12 nie działało). */}
-						<Plus className="size-12" />
+						<IconPlus className="size-12" aria-hidden="true" />
 					</Button>
 					<span className="text-xs text-muted-foreground">Dodaj</span>
 				</Link>
@@ -62,9 +62,10 @@ export function MobileNav({
 							isChatActive && "font-bold",
 						)}
 					>
-						<MessageSquare
+						<IconMessage
 							className="h-6 w-6 text-foreground"
 							fill={isChatActive ? "currentColor" : "none"}
+							aria-hidden="true"
 						/>
 						<span className="text-xs text-muted-foreground">Chat</span>
 					</Link>

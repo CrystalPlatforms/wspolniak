@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { IconPhotoOff } from "@tabler/icons-react";
 import { Link } from "@tanstack/react-router";
-import { ImageOff } from "lucide-react";
 import type { PostPreview } from "@/core/ai/stream-protocol";
 import { cn } from "@/lib/utils";
 
@@ -37,7 +38,7 @@ export function PostPreviewCards({ posts }: PostPreviewCardsProps) {
 							/>
 						) : (
 							<span className="flex size-12 flex-col items-center justify-center gap-0.5 rounded-lg bg-muted">
-								<ImageOff className="size-4 text-muted-foreground" />
+								<IconPhotoOff className="size-4 text-muted-foreground" aria-hidden="true" />
 								<span className="text-[9px] leading-none text-muted-foreground">Brak zdjęcia</span>
 							</span>
 						)}

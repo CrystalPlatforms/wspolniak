@@ -2,8 +2,9 @@
 // Współdzielony renderer Markdown docsów (F2 #205): nagłówki ze stabilnymi anchor
 // id i klikalnymi kotwicami, callouty (blockquote w języku wizualnym big-photo),
 // tabele GFM, listy, linki (wewnętrzne przez router Link), obrazy. Content-agnostic.
+
+import { IconInfoCircle } from "@tabler/icons-react";
 import { Link } from "@tanstack/react-router";
-import { Info } from "lucide-react";
 import type * as React from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -48,11 +49,11 @@ function allocateId(usedIds: Map<string, number>, children: React.ReactNode): st
 	return seen === 0 ? base : `${base}-${seen}`;
 }
 
-/** Język wizualny big-photo: callout = aside z ikoną Info i tekstem muted. */
+/** Język wizualny big-photo: callout = aside z ikoną IconInfoCircle i tekstem muted. */
 function Callout({ children }: { children: React.ReactNode }) {
 	return (
 		<aside className="flex gap-3 rounded-lg border border-border bg-muted/50 p-4">
-			<Info className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+			<IconInfoCircle className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
 			<div className="min-w-0 space-y-1 text-sm [&_p]:leading-relaxed [&_p]:text-muted-foreground">
 				{children}
 			</div>

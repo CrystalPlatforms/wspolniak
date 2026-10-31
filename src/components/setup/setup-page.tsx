@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { IconCheck, IconCopy } from "@tabler/icons-react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
-import { Check, Copy } from "lucide-react";
 import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -76,7 +77,11 @@ export function SetupPage() {
 								setTimeout(() => setCopied(false), 2000);
 							}}
 						>
-							{copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+							{copied ? (
+								<IconCheck className="h-4 w-4" aria-hidden="true" />
+							) : (
+								<IconCopy className="h-4 w-4" aria-hidden="true" />
+							)}
 						</Button>
 					</div>
 				</div>

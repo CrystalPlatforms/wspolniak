@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { Pencil, Trash2 } from "lucide-react";
+import { IconPencil, IconTrash } from "@tabler/icons-react";
 
 /** Miesiące w dopełniaczu — „1 stycznia", „15 marca" (#163). */
 const MONTHS_PL_GENITIVE = [
@@ -62,7 +62,7 @@ export function CalendarGrid({ events, isAdmin = false, onEdit, onDelete }: Cale
 								onClick={() => onEdit?.(event)}
 								className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
 							>
-								<Pencil className="h-5 w-5" />
+								<IconPencil className="h-5 w-5" aria-hidden="true" />
 							</button>
 							<button
 								type="button"
@@ -71,7 +71,7 @@ export function CalendarGrid({ events, isAdmin = false, onEdit, onDelete }: Cale
 								onClick={() => onDelete?.(event)}
 								className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
 							>
-								<Trash2 className="h-5 w-5" />
+								<IconTrash className="h-5 w-5" aria-hidden="true" />
 							</button>
 						</div>
 					)}

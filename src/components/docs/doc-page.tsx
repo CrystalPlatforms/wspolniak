@@ -2,7 +2,7 @@
 // Współdzielona strona dokumentu docsów (F1 #204): przycisk powrotu, breadcrumb,
 // tytuł i treść Markdown. Stan „nie znaleziono" dla nieznanych slugów. Współdzielony
 // przez wszystkie działy — techniczny (F3) i bugs (F4) dostają go za darmo.
-import { ArrowLeft, Bug, SearchX } from "lucide-react";
+import { IconArrowLeft, IconBug, IconSearchOff } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { getDepartmentMeta } from "@/docs/departments";
 import type { Doc, DocDepartment } from "@/docs/registry";
@@ -16,7 +16,7 @@ import { DocsMarkdown } from "./markdown";
 function BugsFamilyNote() {
 	return (
 		<aside className="flex gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4">
-			<Bug className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+			<IconBug className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
 			<div className="space-y-1 text-sm">
 				<p className="font-semibold text-foreground">Coś nie działa?</p>
 				<p className="leading-relaxed text-muted-foreground">
@@ -47,14 +47,14 @@ export function DocPage({ department, doc }: DocPageProps) {
 				<div className="mb-6">
 					<Button asChild variant="ghost" className="-ml-2 h-9 text-muted-foreground">
 						<a href={appHref}>
-							<ArrowLeft aria-hidden />
+							<IconArrowLeft aria-hidden />
 							Powrót do Wspólniaka
 						</a>
 					</Button>
 				</div>
 
 				<div className="rounded-xl border border-dashed border-border bg-muted/30 p-10 text-center">
-					<SearchX className="mx-auto size-8 text-muted-foreground" aria-hidden />
+					<IconSearchOff className="mx-auto size-8 text-muted-foreground" aria-hidden />
 					<h1 className="mt-4 text-xl font-semibold">Nie znaleziono dokumentu</h1>
 					<p className="mt-2 text-sm text-muted-foreground">
 						Tak dokument nie istnieje — sprawdź adres albo wróć do dokumentacji.

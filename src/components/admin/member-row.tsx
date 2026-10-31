@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { Check, Copy, Info, Link, Trash2 } from "lucide-react";
+import { IconCheck, IconCopy, IconInfoCircle, IconLink, IconTrash } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ interface MemberRowProps {
 	isDeleting: boolean;
 	/** Zapis przełącznika AL w toku — blokuje switch na czas mutacji. */
 	isAiSaving: boolean;
-	/** Generuje nowy magic link; zwraca go do wyświetlenia w dialogu Info. */
+	/** Generuje nowy magic link; zwraca go do wyświetlenia w dialogu IconInfoCircle. */
 	onRegenerate: () => Promise<string>;
 	onDelete: () => void;
 	onRename: (id: string, name: string) => Promise<void>;
@@ -35,8 +35,8 @@ interface MemberRowProps {
 
 /**
  * Wiersz członka w panelu admina — na liście tylko imię, badge roli i przycisk
- * „Info". Wszystkie opcje członka (przełącznik AL, zmiana imienia, nowy link
- * logowania, usuwanie) otwierają się w dialogu Info (przebudowa 2026-09-01,
+ * „IconInfoCircle". Wszystkie opcje członka (przełącznik AL, zmiana imienia, nowy link
+ * logowania, usuwanie) otwierają się w dialogu IconInfoCircle (przebudowa 2026-09-01,
  * na prośbę usera — czystszy główny ekran admina). Usuwać można tylko
  * członków; switch AL może zablokować każdego, także admina.
  */
@@ -68,7 +68,7 @@ export function MemberRow({
 					title={`Opcje członka ${member.name}`}
 					aria-label={`Opcje członka ${member.name}`}
 				>
-					<Info className="h-4 w-4" />
+					<IconInfoCircle className="h-4 w-4" aria-hidden="true" />
 				</Button>
 			</div>
 			<MemberInfoDialog
@@ -88,9 +88,9 @@ export function MemberRow({
 }
 
 /**
- * Dialog „Info" członka — wszystkie opcje usera w jednym miejscu: przełącznik
+ * Dialog „IconInfoCircle" członka — wszystkie opcje usera w jednym miejscu: przełącznik
  * AL, zmiana imienia, generowanie magic linka (z kopiowaniem) i usuwanie
- * (tylko członkowie). Otwierany przyciskiem Info na wierszu listy.
+ * (tylko członkowie). Otwierany przyciskiem IconInfoCircle na wierszu listy.
  */
 function MemberInfoDialog({
 	member,
@@ -198,7 +198,11 @@ function MemberInfoDialog({
 								disabled={saving || draft.trim() === member.name}
 								title="Zapisz imię"
 							>
-								{saving ? <Loader loading={saving} /> : <Check className="h-4 w-4" />}
+								{saving ? (
+									<Loader loading={saving} />
+								) : (
+									<IconCheck className="h-4 w-4" aria-hidden="true" />
+								)}
 							</Button>
 						</div>
 					</section>
@@ -210,7 +214,11 @@ function MemberInfoDialog({
 									{magicLink}
 								</code>
 								<Button size="sm" variant="outline" onClick={handleCopy} title="Kopiuj link">
-									{copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+									{copied ? (
+										<IconCheck className="h-4 w-4" aria-hidden="true" />
+									) : (
+										<IconCopy className="h-4 w-4" aria-hidden="true" />
+									)}
 								</Button>
 							</div>
 						)}
@@ -228,7 +236,7 @@ function MemberInfoDialog({
 								{isRegenerating ? (
 									<Loader loading={isRegenerating} />
 								) : (
-									<Link className="h-4 w-4" />
+									<IconLink className="h-4 w-4" aria-hidden="true" />
 								)}
 								{magicLink ? "Wygeneruj ponownie" : "Wygeneruj link"}
 							</Button>
@@ -241,7 +249,11 @@ function MemberInfoDialog({
 									disabled={isDeleting}
 									title="Usuń członka"
 								>
-									{isDeleting ? <Loader loading={isDeleting} /> : <Trash2 className="h-4 w-4" />}
+									{isDeleting ? (
+										<Loader loading={isDeleting} />
+									) : (
+										<IconTrash className="h-4 w-4" aria-hidden="true" />
+									)}
 									Usuń
 								</Button>
 							)}

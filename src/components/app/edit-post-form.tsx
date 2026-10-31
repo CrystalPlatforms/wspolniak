@@ -10,7 +10,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { AlertTriangle, ImagePlus, X } from "lucide-react";
+import { IconAlertTriangle, IconPhotoPlus, IconX } from "@tabler/icons-react";
 import { type ChangeEvent, type FormEvent, useCallback, useMemo, useRef, useState } from "react";
 import { EditPostVideos, type VideoItem } from "@/components/app/edit-post-videos";
 import type { Mention } from "@/components/app/mention-input";
@@ -130,7 +130,7 @@ function SortablePreview({
 					onPointerDown={(e) => e.stopPropagation()}
 					className="absolute inset-0 flex items-center justify-center rounded-md bg-destructive/60"
 				>
-					<AlertTriangle className="size-8 text-destructive-foreground" />
+					<IconAlertTriangle className="size-8 text-destructive-foreground" aria-hidden="true" />
 				</button>
 			)}
 			<button
@@ -143,7 +143,7 @@ function SortablePreview({
 				className="absolute right-1 top-1 flex size-6 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-90 transition-opacity hover:opacity-100"
 				title="Usuń zdjęcie"
 			>
-				<X className="h-3 w-3" />
+				<IconX className="h-3 w-3" aria-hidden="true" />
 			</button>
 		</div>
 	);
@@ -385,7 +385,7 @@ export function EditPostForm({
 							disabled={items.length >= MAX_FILES}
 							title={items.length > 0 ? `${items.length}/${MAX_FILES}` : "Dodaj zdjęcia"}
 						>
-							<ImagePlus className="h-4 w-4" />
+							<IconPhotoPlus className="h-4 w-4" aria-hidden="true" />
 							<span className="ml-2">
 								{items.length > 0 ? `${items.length}/${MAX_FILES}` : "Dodaj zdjęcia"}
 							</span>

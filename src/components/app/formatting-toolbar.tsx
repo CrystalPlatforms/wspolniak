@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import {
-	Bold,
-	Heading1,
-	Heading2,
-	Heading3,
-	Italic,
-	Link2,
-	List,
-	ListOrdered,
-	Strikethrough,
-} from "lucide-react";
+	IconBold,
+	IconH1,
+	IconH2,
+	IconH3,
+	IconItalic,
+	IconLink,
+	IconList,
+	IconListNumbers,
+	IconStrikethrough,
+} from "@tabler/icons-react";
 import type { RefObject } from "react";
 import { Button } from "@/components/ui/button";
 import { applyMarkdown, type MarkdownAction } from "./markdown-format";
@@ -23,19 +23,19 @@ interface FormattingToolbarProps {
 interface ActionDef {
 	action: MarkdownAction;
 	label: string;
-	Icon: typeof Bold;
+	Icon: typeof IconBold;
 }
 
 const ACTIONS: ActionDef[] = [
-	{ action: "bold", label: "Pogrubienie", Icon: Bold },
-	{ action: "italic", label: "Kursywa", Icon: Italic },
-	{ action: "strikethrough", label: "Przekreślenie", Icon: Strikethrough },
-	{ action: "h1", label: "Nagłówek 1", Icon: Heading1 },
-	{ action: "h2", label: "Nagłówek 2", Icon: Heading2 },
-	{ action: "h3", label: "Nagłówek 3", Icon: Heading3 },
-	{ action: "bullet", label: "Lista punktowana", Icon: List },
-	{ action: "ordered", label: "Lista numerowana", Icon: ListOrdered },
-	{ action: "link", label: "Link", Icon: Link2 },
+	{ action: "bold", label: "Pogrubienie", Icon: IconBold },
+	{ action: "italic", label: "Kursywa", Icon: IconItalic },
+	{ action: "strikethrough", label: "Przekreślenie", Icon: IconStrikethrough },
+	{ action: "h1", label: "Nagłówek 1", Icon: IconH1 },
+	{ action: "h2", label: "Nagłówek 2", Icon: IconH2 },
+	{ action: "h3", label: "Nagłówek 3", Icon: IconH3 },
+	{ action: "bullet", label: "Lista punktowana", Icon: IconList },
+	{ action: "ordered", label: "Lista numerowana", Icon: IconListNumbers },
+	{ action: "link", label: "Link", Icon: IconLink },
 ];
 
 /**

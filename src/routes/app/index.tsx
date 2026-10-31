@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { IconSettings } from "@tabler/icons-react";
 import { infiniteQueryOptions, useInfiniteQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Cog } from "lucide-react";
 import { useState } from "react";
 import { Feed } from "@/components/app/feed";
 import { type FeedPage, feedQueryKey } from "@/components/app/feed-query";
@@ -82,7 +83,7 @@ function FeedScreen() {
 					)}
 					<Link to="/app/settings">
 						<Button variant="ghost" size="lg" title="Ustawienia">
-							<Cog className="size-6" />
+							<IconSettings className="size-6" aria-hidden="true" />
 						</Button>
 					</Link>
 				</div>

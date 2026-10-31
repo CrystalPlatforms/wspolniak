@@ -1,16 +1,17 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { Link, useLocation } from "@tanstack/react-router";
+
 import {
-	Bookmark,
-	Bot,
-	Calendar,
-	ChartNoAxesColumn,
-	Home,
-	Images,
-	Menu,
-	MessageSquare,
-	Plus,
-} from "lucide-react";
+	IconBookmark,
+	IconCalendar,
+	IconChartBar,
+	IconHome,
+	IconMenu2,
+	IconMessage,
+	IconPhoto,
+	IconPlus,
+	IconRobot,
+} from "@tabler/icons-react";
+import { Link, useLocation } from "@tanstack/react-router";
 import { useState } from "react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { Button } from "@/components/ui/button";
@@ -33,24 +34,24 @@ interface NavItem {
 
 // Mirror desktop-sidebar.tsx NAV_ITEMS — jedno źródło prawdy dla nawigacji.
 const NAV_ITEMS: NavItem[] = [
-	{ to: "/app", icon: Home, label: "Feed", exact: true },
-	{ to: "/app/lib", icon: Bookmark, label: "Biblioteka", fillWhenActive: true },
+	{ to: "/app", icon: IconHome, label: "Feed", exact: true },
+	{ to: "/app/lib", icon: IconBookmark, label: "Biblioteka", fillWhenActive: true },
 	// Albumy (#170): mirror desktop-sidebar; brak flagi w F1 — zawsze widoczna,
-	// bez fillWhenActive (wypełniona ikona Images wygląda źle — reviza usera).
-	{ to: "/app/albums", icon: Images, label: "Albumy" },
+	// bez fillWhenActive (wypełniona ikona IconPhoto wygląda źle — reviza usera).
+	{ to: "/app/albums", icon: IconPhoto, label: "Albumy" },
 	// F8 #159: nazwa usera „Chat" (nie „Czat"); wypełniona gdy aktywna.
-	{ to: "/app/chat", icon: MessageSquare, label: "Chat", fillWhenActive: true },
+	{ to: "/app/chat", icon: IconMessage, label: "Chat", fillWhenActive: true },
 	// Chat AL (F6 #184): widoczny tylko przy skutecznym dostępie (prop aiEntrance).
-	{ to: "/app/ai", icon: Bot, label: "Chat AL", fillWhenActive: true, aiOnly: true },
+	{ to: "/app/ai", icon: IconRobot, label: "Chat AL", fillWhenActive: true, aiOnly: true },
 	// Admin wyjęty z menu (przebudowa 2026-09-01) — wejście tylko z Ustawień.
 	{
 		to: "/app/calendar",
-		icon: Calendar,
+		icon: IconCalendar,
 		label: "Kalendarz",
 		adminOnly: false,
 		fillWhenActive: true,
 	},
-	{ to: "/app/stats", icon: ChartNoAxesColumn, label: "Statystyki", adminOnly: false },
+	{ to: "/app/stats", icon: IconChartBar, label: "Statystyki", adminOnly: false },
 	// Ustawienia przeniesione do nagłówka feeda (ikona Cog obok „Witaj", reviza usera).
 ];
 
@@ -107,7 +108,7 @@ export function MobileSidebar({
 					aria-label="Otwórz menu"
 					className="rounded-md p-2 text-foreground transition-colors hover:bg-accent hover:text-accent-foreground sm:hidden"
 				>
-					<Menu className="h-12 w-12" />
+					<IconMenu2 className="h-12 w-12" aria-hidden="true" />
 				</button>
 			</SheetTrigger>
 			<SheetContent side="left" hideClose className="w-[260px] gap-0 p-0 sm:max-w-[260px]">
@@ -152,7 +153,7 @@ export function MobileSidebar({
 				<div className="flex flex-col gap-2 border-t border-border p-4">
 					<Link to="/app/new" onClick={() => setOpen(false)}>
 						<Button className="w-full rounded-full py-4 text-lg font-bold">
-							<Plus className="mr-2 size-6" />
+							<IconPlus className="mr-2 size-6" aria-hidden="true" />
 							Nowy post
 						</Button>
 					</Link>

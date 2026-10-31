@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { IconArrowLeft } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
 import { useCallback } from "react";
 import { EditPostForm } from "@/components/app/edit-post-form";
 import type { Mention } from "@/components/app/mention-input";
@@ -171,7 +172,7 @@ function EditPostPage() {
 					className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
 					title="Wróć do posta"
 				>
-					<ArrowLeft className="h-5 w-5" />
+					<IconArrowLeft className="h-5 w-5" aria-hidden="true" />
 				</button>
 				<h1 className="text-2xl font-bold text-foreground">Edytuj post</h1>
 			</div>

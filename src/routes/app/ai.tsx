@@ -1,6 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import {
+	IconChevronDown,
+	IconDownload,
+	IconPlayerPause,
+	IconRotate2,
+	IconSend,
+} from "@tabler/icons-react";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { ChevronDown, Download, Pause, RotateCcw, SendHorizontal } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { AlLogo } from "@/components/app/ai/al-logo";
 import { JellyOoze } from "@/components/app/ai/jelly-ooze";
@@ -122,7 +129,7 @@ function AiScreen() {
 											disabled={messages.length === 0}
 											className="shrink-0 gap-1.5 hover:border-primary dark:hover:border-primary"
 										>
-											<Download className="size-4" />
+											<IconDownload className="size-4" aria-hidden="true" />
 											Export
 										</Button>
 									</DropdownMenuTrigger>
@@ -146,7 +153,7 @@ function AiScreen() {
 										onClick={clearConversation}
 										className="shrink-0 gap-1.5"
 									>
-										<RotateCcw className="size-4" />
+										<IconRotate2 className="size-4" aria-hidden="true" />
 										Wyczyść
 									</Button>
 								)}
@@ -158,7 +165,7 @@ function AiScreen() {
 											aria-label="Zatrzymaj generowanie"
 											className="flex size-8 shrink-0 items-center justify-center rounded-md border border-primary/40 bg-background text-foreground shadow-[0_0_14px_-2px_var(--primary)] transition-opacity"
 										>
-											<Pause className="size-3.5 fill-current" />
+											<IconPlayerPause className="size-3.5 fill-current" aria-hidden="true" />
 										</button>
 									) : (
 										<button
@@ -167,7 +174,7 @@ function AiScreen() {
 											disabled={!online || !input.trim()}
 											className="flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground transition-opacity disabled:opacity-40"
 										>
-											<SendHorizontal className="size-4" />
+											<IconSend className="size-4" aria-hidden="true" />
 											Wyślij
 										</button>
 									)}
@@ -222,7 +229,10 @@ function ThinkingBlock({ reasoning, live }: { reasoning: string; live: boolean }
 	return (
 		<Collapsible>
 			<CollapsibleTrigger className="group flex items-center gap-1 text-xs text-muted-foreground">
-				<ChevronDown className="size-3.5 transition-transform group-data-[state=open]:rotate-180" />
+				<IconChevronDown
+					className="size-3.5 transition-transform group-data-[state=open]:rotate-180"
+					aria-hidden="true"
+				/>
 				{live ? "AL myśli…" : "Myślenie AL"}
 			</CollapsibleTrigger>
 			<CollapsibleContent>

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { Download } from "lucide-react";
+import { IconDownload } from "@tabler/icons-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -55,7 +55,7 @@ export function InstallBanner({ canInstall, promptInstall }: InstallBannerProps)
 						Nie teraz
 					</Button>
 					<Button onClick={handleInstall}>
-						<Download className="mr-1 h-4 w-4" />
+						<IconDownload className="mr-1 h-4 w-4" aria-hidden="true" />
 						Instaluj
 					</Button>
 				</DialogFooter>

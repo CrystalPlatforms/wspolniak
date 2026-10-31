@@ -7,7 +7,7 @@ import React, {
 	useRef,
 	useState,
 } from "react";
-// vendored from react-bits BranchedMenu (F5 #208), adapted: @hugeicons swapped for the project lucide set (icon props are ReactNode; caller renders <Icon />), CSS split out to branched-menu.css. Animated branch lines unchanged.
+// vendored from react-bits BranchedMenu (F5 #208), adapted: @hugeicons swapped for the project icon set (icon props are ReactNode; caller renders <Icon />), CSS split out to branched-menu.css. Animated branch lines unchanged.
 import "./branched-menu.css";
 
 export interface BranchedMenuChild {

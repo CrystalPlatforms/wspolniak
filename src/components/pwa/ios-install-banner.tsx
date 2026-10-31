@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { Plus, Share } from "lucide-react";
+import { IconPlus, IconShare } from "@tabler/icons-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,9 +42,9 @@ export function IOSInstallBanner({ isIOSSafari, isStandalone }: IOSInstallBanner
 					<DialogTitle>Dodaj do ekranu głównego</DialogTitle>
 					<DialogDescription>
 						Aby zainstalować aplikację, naciśnij ikonę{" "}
-						<Share className="inline-block h-4 w-4" aria-hidden="true" /> Udostępnij, a następnie
-						wybierz <Plus className="inline-block h-4 w-4" aria-hidden="true" /> Dodaj do ekranu
-						głównego.
+						<IconShare className="inline-block h-4 w-4" aria-hidden="true" /> Udostępnij, a
+						następnie wybierz <IconPlus className="inline-block h-4 w-4" aria-hidden="true" /> Dodaj
+						do ekranu głównego.
 					</DialogDescription>
 				</DialogHeader>
 				<p className="text-sm text-muted-foreground">Jeśli masz pytania, podejdź do Adama.</p>

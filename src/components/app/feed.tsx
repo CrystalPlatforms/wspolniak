@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { RotateCcwIcon } from "lucide-react";
+import { IconRotate2 } from "@tabler/icons-react";
 import { PostCard, type PostCardPost } from "@/components/app/post-card";
 import { PENDING_SKELETONS, PostCardSkeleton } from "@/components/app/post-card-skeleton";
 import { Loader } from "@/components/ui/loader";
@@ -90,7 +90,7 @@ export function Feed({
 								onClick={onLoadMore}
 								className="inline-flex items-center gap-2 rounded-lg border border-border px-6 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
 							>
-								<RotateCcwIcon className="h-4 w-4" />
+								<IconRotate2 className="h-4 w-4" aria-hidden="true" />
 								Załaduj więcej
 							</button>
 						</div>

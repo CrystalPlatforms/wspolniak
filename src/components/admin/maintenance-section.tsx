@@ -81,7 +81,7 @@ export function MaintenanceSection({
 						placeholder="alert-triangle"
 					/>
 					<p className="text-xs text-muted-foreground">
-						Nazwa ikony z biblioteki lucide, np. <code>alert-triangle</code>, <code>wrench</code>,{" "}
+						Nazwa ikony z biblioteki Tabler, np. <code>alert-triangle</code>, <code>wrench</code>,{" "}
 						<code>hammer</code>. Nieznana nazwa → ikona ostrzeżenia.
 					</p>
 				</div>

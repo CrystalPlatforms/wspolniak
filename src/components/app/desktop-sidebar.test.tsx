@@ -287,7 +287,7 @@ describe("DesktopSidebar — Albumy nav link (#170)", () => {
 
 		const link = screen.getByRole("link", { name: /^albumy$/i });
 		expect(link.getAttribute("class")).toContain("font-bold");
-		// Ikona Images z lucide wypełniona wygląda źle — zostaje konturowa (reviza usera).
+		// Ikona zdjęć wypełniona wygląda źle — zostaje konturowa (reviza usera).
 		expect(link.querySelector("svg")?.getAttribute("fill")).toBe("none");
 	});
 

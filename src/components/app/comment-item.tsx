@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { IconArrowBackUp } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ReplyIcon } from "lucide-react";
 import { useState } from "react";
 import { GradientAiButton } from "@/components/app/ai/gradient-ai-button";
 import { CommentActions } from "@/components/app/comment-actions";
@@ -93,7 +94,7 @@ export function CommentItem({ comment, postId, currentUserId, currentUserRole }:
 							}}
 							className="inline-flex items-center gap-1 rounded-md px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
 						>
-							<ReplyIcon className="h-5 w-5" />
+							<IconArrowBackUp className="h-5 w-5" aria-hidden="true" />
 						</button>
 					)}
 					{canManage && (

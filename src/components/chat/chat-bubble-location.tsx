@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { ExternalLink, MapPin } from "lucide-react";
+import { IconExternalLink, IconMapPin } from "@tabler/icons-react";
 import type { ChatMessageItem } from "@/components/chat/chat-view";
 import type { LocationPayload } from "@/db/chat/schema";
 import { locationPayloadSchema } from "@/db/chat/schema";
@@ -38,7 +38,7 @@ export function ChatBubbleLocation({ message, own }: { message: ChatMessageItem;
 	return (
 		<div data-location-bubble className="flex min-w-40 flex-col gap-1.5">
 			<div className="flex items-start gap-2">
-				<MapPin className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+				<IconMapPin className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
 				<div className="min-w-0">
 					{payload.label ? (
 						<p className="break-words text-sm font-medium">{payload.label}</p>
@@ -54,7 +54,7 @@ export function ChatBubbleLocation({ message, own }: { message: ChatMessageItem;
 				rel="noopener noreferrer"
 				className="inline-flex items-center gap-1.5 self-start rounded-full bg-background px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent"
 			>
-				<ExternalLink className="size-3" aria-hidden="true" />
+				<IconExternalLink className="size-3" aria-hidden="true" />
 				Otwórz w mapach
 			</a>
 		</div>

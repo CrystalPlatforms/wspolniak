@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { IconDots, IconPencil, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { MoreHorizontalIcon, PencilIcon, TrashIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -76,7 +77,7 @@ export function CommentActions({ postId, commentId, body }: CommentActionsProps)
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
 					<Button variant="ghost" size="icon" className="size-12 sm:size-16">
-						<MoreHorizontalIcon className="size-6 sm:size-8" />
+						<IconDots className="size-6 sm:size-8" aria-hidden="true" />
 						<span className="sr-only">Opcje komentarza</span>
 					</Button>
 				</DropdownMenuTrigger>
@@ -89,7 +90,7 @@ export function CommentActions({ postId, commentId, body }: CommentActionsProps)
 						}}
 						className="py-3 sm:py-1.5 text-base sm:text-sm"
 					>
-						<PencilIcon />
+						<IconPencil aria-hidden="true" />
 						Edytuj
 					</DropdownMenuItem>
 					<DropdownMenuItem
@@ -100,7 +101,7 @@ export function CommentActions({ postId, commentId, body }: CommentActionsProps)
 						}}
 						className="py-3 sm:py-1.5 text-base sm:text-sm"
 					>
-						<TrashIcon />
+						<IconTrash aria-hidden="true" />
 						Usuń
 					</DropdownMenuItem>
 				</DropdownMenuContent>

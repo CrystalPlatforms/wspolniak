@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { MoreVerticalIcon } from "lucide-react";
+import { IconDotsVertical } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -32,7 +32,7 @@ export function AlbumItemMenu({ kind, isCurrentCover, onSetCover, onRemove }: Al
 					className="size-7 rounded-full bg-background/80 hover:bg-background"
 					aria-label="Opcje elementu"
 				>
-					<MoreVerticalIcon className="size-4" />
+					<IconDotsVertical className="size-4" aria-hidden="true" />
 				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end" className="min-w-44">

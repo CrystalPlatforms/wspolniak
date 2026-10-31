@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { Check, Monitor, Moon, Sun } from "lucide-react";
+import { IconCheck, IconDeviceDesktop, IconMoon, IconSun } from "@tabler/icons-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -31,26 +31,31 @@ export function ThemeToggle({
 	const getCurrentIcon = () => {
 		if (theme === "system") {
 			return (
-				<Monitor className="h-4 w-4 transition-all duration-300 ease-in-out" aria-hidden="true" />
+				<IconDeviceDesktop
+					className="h-4 w-4 transition-all duration-300 ease-in-out"
+					aria-hidden="true"
+				/>
 			);
 		}
 
 		if (resolvedTheme === "dark") {
 			return (
-				<Moon className="h-4 w-4 transition-all duration-500 ease-in-out" aria-hidden="true" />
+				<IconMoon className="h-4 w-4 transition-all duration-500 ease-in-out" aria-hidden="true" />
 			);
 		}
 
-		return <Sun className="h-4 w-4 transition-all duration-500 ease-in-out" aria-hidden="true" />;
+		return (
+			<IconSun className="h-4 w-4 transition-all duration-500 ease-in-out" aria-hidden="true" />
+		);
 	};
 
 	const themeOptions = [
-		{ value: "light" as const, label: "Jasny", icon: Sun, description: "Zawsze jasny motyw" },
-		{ value: "dark" as const, label: "Ciemny", icon: Moon, description: "Zawsze ciemny motyw" },
+		{ value: "light" as const, label: "Jasny", icon: IconSun, description: "Zawsze jasny motyw" },
+		{ value: "dark" as const, label: "Ciemny", icon: IconMoon, description: "Zawsze ciemny motyw" },
 		{
 			value: "system" as const,
 			label: "Systemowy",
-			icon: Monitor,
+			icon: IconDeviceDesktop,
 			description: "Motyw z ustawień systemu",
 		},
 	];
@@ -125,7 +130,10 @@ export function ThemeToggle({
 								</div>
 
 								{isSelected && (
-									<Check className="h-4 w-4 text-accent-foreground animate-in fade-in-0 zoom-in-75 duration-150" />
+									<IconCheck
+										className="h-4 w-4 text-accent-foreground animate-in fade-in-0 zoom-in-75 duration-150"
+										aria-hidden="true"
+									/>
 								)}
 							</DropdownMenuItem>
 						);

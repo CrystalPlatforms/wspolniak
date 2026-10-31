@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { WifiOff } from "lucide-react";
+import { IconWifiOff } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { isAndroidWrapper } from "@/lib/download-image";
 import { isIOSSafari, isStandalone } from "@/pwa/detect";
@@ -61,7 +61,7 @@ export function PwaShell({ children }: { children: React.ReactNode }) {
 
 			{!online && (
 				<div className="fixed inset-x-0 top-0 z-50 flex items-center justify-center gap-2 bg-destructive p-2 text-destructive-foreground">
-					<WifiOff className="h-4 w-4" />
+					<IconWifiOff className="h-4 w-4" aria-hidden="true" />
 					<span className="text-sm font-medium">Brak połączenia</span>
 				</div>
 			)}

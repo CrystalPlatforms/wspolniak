@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { ArrowLeftIcon, ImagePlus, X } from "lucide-react";
+import { IconArrowLeft, IconPhotoPlus, IconX } from "@tabler/icons-react";
 import { useRef, useState } from "react";
 import { GradientAiButton } from "@/components/app/ai/gradient-ai-button";
 import { ComposerVideoPicker, type PendingVideo } from "@/components/app/composer-video-picker";
@@ -102,7 +102,7 @@ export function NewAlbumForm({
 						className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
 						title="Wróć do albumów"
 					>
-						<ArrowLeftIcon className="h-5 w-5" />
+						<IconArrowLeft className="h-5 w-5" aria-hidden="true" />
 					</button>
 				)}
 				<h1 className="text-2xl font-bold text-foreground">Nowy album</h1>
@@ -145,7 +145,7 @@ export function NewAlbumForm({
 						onClick={() => imageInputRef.current?.click()}
 						title={files.length > 0 ? `${files.length} zdjęć` : "Dodaj zdjęcia"}
 					>
-						<ImagePlus className="h-5 w-5" />
+						<IconPhotoPlus className="h-5 w-5" aria-hidden="true" />
 						Dodaj zdjęcia {files.length > 0 ? `(${files.length})` : ""}
 					</Button>
 					<ComposerVideoPicker videos={pendingVideos} onChange={setPendingVideos} />
@@ -170,7 +170,7 @@ export function NewAlbumForm({
 									aria-label={`Usuń zdjęcie ${index + 1}`}
 									className="absolute right-1 top-1 flex size-6 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-90 transition-opacity hover:opacity-100"
 								>
-									<X className="h-3 w-3" />
+									<IconX className="h-3 w-3" aria-hidden="true" />
 								</button>
 							</div>
 						))}

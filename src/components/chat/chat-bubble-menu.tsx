@@ -1,5 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { Copy, CornerUpLeft, Info, Smile, SmilePlus, Trash2 } from "lucide-react";
+import {
+	IconArrowBackUp,
+	IconCopy,
+	IconInfoCircle,
+	IconMoodPlus,
+	IconMoodSmile,
+	IconTrash,
+} from "@tabler/icons-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { EmojiReactionPicker, type RectLike } from "@/components/app/emoji-reaction-picker";
 import {
@@ -58,7 +65,7 @@ function clampPosition(position: ChatBubbleMenuPosition): ChatBubbleMenuPosition
  * Context menu bąbelka (F5 #156 + życzenia usera: reakcje i „kto zareagował"
  * też w menu; reakcje duże, na całą szerokość; pasek pod bąbelkiem usunięty).
  * Otwiera je ChatView po long-press / prawym kliku / Enter. Zamykanie: Escape
- * lub pointer poza menu — ALE itemy otwierające dialog (Info, Kto zareagował)
+ * lub pointer poza menu — ALE itemy otwierające dialog (IconInfoCircle, Kto zareagował)
  * chowają menu i zamykają całość dopiero, gdy dialog się zamknie (komponent
  * musi pozostać zamontowany, dopóki żyje dialog — inaczej ChatView go odmontuje).
  * F6 #157: „Usuń" tylko dla autora/admina.
@@ -195,21 +202,35 @@ export function ChatBubbleMenu({
 						    nie rząd pojedynczych ikon. Pozycja pierwsza w menu. */}
 						{item(
 							"Zareaguj",
-							<SmilePlus className="size-4" />,
+							<IconMoodPlus className="size-4" aria-hidden="true" />,
 							openPicker,
 							reactionsDisabled ? "pointer-events-none opacity-50" : "",
 							true,
 						)}
-						{item("Odpowiedz", <CornerUpLeft className="size-4" />, () => onReply(message))}
-						{item("Kopiuj", <Copy className="size-4" />, () => {
+						{item("Odpowiedz", <IconArrowBackUp className="size-4" aria-hidden="true" />, () =>
+							onReply(message),
+						)}
+						{item("Kopiuj", <IconCopy className="size-4" aria-hidden="true" />, () => {
 							void navigator.clipboard?.writeText(message.text);
 						})}
-						{item("Kto zareagował", <Smile className="size-4" />, () => setWhoOpen(true), "", true)}
-						{item("Info", <Info className="size-4" />, () => setInfoOpen(true), "", true)}
+						{item(
+							"Kto zareagował",
+							<IconMoodSmile className="size-4" aria-hidden="true" />,
+							() => setWhoOpen(true),
+							"",
+							true,
+						)}
+						{item(
+							"Info",
+							<IconInfoCircle className="size-4" aria-hidden="true" />,
+							() => setInfoOpen(true),
+							"",
+							true,
+						)}
 						{canDelete
 							? item(
 									"Usuń",
-									<Trash2 className="size-4" />,
+									<IconTrash className="size-4" aria-hidden="true" />,
 									() => onDelete(message.id),
 									"text-destructive",
 								)

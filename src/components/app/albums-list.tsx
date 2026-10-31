@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { IconPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getImageUrl } from "@/images/client";
 
@@ -53,7 +54,7 @@ export function AlbumsList() {
 
 	return (
 		<>
-			{/* Header 1:1 jak w /app/video (#170 reviza): tytuł + ghost Plus (sama ikona). */}
+			{/* Header 1:1 jak w /app/video (#170 reviza): tytuł + ghost IconPlus (sama ikona). */}
 			<div className="mb-6 flex items-center gap-2">
 				<h1 className="text-2xl font-bold text-foreground">Albumy</h1>
 				<div className="flex-1" />
@@ -63,7 +64,7 @@ export function AlbumsList() {
 					title="Nowy album"
 					onClick={() => navigate({ to: "/app/new-album" })}
 				>
-					<Plus className="size-6" />
+					<IconPlus className="size-6" aria-hidden="true" />
 				</Button>
 			</div>
 

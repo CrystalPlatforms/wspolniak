@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { IconArrowLeft } from "@tabler/icons-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft } from "lucide-react";
 import { AlbumEditForm } from "@/components/app/album-edit-form";
 
 export const Route = createFileRoute("/app/albums/$id_/edit")({
@@ -37,7 +38,7 @@ function AlbumEditPage() {
 						className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
 						title="Wróć do albumu"
 					>
-						<ArrowLeft className="h-5 w-5" />
+						<IconArrowLeft className="h-5 w-5" aria-hidden="true" />
 					</Link>
 				}
 			/>

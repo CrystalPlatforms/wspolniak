@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { IconSearch, IconSend } from "@tabler/icons-react";
 import { useNavigate } from "@tanstack/react-router";
-import { Search, SendHorizontal } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { BeamBorder } from "@/components/app/beam-border";
 import { cn } from "@/lib/utils";
@@ -59,7 +60,7 @@ export function FeedSearchBar({ query, onQueryChange, noResults = false }: FeedS
 		>
 			<BeamBorder variant="line" active={query.trim() === ""} className="rounded-full">
 				<div className="flex items-center gap-2 rounded-full border border-primary/30 bg-card pl-4 pr-2">
-					<Search className="size-5 shrink-0 text-muted-foreground" />
+					<IconSearch className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
 					<input
 						type="search"
 						value={query}
@@ -78,7 +79,7 @@ export function FeedSearchBar({ query, onQueryChange, noResults = false }: FeedS
 						aria-label="Wyślij zapytanie do AL"
 						className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
 					>
-						<SendHorizontal className="size-5" />
+						<IconSend className="size-5" aria-hidden="true" />
 					</button>
 				</div>
 			</BeamBorder>

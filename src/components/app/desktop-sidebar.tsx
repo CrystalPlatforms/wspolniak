@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { Link, useLocation } from "@tanstack/react-router";
+
 import {
-	Bookmark,
-	Bot,
-	Calendar,
-	ChartNoAxesColumn,
-	Home,
-	Images,
-	MessageSquare,
-	Plus,
-} from "lucide-react";
+	IconBookmark,
+	IconCalendar,
+	IconChartBar,
+	IconHome,
+	IconMessage,
+	IconPhoto,
+	IconPlus,
+	IconRobot,
+} from "@tabler/icons-react";
+import { Link, useLocation } from "@tanstack/react-router";
 import { useTheme } from "@/components/theme/theme-provider";
 import { Button } from "@/components/ui/button";
 import { useAlbumsNewDot } from "@/core/albums-seen";
@@ -37,24 +38,24 @@ interface DesktopSidebarProps {
 }
 
 const NAV_ITEMS: NavItem[] = [
-	{ to: "/app", icon: Home, label: "Feed", exact: true },
-	{ to: "/app/lib", icon: Bookmark, label: "Biblioteka", fillWhenActive: true },
+	{ to: "/app", icon: IconHome, label: "Feed", exact: true },
+	{ to: "/app/lib", icon: IconBookmark, label: "Biblioteka", fillWhenActive: true },
 	// Albumy (#170): sekcja zbiorów rodzinnych; brak flagi w F1 — zawsze widoczna.
-	// Bez fillWhenActive — wypełniona ikona Images wygląda źle (reviza usera).
-	{ to: "/app/albums", icon: Images, label: "Albumy" },
+	// Bez fillWhenActive — wypełniona ikona IconPhoto wygląda źle (reviza usera).
+	{ to: "/app/albums", icon: IconPhoto, label: "Albumy" },
 	// F8 #159: nazwa usera „Chat" (nie „Czat"); wypełniona gdy aktywna.
-	{ to: "/app/chat", icon: MessageSquare, label: "Chat", fillWhenActive: true },
+	{ to: "/app/chat", icon: IconMessage, label: "Chat", fillWhenActive: true },
 	// Chat AL (F6 #184): widoczny tylko przy skutecznym dostępie (prop aiEntrance).
-	{ to: "/app/ai", icon: Bot, label: "Chat AL", fillWhenActive: true, aiOnly: true },
+	{ to: "/app/ai", icon: IconRobot, label: "Chat AL", fillWhenActive: true, aiOnly: true },
 	// Admin wyjęty z menu (przebudowa 2026-09-01) — wejście tylko z Ustawień.
 	{
 		to: "/app/calendar",
-		icon: Calendar,
+		icon: IconCalendar,
 		label: "Kalendarz",
 		adminOnly: false,
 		fillWhenActive: true,
 	},
-	{ to: "/app/stats", icon: ChartNoAxesColumn, label: "Statystyki", adminOnly: false },
+	{ to: "/app/stats", icon: IconChartBar, label: "Statystyki", adminOnly: false },
 	// Ustawienia przeniesione do nagłówka feeda (ikona Cog obok „Witaj", reviza usera).
 ];
 
@@ -133,7 +134,7 @@ export function DesktopSidebar({
 			<div className="mt-6 flex flex-col gap-2 px-3">
 				<Link to="/app/new">
 					<Button className="w-full rounded-full py-4 text-lg font-bold">
-						<Plus className="mr-2 size-6" />
+						<IconPlus className="mr-2 size-6" aria-hidden="true" />
 						Nowy post
 					</Button>
 				</Link>

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { IconMailQuestion, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { MailQuestion, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { CalendarGrid, formatEventDate } from "@/components/app/calendar-grid";
 import { calendarProposalTemplate } from "@/components/app/calendar-proposal";
@@ -181,7 +182,7 @@ function CalendarPage() {
 						title="Zaproponuj datę"
 						onClick={() => navigate({ to: "/app/new", search: { calendar: true } })}
 					>
-						<MailQuestion className="h-4 w-4" />
+						<IconMailQuestion className="h-4 w-4" aria-hidden="true" />
 						<span className="hidden sm:inline">Zaproponuj datę</span>
 					</Button>
 				)}
@@ -192,7 +193,7 @@ function CalendarPage() {
 						onClick={() => setAddOpen(true)}
 						title="Dodaj wydarzenie"
 					>
-						<Plus className="size-6" />
+						<IconPlus className="size-6" aria-hidden="true" />
 					</Button>
 				)}
 			</div>
@@ -222,7 +223,7 @@ function CalendarPage() {
 							{createMutation.isPending ? (
 								<Loader loading={createMutation.isPending} />
 							) : (
-								<Plus className="h-4 w-4" />
+								<IconPlus className="h-4 w-4" aria-hidden="true" />
 							)}
 							{createMutation.isPending ? "Dodaję..." : "Dodaj"}
 						</Button>
@@ -254,7 +255,7 @@ function CalendarPage() {
 							{updateMutation.isPending ? (
 								<Loader loading={updateMutation.isPending} />
 							) : (
-								<Pencil className="h-4 w-4" />
+								<IconPencil className="h-4 w-4" aria-hidden="true" />
 							)}
 							{updateMutation.isPending ? "Zapisuję..." : "Zapisz zmiany"}
 						</Button>
@@ -305,7 +306,7 @@ function CalendarPage() {
 							{deleteMutation.isPending ? (
 								<Loader loading={deleteMutation.isPending} />
 							) : (
-								<Trash2 className="h-4 w-4" />
+								<IconTrash className="h-4 w-4" aria-hidden="true" />
 							)}
 							{deleteMutation.isPending ? "Usuwam..." : "Usuń"}
 						</Button>

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { Bell } from "lucide-react";
+import { IconBell } from "@tabler/icons-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -54,7 +54,7 @@ export function PushPrompt({ isStandalone }: PushPromptProps) {
 						Nie teraz
 					</Button>
 					<Button onClick={subscribe}>
-						<Bell className="mr-1 h-4 w-4" />
+						<IconBell className="mr-1 h-4 w-4" aria-hidden="true" />
 						Włącz
 					</Button>
 				</DialogFooter>

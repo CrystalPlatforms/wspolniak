@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { MessagesSquare } from "lucide-react";
+import { IconMessages } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -16,7 +16,7 @@ export function ShareToChatButton({ onClick }: { onClick: () => void }) {
 			aria-label="Wspomnij na czacie"
 			onClick={onClick}
 		>
-			<MessagesSquare className="size-6 sm:size-8" />
+			<IconMessages className="size-6 sm:size-8" aria-hidden="true" />
 		</Button>
 	);
 }

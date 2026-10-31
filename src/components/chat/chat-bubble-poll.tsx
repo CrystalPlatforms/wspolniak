@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { IconCheck } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check } from "lucide-react";
 import { toast } from "sonner";
 import type { ChatMessageItem } from "@/components/chat/chat-view";
 import { ChatBubbleText } from "./chat-bubble-text";
@@ -85,7 +86,9 @@ export function ChatBubblePoll({ message, own }: { message: ChatMessageItem; own
 						aria-label={`Głosuj na: ${option}`}
 						className={`flex w-full items-center gap-2 rounded-full bg-background px-2.5 py-1 text-left text-xs text-foreground transition-colors hover:bg-accent disabled:opacity-60 ${mine ? "ring-2 ring-primary" : ""}`}
 					>
-						{mine ? <Check className="size-3.5 shrink-0 text-primary" aria-hidden="true" /> : null}
+						{mine ? (
+							<IconCheck className="size-3.5 shrink-0 text-primary" aria-hidden="true" />
+						) : null}
 						<span className="min-w-0 flex-1 break-words">{option}</span>
 						<span className="shrink-0 font-medium tabular-nums">{pct}%</span>
 					</button>

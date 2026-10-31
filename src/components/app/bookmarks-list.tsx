@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { IconBookmark } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { Bookmark } from "lucide-react";
 import { PostCard, type PostCardPost } from "@/components/app/post-card";
 import { PENDING_SKELETONS, PostCardSkeleton } from "@/components/app/post-card-skeleton";
 
@@ -51,7 +52,7 @@ export function BookmarksList({ currentUserId, currentUserRole }: BookmarksListP
 	if (!data || data.data.length === 0) {
 		return (
 			<div className="flex flex-col items-center gap-3 py-16 text-center text-muted-foreground">
-				<Bookmark className="size-12" aria-hidden="true" />
+				<IconBookmark className="size-12" aria-hidden="true" />
 				<p>Nie masz jeszcze zapisanych postów. Kliknij 🔖 przy poście, aby go zapisać.</p>
 			</div>
 		);

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { IconChevronRight, IconLogout } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ChevronRight, LogOut } from "lucide-react";
 import { useState } from "react";
 import { ChatSettingsNote } from "@/components/app/chat-settings-note";
 import { ThemeToggle } from "@/components/theme";
@@ -108,7 +108,7 @@ function SettingsPage() {
 					className="flex items-center justify-between gap-4 text-sm text-muted-foreground transition-colors hover:text-foreground"
 				>
 					Dokumentacja Wspólniaka
-					<ChevronRight className="h-4 w-4" />
+					<IconChevronRight className="h-4 w-4" aria-hidden="true" />
 				</a>
 			</section>
 
@@ -120,7 +120,7 @@ function SettingsPage() {
 						className="flex items-center justify-between gap-4 text-sm text-muted-foreground transition-colors hover:text-foreground"
 					>
 						Panel administratora
-						<ChevronRight className="h-4 w-4" />
+						<IconChevronRight className="h-4 w-4" aria-hidden="true" />
 					</Link>
 				</section>
 			)}
@@ -138,7 +138,7 @@ function SettingsPage() {
 						}}
 						className="border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
 					>
-						<LogOut className="h-4 w-4" />
+						<IconLogout className="h-4 w-4" aria-hidden="true" />
 						Wyloguj się
 					</Button>
 				</div>

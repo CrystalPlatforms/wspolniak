@@ -1,51 +1,52 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { Link } from "@tanstack/react-router";
+
 import {
-	ArrowRight,
-	Camera,
-	Github,
-	Heart,
-	Lock,
-	Rocket,
-	Server,
-	Shield,
-	Users,
-} from "lucide-react";
+	IconArrowRight,
+	IconBrandGithub,
+	IconCamera,
+	IconHeart,
+	IconLock,
+	IconRocket,
+	IconServer,
+	IconShield,
+	IconUsers,
+} from "@tabler/icons-react";
+import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const features = [
 	{
-		icon: Lock,
+		icon: IconLock,
 		title: "Pełna prywatność",
 		description:
 			"Żadnych zewnętrznych serwisów. Zdjęcia trafiają wyłącznie na Twoją instancję — nikt poza rodziną ich nie zobaczy.",
 	},
 	{
-		icon: Server,
+		icon: IconServer,
 		title: "Własny hosting",
 		description:
 			"Deploy jednym kliknięciem na Cloudflare Workers. Twoja infrastruktura, Twoje zasady, zero miesięcznych opłat.",
 	},
 	{
-		icon: Users,
+		icon: IconUsers,
 		title: "Dla całej rodziny",
 		description: "Zaproś bliskich przez magic link — bez haseł i rejestracji. Babcia też da radę.",
 	},
 	{
-		icon: Shield,
+		icon: IconShield,
 		title: "Bez śledzenia",
 		description:
 			"Zero analityki, zero reklam, zero sprzedawania danych. Wspólniak nie wie o Tobie nic ponad to, co sam podasz.",
 	},
 	{
-		icon: Camera,
+		icon: IconCamera,
 		title: "Wspólne albumy",
 		description:
 			"Każdy członek rodziny może dodawać zdjęcia. Wspomnienia z wakacji, urodzin i codzienności — w jednym miejscu.",
 	},
 	{
-		icon: Heart,
+		icon: IconHeart,
 		title: "Open source",
 		description:
 			"Kod jest otwarty. Sprawdź co robi, zaproponuj zmianę, dostosuj do swoich potrzeb.",
@@ -76,7 +77,7 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
 							<Button size="lg" asChild>
 								<Link to="/app">
 									Przejdź do aplikacji
-									<ArrowRight className="ml-2 h-4 w-4" />
+									<IconArrowRight className="ml-2 h-4 w-4" aria-hidden="true" />
 								</Link>
 							</Button>
 						) : (
@@ -86,7 +87,7 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
 									target="_blank"
 									rel="noopener noreferrer"
 								>
-									<Rocket className="mr-2 h-4 w-4" />
+									<IconRocket className="mr-2 h-4 w-4" aria-hidden="true" />
 									Deploy to Cloudflare
 								</a>
 							</Button>
@@ -98,7 +99,7 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
 								target="_blank"
 								rel="noopener noreferrer"
 							>
-								<Github className="mr-2 h-4 w-4" />
+								<IconBrandGithub className="mr-2 h-4 w-4" aria-hidden="true" />
 								GitHub
 							</a>
 						</Button>
@@ -202,7 +203,7 @@ export function LandingPage({ isAuthenticated }: LandingPageProps) {
 						rel="noopener noreferrer"
 						className="inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
 					>
-						<Github className="h-4 w-4" />
+						<IconBrandGithub className="h-4 w-4" aria-hidden="true" />
 						CrystalPlatforms/wspolniak
 					</a>
 				</div>

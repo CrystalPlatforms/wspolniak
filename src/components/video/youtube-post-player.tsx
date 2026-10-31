@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { Maximize, Minimize, Play, X } from "lucide-react";
+import { IconMaximize, IconMinimize, IconPlayerPlay, IconX } from "@tabler/icons-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -320,7 +320,7 @@ export function YoutubePostPlayer({
 					/>
 					<span className="absolute inset-0 flex items-center justify-center">
 						<span className="flex size-12 items-center justify-center rounded-lg bg-black">
-							<Play className="size-5 fill-primary text-primary" />
+							<IconPlayerPlay className="size-5 fill-primary text-primary" aria-hidden="true" />
 						</span>
 					</span>
 				</button>
@@ -341,7 +341,7 @@ export function YoutubePostPlayer({
 								onClick={replay}
 								className="flex items-center gap-2 rounded-full bg-black/90 px-5 py-3 text-sm font-bold text-white"
 							>
-								<Play className="size-4 fill-primary text-primary" />
+								<IconPlayerPlay className="size-4 fill-primary text-primary" aria-hidden="true" />
 								Odtwórz ponownie
 							</button>
 						</span>
@@ -384,7 +384,11 @@ export function YoutubePostPlayer({
 							: "text-muted-foreground hover:bg-accent hover:text-foreground",
 					)}
 				>
-					{immersive ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
+					{immersive ? (
+						<IconMinimize className="size-4" aria-hidden="true" />
+					) : (
+						<IconMaximize className="size-4" aria-hidden="true" />
+					)}
 				</button>
 			)}
 		</div>
@@ -424,7 +428,7 @@ export function YoutubePostPlayer({
 					}}
 					className="absolute right-3 top-3 z-10 flex size-11 items-center justify-center rounded-full bg-black/70 text-white ring-1 ring-white/30 transition-colors hover:bg-black hover:text-white"
 				>
-					<X className="size-6" />
+					<IconX className="size-6" aria-hidden="true" />
 				</button>
 			)}
 		</div>

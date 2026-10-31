@@ -227,9 +227,7 @@ describe("GET /api/app/images/:cfImageId/download (#225)", () => {
 
 		expect(res.status).toBe(200);
 		expect(res.headers.get("content-type")).toBe("image/jpeg");
-		expect(res.headers.get("content-disposition")).toContain(
-			'attachment; filename="wakacje.jpg"',
-		);
+		expect(res.headers.get("content-disposition")).toContain('attachment; filename="wakacje.jpg"');
 		expect(await res.text()).toBe("BYTES");
 		const fetchMock = vi.mocked(globalThis.fetch);
 		expect(String(fetchMock.mock.calls[0]?.[0])).toBe("https://imagedelivery.test/cf-9/public");

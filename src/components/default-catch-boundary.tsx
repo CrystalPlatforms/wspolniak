@@ -1,7 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import {
+	IconAlertTriangle,
+	IconArrowLeft,
+	IconBug,
+	IconChevronDown,
+	IconHome,
+	IconMail,
+	IconRefresh,
+} from "@tabler/icons-react";
 import type { ErrorComponentProps } from "@tanstack/react-router";
 import { Link, rootRouteId, useMatch, useRouter } from "@tanstack/react-router";
-import { AlertTriangle, ArrowLeft, Bug, ChevronDown, Home, Mail, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -40,7 +49,7 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
 				<CardHeader>
 					<div className="flex items-center space-x-2">
 						<div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
-							<AlertTriangle className="h-5 w-5 text-destructive" />
+							<IconAlertTriangle className="h-5 w-5 text-destructive" aria-hidden="true" />
 						</div>
 						<div>
 							<CardTitle className="text-xl">Something went wrong</CardTitle>
@@ -54,22 +63,22 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
 				<CardContent className="space-y-6">
 					{/* Error Alert */}
 					<Alert variant="destructive">
-						<AlertTriangle className="h-4 w-4" />
+						<IconAlertTriangle className="h-4 w-4" aria-hidden="true" />
 						<AlertDescription className="font-medium">{errorMessage}</AlertDescription>
 					</Alert>
 
 					{/* Action Buttons */}
 					<div className="flex flex-col sm:flex-row gap-3">
 						<Button onClick={() => router.invalidate()} className="flex items-center gap-2">
-							<RefreshCw className="h-4 w-4" />
+							<IconRefresh className="h-4 w-4" aria-hidden="true" />
 							Try Again
 						</Button>
 
 						{isRoot ? (
 							<Button variant="outline" asChild>
 								<Link to="/" className="flex items-center gap-2">
-									<Home className="h-4 w-4" />
-									Go to Home
+									<IconHome className="h-4 w-4" aria-hidden="true" />
+									Go to IconHome
 								</Link>
 							</Button>
 						) : (
@@ -78,7 +87,7 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
 								onClick={() => window.history.back()}
 								className="flex items-center gap-2"
 							>
-								<ArrowLeft className="h-4 w-4" />
+								<IconArrowLeft className="h-4 w-4" aria-hidden="true" />
 								Go Back
 							</Button>
 						)}
@@ -93,10 +102,11 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
 									size="sm"
 									className="flex items-center gap-2 text-muted-foreground hover:text-foreground"
 								>
-									<Bug className="h-4 w-4" />
+									<IconBug className="h-4 w-4" aria-hidden="true" />
 									Technical Details
-									<ChevronDown
+									<IconChevronDown
 										className={`h-4 w-4 transition-transform duration-200 ${showDetails ? "rotate-180" : ""}`}
+										aria-hidden="true"
 									/>
 								</Button>
 							</CollapsibleTrigger>
@@ -123,7 +133,7 @@ export function DefaultCatchBoundary({ error }: ErrorComponentProps) {
 								onClick={handleReportError}
 								className="flex items-center gap-2"
 							>
-								<Mail className="h-4 w-4" />
+								<IconMail className="h-4 w-4" aria-hidden="true" />
 								Report Error
 							</Button>
 						</div>

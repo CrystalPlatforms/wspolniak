@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { FileArchive, File as FileIcon, FileSpreadsheet, FileText } from "lucide-react";
+import { IconFile, IconFileSpreadsheet, IconFileText, IconFileZip } from "@tabler/icons-react";
 import { useState } from "react";
 import { ImageLightbox } from "@/components/app/image-lightbox";
 import type { ChatMessageItem } from "@/components/chat/chat-view";
@@ -8,11 +8,11 @@ import { chatAttachmentUrl, formatBytes, parseAttachmentsPayload } from "./chat-
 import { ChatBubbleText } from "./chat-bubble-text";
 
 /** Ikona karty pliku po typie MIME (PDF/tekst → dokument, zip → archiwum, arkusze → tabela). */
-function fileIconFor(mimeType: string): typeof FileIcon {
-	if (mimeType.startsWith("text/") || mimeType === "application/pdf") return FileText;
-	if (/zip|compressed|tar|x-7z|x-rar/.test(mimeType)) return FileArchive;
-	if (/spreadsheet|excel|csv/.test(mimeType)) return FileSpreadsheet;
-	return FileIcon;
+function fileIconFor(mimeType: string): typeof IconFile {
+	if (mimeType.startsWith("text/") || mimeType === "application/pdf") return IconFileText;
+	if (/zip|compressed|tar|x-7z|x-rar/.test(mimeType)) return IconFileZip;
+	if (/spreadsheet|excel|csv/.test(mimeType)) return IconFileSpreadsheet;
+	return IconFile;
 }
 
 function isImage(attachment: AttachmentMeta): boolean {

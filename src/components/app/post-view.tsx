@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { Download, Images, Pin } from "lucide-react";
+import { IconDownload, IconPhoto, IconPinned } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { AddToAlbumButton } from "@/components/app/add-to-album-button";
 import { BookmarkButton } from "@/components/app/bookmark-button";
@@ -124,7 +124,7 @@ export function PostView({
 					aria-label="Przypięty post"
 					className="absolute -top-2 -left-2 flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow"
 				>
-					<Pin className="size-4" />
+					<IconPinned className="size-4" aria-hidden="true" />
 				</span>
 			)}
 			{revealText ? (
@@ -208,7 +208,7 @@ export function PostView({
 										ariaLabel={`Dodaj zdjęcie ${image.displayOrder + 1} do albumu`}
 										className="flex items-center gap-1 rounded-full bg-background/80 p-2 text-foreground backdrop-blur-sm transition-colors hover:bg-background"
 									>
-										<Images className="h-5 w-5" />
+										<IconPhoto className="h-5 w-5" aria-hidden="true" />
 										<span className="hidden pr-1 text-sm sm:inline">Dodaj do albumu</span>
 									</AddToAlbumButton>
 								)}
@@ -226,7 +226,7 @@ export function PostView({
 									className="rounded-full bg-background/80 p-2 text-foreground backdrop-blur-sm transition-colors hover:bg-background"
 									aria-label={`Pobierz zdjęcie ${image.displayOrder + 1}`}
 								>
-									<Download className="h-5 w-5" />
+									<IconDownload className="h-5 w-5" aria-hidden="true" />
 								</button>
 							</div>
 						</div>

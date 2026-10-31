@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import {
+	IconAlertTriangle,
+	IconArrowLeft,
+	IconCheck,
+	IconCopy,
+	IconPlus,
+	IconRoute,
+} from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect, useSearch } from "@tanstack/react-router";
-import { AlertTriangle, ArrowLeft, Check, Copy, Plus, Waypoints } from "lucide-react";
 import { useState } from "react";
 import { FeatureToggles } from "@/components/admin/feature-toggles";
 import { MaintenanceDialog } from "@/components/admin/maintenance-dialog";
@@ -261,7 +269,7 @@ function AdminPage() {
 						className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
 						title="Wróć"
 					>
-						<ArrowLeft className="h-5 w-5" />
+						<IconArrowLeft className="h-5 w-5" aria-hidden="true" />
 					</button>
 				</a>
 				<h1 className="text-2xl font-bold text-foreground">Zarządzanie</h1>
@@ -273,7 +281,7 @@ function AdminPage() {
 						onClick={() => setAddDialogOpen(true)}
 						title="Dodaj członka"
 					>
-						<Plus className="size-6" />
+						<IconPlus className="size-6" aria-hidden="true" />
 					</Button>
 					<Button
 						variant="ghost"
@@ -281,7 +289,7 @@ function AdminPage() {
 						onClick={() => setMaintenanceDialogOpen(true)}
 						title="Tryb awaryjny"
 					>
-						<AlertTriangle className="h-4 w-4" />
+						<IconAlertTriangle className="h-4 w-4" aria-hidden="true" />
 					</Button>
 					<Button
 						variant="ghost"
@@ -289,7 +297,7 @@ function AdminPage() {
 						onClick={() => setShareCodeDialogOpen(true)}
 						title="Kod dostępu /share"
 					>
-						<Waypoints className="h-4 w-4" />
+						<IconRoute className="h-4 w-4" aria-hidden="true" />
 					</Button>
 				</div>
 			</div>
@@ -346,7 +354,7 @@ function AdminPage() {
 							{createMutation.isPending ? (
 								<Loader loading={createMutation.isPending} />
 							) : (
-								<Plus className="h-4 w-4" />
+								<IconPlus className="h-4 w-4" aria-hidden="true" />
 							)}
 							{createMutation.isPending ? "Dodaję..." : "Dodaj"}
 						</Button>
@@ -365,9 +373,9 @@ function AdminPage() {
 						</code>
 						<Button size="sm" variant="outline" onClick={() => copyToClipboard(lastMagicLink.link)}>
 							{copiedLink === lastMagicLink.link ? (
-								<Check className="h-4 w-4" />
+								<IconCheck className="h-4 w-4" aria-hidden="true" />
 							) : (
-								<Copy className="h-4 w-4" />
+								<IconCopy className="h-4 w-4" aria-hidden="true" />
 							)}
 						</Button>
 					</div>

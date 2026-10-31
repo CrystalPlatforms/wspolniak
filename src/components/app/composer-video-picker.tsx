@@ -10,7 +10,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Clapperboard, X } from "lucide-react";
+import { IconMovie, IconX } from "@tabler/icons-react";
 import { type ChangeEvent, useCallback, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -118,7 +118,7 @@ function SortableVideoCard({
 				disabled={disabled}
 				className="flex size-7 shrink-0 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-90 transition-opacity hover:opacity-100"
 			>
-				<X className="size-3.5" />
+				<IconX className="size-3.5" aria-hidden="true" />
 			</button>
 		</li>
 	);
@@ -210,7 +210,7 @@ export function ComposerVideoPicker({
 	if (notConnected) {
 		return (
 			<p className="flex h-11 items-center gap-2 rounded-md border border-border bg-muted/40 px-3 text-sm text-muted-foreground sm:h-9">
-				<Clapperboard className="size-4 shrink-0" />
+				<IconMovie className="size-4 shrink-0" aria-hidden="true" />
 				Podłącz YouTube w panelu admina
 			</p>
 		);
@@ -233,7 +233,7 @@ export function ComposerVideoPicker({
 				disabled={disabled || full}
 				title={full ? `Limit to ${MAX_POST_VIDEOS} wideo na post` : "Dodaj wideo"}
 			>
-				<Clapperboard className="h-4 w-4" />
+				<IconMovie className="h-4 w-4" aria-hidden="true" />
 				<span className="ml-2">
 					{videoCount > 0 ? `${videoCount}/${MAX_POST_VIDEOS}` : "Dodaj wideo"}
 				</span>

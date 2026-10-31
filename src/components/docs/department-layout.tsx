@@ -5,18 +5,18 @@
 // przelacznik dzialow z loaderem przy wolnej nawigacji; ThemeToggle z napisem nad Credits;
 // logo bez napisu, podwojonej wielkosci; ciasne odstepy, dlugie tytuly z elipsa.
 
-import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import {
-	ArrowLeft,
-	BookOpen,
-	Check,
-	ChevronDown,
-	Menu,
-	PanelLeftClose,
-	PanelLeftOpen,
-	ScrollText,
-	X,
-} from "lucide-react";
+	IconArrowLeft,
+	IconBook2,
+	IconCheck,
+	IconChevronDown,
+	IconLayoutSidebarLeftCollapse,
+	IconLayoutSidebarLeftExpand,
+	IconMenu2,
+	IconNote,
+	IconX,
+} from "@tabler/icons-react";
+import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { type ReactNode, useState } from "react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
@@ -76,7 +76,7 @@ function DepartmentSwitcher({ department, onNavigate }: DepartmentSwitcherProps)
 							{current ? <current.icon aria-hidden className="size-4" /> : null}
 							{current?.label}
 						</span>
-						<ChevronDown aria-hidden className="size-4 opacity-60" />
+						<IconChevronDown aria-hidden className="size-4 opacity-60" />
 					</Button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="start" className="w-56">
@@ -84,7 +84,7 @@ function DepartmentSwitcher({ department, onNavigate }: DepartmentSwitcherProps)
 						<DropdownMenuItem key={meta.key} onClick={() => switchTo(meta.key)}>
 							<meta.icon aria-hidden className="size-4 text-muted-foreground" />
 							{meta.label}
-							{meta.key === department && <Check aria-hidden className="ml-auto size-4" />}
+							{meta.key === department && <IconCheck aria-hidden className="ml-auto size-4" />}
 						</DropdownMenuItem>
 					))}
 				</DropdownMenuContent>
@@ -158,21 +158,21 @@ function SidebarContent({ department, activePath, onNavigate, onHide }: SidebarC
 					href={appHref}
 					className="flex items-start gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
 				>
-					<ArrowLeft aria-hidden className="mt-0.5 size-4 shrink-0" />
+					<IconArrowLeft aria-hidden className="mt-0.5 size-4 shrink-0" />
 					<span className="leading-snug">Powrót do Wspólniaka</span>
 				</a>
 				<a
 					href={docsHref}
 					className="flex items-start gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
 				>
-					<BookOpen aria-hidden className="mt-0.5 size-4 shrink-0" />
+					<IconBook2 aria-hidden className="mt-0.5 size-4 shrink-0" />
 					<span className="leading-snug">Powrót do strony głównej dokumentacji</span>
 				</a>
 				<Link
 					to="/credits"
 					className="flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
 				>
-					<ScrollText aria-hidden className="size-4" />
+					<IconNote aria-hidden className="size-4" />
 					Twórcy
 				</Link>
 				{/* Motyw POD Credits (wg ownera). */}
@@ -180,7 +180,7 @@ function SidebarContent({ department, activePath, onNavigate, onHide }: SidebarC
 					<ThemeToggle showLabel className="min-w-0 flex-1 justify-start" />
 					{onHide && (
 						<Button variant="ghost" size="icon" onClick={onHide} aria-label="Ukryj sidebar">
-							<PanelLeftClose aria-hidden className="size-4" />
+							<IconLayoutSidebarLeftCollapse aria-hidden className="size-4" />
 						</Button>
 					)}
 				</div>
@@ -219,7 +219,7 @@ export function DepartmentLayout(props: DepartmentLayoutProps) {
 					onClick={openDrawer}
 					aria-label="Otwórz nawigację dokumentacji"
 				>
-					<Menu aria-hidden className="size-5" />
+					<IconMenu2 aria-hidden className="size-5" />
 				</Button>
 				<Link
 					to="/"
@@ -264,7 +264,7 @@ export function DepartmentLayout(props: DepartmentLayoutProps) {
 						onClick={() => setMode("expanded")}
 						aria-label="Pokaż sidebar"
 					>
-						<PanelLeftOpen aria-hidden className="size-4" />
+						<IconLayoutSidebarLeftExpand aria-hidden className="size-4" />
 					</Button>
 					<Button
 						variant="ghost"
@@ -273,7 +273,7 @@ export function DepartmentLayout(props: DepartmentLayoutProps) {
 						onClick={() => setMode("expanded")}
 						aria-label="Pokaż sidebar"
 					>
-						<PanelLeftOpen aria-hidden className="size-4" />
+						<IconLayoutSidebarLeftExpand aria-hidden className="size-4" />
 					</Button>
 				</>
 			)}
@@ -313,7 +313,7 @@ export function DepartmentLayout(props: DepartmentLayoutProps) {
 								onClick={closeDrawer}
 								aria-label="Zamknij nawigację dokumentacji"
 							>
-								<X aria-hidden className="size-5" />
+								<IconX aria-hidden className="size-5" />
 							</Button>
 						</div>
 						<SidebarContent

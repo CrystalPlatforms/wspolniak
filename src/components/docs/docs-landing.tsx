@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Docs landing (F1 #204) — główna strona subdomeny docsów: duże logo (jasny/ciemny
 // wariant JPEG wg motywu), trzy karty działów, przycisk powrotu do apki.
+
+import { IconArrowLeft, IconArrowRight } from "@tabler/icons-react";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, ArrowRight } from "lucide-react";
 import { useTheme } from "@/components/theme/theme-provider";
 import { Button } from "@/components/ui/button";
 import { DOC_DEPARTMENT_META } from "@/docs/departments";
@@ -32,7 +33,7 @@ function DepartmentCard({ department }: { department: DocDepartment }) {
 			<div className="flex items-center justify-between">
 				<Icon className="size-5 text-primary" aria-hidden />
 				{firstDoc ? (
-					<ArrowRight
+					<IconArrowRight
 						className="size-4 text-muted-foreground transition-transform group-hover:translate-x-0.5"
 						aria-hidden
 					/>
@@ -81,7 +82,7 @@ export function DocsLanding() {
 
 				<Button asChild variant="ghost" className="mt-12 text-muted-foreground">
 					<a href={appHref}>
-						<ArrowLeft aria-hidden />
+						<IconArrowLeft aria-hidden />
 						Powrót do Wspólniaka
 					</a>
 				</Button>

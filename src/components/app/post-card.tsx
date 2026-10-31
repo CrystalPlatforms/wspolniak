@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { IconExternalLink, IconMessageCircle, IconPinned } from "@tabler/icons-react";
 import { Link } from "@tanstack/react-router";
-import { ExternalLinkIcon, MessageCircleIcon, PinIcon } from "lucide-react";
 import { useState } from "react";
 import { BookmarkButton } from "@/components/app/bookmark-button";
 import { EmojiReactions } from "@/components/app/emoji-reactions";
@@ -126,7 +127,7 @@ export function PostCard({
 					aria-label="Przypięty post"
 					className="absolute -top-2 -left-2 flex size-7 items-center justify-center rounded-full bg-primary text-primary-foreground shadow"
 				>
-					<PinIcon className="size-4" />
+					<IconPinned className="size-4" aria-hidden="true" />
 				</span>
 			)}
 
@@ -214,7 +215,7 @@ export function PostCard({
 							hash="comments"
 							className="flex items-center gap-1.5 rounded-md px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground sm:gap-1 sm:px-2 sm:py-1"
 						>
-							<MessageCircleIcon className="size-6 sm:size-4" />
+							<IconMessageCircle className="size-6 sm:size-4" aria-hidden="true" />
 							{post.commentCount ?? 0}
 						</Link>
 						<EmojiReactions target={{ kind: "post", postId: post.id }} />
@@ -225,7 +226,7 @@ export function PostCard({
 						className="flex items-center gap-1.5 rounded-md px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground sm:gap-1 sm:px-2 sm:py-1"
 						aria-label="Otwórz pełny post"
 					>
-						<ExternalLinkIcon className="size-6 sm:size-4" />
+						<IconExternalLink className="size-6 sm:size-4" aria-hidden="true" />
 						<span className="sm:hidden">Otwórz</span>
 						<span className="hidden sm:inline">Otwórz pełny post</span>
 					</Link>

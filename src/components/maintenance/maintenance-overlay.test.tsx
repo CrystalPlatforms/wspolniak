@@ -24,7 +24,7 @@ describe("MaintenanceOverlay", () => {
 		expect(container.querySelector("svg")).not.toBeNull();
 	});
 
-	it("uses the provided icon name when it is a known lucide icon", () => {
+	it("uses the provided icon name when it is a known icon", () => {
 		render(<MaintenanceOverlay message="A" subtitle="B" icon="wrench" />);
 
 		expect(screen.getByRole("img", { name: "wrench" })).toBeDefined();

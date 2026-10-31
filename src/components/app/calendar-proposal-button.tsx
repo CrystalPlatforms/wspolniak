@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { ChevronDown, FileText, MailQuestion, MessageSquare } from "lucide-react";
+import { IconChevronDown, IconFileText, IconMailQuestion, IconMessage } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -28,18 +28,18 @@ export function CalendarProposalButton({
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
 				<Button variant="ghost" size="lg" title="Zaproponuj datę">
-					<MailQuestion className="h-4 w-4" />
+					<IconMailQuestion className="h-4 w-4" aria-hidden="true" />
 					<span className="hidden sm:inline">Zaproponuj datę</span>
-					<ChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+					<IconChevronDown className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
 				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align="end">
 				<DropdownMenuItem onSelect={onProposeAsPost}>
-					<FileText aria-hidden="true" />
+					<IconFileText aria-hidden="true" />
 					Jako post
 				</DropdownMenuItem>
 				<DropdownMenuItem onSelect={onProposeToChat}>
-					<MessageSquare aria-hidden="true" />
+					<IconMessage aria-hidden="true" />
 					Na czat
 				</DropdownMenuItem>
 			</DropdownMenuContent>

@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import {
-	ChevronLeft,
-	ChevronRight,
-	Download,
-	Images,
-	Maximize,
-	X,
-	ZoomIn,
-	ZoomOut,
-} from "lucide-react";
+	IconChevronLeft,
+	IconChevronRight,
+	IconDownload,
+	IconMaximize,
+	IconPhoto,
+	IconX,
+	IconZoomIn,
+	IconZoomOut,
+} from "@tabler/icons-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AddToAlbumButton } from "@/components/app/add-to-album-button";
@@ -66,7 +66,7 @@ function LightboxTopControls({
 					ariaLabel="Dodaj zdjęcie do albumu"
 					className="flex items-center gap-2 rounded-full bg-white/10 px-4 py-3 text-white backdrop-blur-sm transition-colors hover:bg-white/20 sm:px-3 sm:py-2"
 				>
-					<Images className="h-8 w-8 sm:h-5 sm:w-5" />
+					<IconPhoto className="h-8 w-8 sm:h-5 sm:w-5" aria-hidden="true" />
 					<span className="text-base font-medium sm:text-sm">Dodaj do albumu</span>
 				</AddToAlbumButton>
 			)}
@@ -86,7 +86,7 @@ function LightboxTopControls({
 				{downloading ? (
 					<Loader className="relative" />
 				) : (
-					<Download className="relative h-8 w-8 sm:h-5 sm:w-5" />
+					<IconDownload className="relative h-8 w-8 sm:h-5 sm:w-5" aria-hidden="true" />
 				)}
 				<span className="relative text-base font-medium sm:text-sm">
 					{downloading ? `${downloadProgress}%` : "Pobierz"}
@@ -98,7 +98,7 @@ function LightboxTopControls({
 				className="rounded-full bg-white/10 p-3 text-white backdrop-blur-sm transition-colors hover:bg-white/20 sm:p-2"
 				aria-label="Zamknij"
 			>
-				<X className="h-8 w-8 sm:h-6 sm:w-6" />
+				<IconX className="h-8 w-8 sm:h-6 sm:w-6" aria-hidden="true" />
 			</button>
 		</div>
 	);
@@ -398,7 +398,7 @@ export function ImageLightbox({
 						className="fixed left-4 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-2 text-white backdrop-blur-sm transition-colors hover:bg-white/20"
 						aria-label="Poprzednie zdjęcie"
 					>
-						<ChevronLeft className="h-6 w-6" />
+						<IconChevronLeft className="h-6 w-6" aria-hidden="true" />
 					</button>
 					<button
 						type="button"
@@ -409,7 +409,7 @@ export function ImageLightbox({
 						className="fixed right-4 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-2 text-white backdrop-blur-sm transition-colors hover:bg-white/20"
 						aria-label="Następne zdjęcie"
 					>
-						<ChevronRight className="h-6 w-6" />
+						<IconChevronRight className="h-6 w-6" aria-hidden="true" />
 					</button>
 				</>
 			)}
@@ -424,7 +424,7 @@ export function ImageLightbox({
 					className="rounded-full p-3 text-white transition-colors hover:bg-white/20 sm:p-2"
 					aria-label="Powiększ zdjęcie"
 				>
-					<ZoomIn className="h-8 w-8 sm:h-5 sm:w-5" />
+					<IconZoomIn className="h-8 w-8 sm:h-5 sm:w-5" aria-hidden="true" />
 				</button>
 				<button
 					type="button"
@@ -435,7 +435,7 @@ export function ImageLightbox({
 					className="rounded-full p-3 text-white transition-colors hover:bg-white/20 sm:p-2"
 					aria-label="Pomniejsz zdjęcie"
 				>
-					<ZoomOut className="h-8 w-8 sm:h-5 sm:w-5" />
+					<IconZoomOut className="h-8 w-8 sm:h-5 sm:w-5" aria-hidden="true" />
 				</button>
 				<button
 					type="button"
@@ -446,7 +446,7 @@ export function ImageLightbox({
 					className="rounded-full p-3 text-white transition-colors hover:bg-white/20 sm:p-2"
 					aria-label="Wyzeruj powiększenie"
 				>
-					<Maximize className="h-8 w-8 sm:h-5 sm:w-5" />
+					<IconMaximize className="h-8 w-8 sm:h-5 sm:w-5" aria-hidden="true" />
 				</button>
 			</div>
 		</div>,

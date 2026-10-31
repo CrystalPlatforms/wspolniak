@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { IconMessageCircle } from "@tabler/icons-react";
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MessageCircleIcon } from "lucide-react";
 import { useState } from "react";
 import { GradientAiButton } from "@/components/app/ai/gradient-ai-button";
 import { CommentItem } from "@/components/app/comment-item";
@@ -116,7 +117,7 @@ export function CommentSection({
 	return (
 		<section className="space-y-4">
 			<h2 className="flex items-center gap-2 font-semibold text-foreground">
-				<MessageCircleIcon className="size-5" />
+				<IconMessageCircle className="size-5" aria-hidden="true" />
 				Komentarze ({comments.length})
 			</h2>
 

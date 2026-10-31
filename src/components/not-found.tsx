@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { IconArrowLeft, IconFileUnknown, IconHome, IconSearch } from "@tabler/icons-react";
 import { Link } from "@tanstack/react-router";
-import { ArrowLeft, FileQuestion, Home, Search } from "lucide-react";
 import type React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,7 +14,7 @@ export function NotFound({ children }: { children?: React.ReactNode }) {
 					<div className="flex flex-col items-center text-center space-y-6">
 						{/* Icon */}
 						<div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted">
-							<FileQuestion className="h-10 w-10 text-muted-foreground" />
+							<IconFileUnknown className="h-10 w-10 text-muted-foreground" aria-hidden="true" />
 						</div>
 
 						{/* Heading */}
@@ -31,13 +32,13 @@ export function NotFound({ children }: { children?: React.ReactNode }) {
 								onClick={() => window.history.back()}
 								className="flex items-center gap-2"
 							>
-								<ArrowLeft className="h-4 w-4" />
+								<IconArrowLeft className="h-4 w-4" aria-hidden="true" />
 								Go Back
 							</Button>
 							<Button variant="outline" asChild>
 								<Link to="/" className="flex items-center gap-2">
-									<Home className="h-4 w-4" />
-									Home
+									<IconHome className="h-4 w-4" aria-hidden="true" />
+									IconHome
 								</Link>
 							</Button>
 						</div>
@@ -45,7 +46,7 @@ export function NotFound({ children }: { children?: React.ReactNode }) {
 						{/* Help text */}
 						<div className="pt-4 border-t w-full">
 							<div className="flex items-center gap-2 text-sm text-muted-foreground justify-center">
-								<Search className="h-4 w-4" />
+								<IconSearch className="h-4 w-4" aria-hidden="true" />
 								<span>Try checking the URL or use the search functionality</span>
 							</div>
 						</div>

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { RefreshCw } from "lucide-react";
+import { IconRefresh } from "@tabler/icons-react";
 import { useEffect, useRef, useState } from "react";
 
 interface PullToRefreshProps {
@@ -104,12 +104,13 @@ export function PullToRefresh({ onRefresh, children }: PullToRefreshProps) {
 						transform: progress >= 1 ? "scale(1.1)" : `scale(${0.8 + progress * 0.2})`,
 					}}
 				>
-					<RefreshCw
+					<IconRefresh
 						className="h-5 w-5"
 						style={{
 							animation: isRefreshing ? "spin 1s linear infinite" : undefined,
 							transform: `rotate(${pullDistance * 2}deg)`,
 						}}
+						aria-hidden="true"
 					/>
 					{pullDistance > TRIGGER_THRESHOLD && !isRefreshing && (
 						<span className="text-sm">Puść, aby odświeżyć</span>

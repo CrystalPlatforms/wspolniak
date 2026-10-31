@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { IconPhoto, IconPlayerPlay } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Images, Play } from "lucide-react";
 import { type ReactNode, useState } from "react";
 import { AlbumActionsMenu } from "@/components/app/album-actions-menu";
 import { AlbumItemMenu } from "@/components/app/album-item-menu";
@@ -166,7 +166,7 @@ export function AlbumView({ albumId, currentUserId, currentUserRole, backButton 
 
 			{album.items.length === 0 && (
 				<div className="flex flex-col items-center gap-3 py-16 text-center text-muted-foreground">
-					<Images className="size-10" />
+					<IconPhoto className="size-10" aria-hidden="true" />
 					<p>Ten album jest pusty.</p>
 				</div>
 			)}
@@ -192,7 +192,10 @@ export function AlbumView({ albumId, currentUserId, currentUserRole, backButton 
 									/>
 									<span className="absolute inset-0 flex items-center justify-center">
 										<span className="flex size-10 items-center justify-center rounded-lg bg-black">
-											<Play className="size-4 fill-primary text-primary" />
+											<IconPlayerPlay
+												className="size-4 fill-primary text-primary"
+												aria-hidden="true"
+											/>
 										</span>
 									</span>
 								</Link>

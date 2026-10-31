@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { IconCheck, IconCopy, IconDice5, IconPencil, IconX } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Copy, Dices, Pencil, X } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -94,7 +95,7 @@ export function ShareCodeDialog({ open, onOpenChange }: ShareCodeDialogProps) {
 						</code>
 						{currentCode && <CopyCodeButton code={currentCode} />}
 						<Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
-							<Pencil className="h-4 w-4" />
+							<IconPencil className="h-4 w-4" aria-hidden="true" />
 							Zmień kod
 						</Button>
 					</div>
@@ -144,7 +145,7 @@ function ShareCodeEditor({ isSaving, onSave, onCancel }: ShareCodeEditorProps) {
 					variant="outline"
 					onClick={() => setCodeInput(generateShareCode())}
 				>
-					<Dices className="h-4 w-4" />
+					<IconDice5 className="h-4 w-4" aria-hidden="true" />
 					Wygeneruj losowy kod
 				</Button>
 			</div>
@@ -156,7 +157,7 @@ function ShareCodeEditor({ isSaving, onSave, onCancel }: ShareCodeEditorProps) {
 					{isSaving ? "Zapisuję..." : "Zapisz"}
 				</Button>
 				<Button type="button" size="sm" variant="ghost" onClick={onCancel}>
-					<X className="h-4 w-4" />
+					<IconX className="h-4 w-4" aria-hidden="true" />
 					Anuluj
 				</Button>
 			</div>
@@ -179,7 +180,11 @@ function CopyCodeButton({ code }: { code: string }) {
 
 	return (
 		<Button size="sm" variant="outline" aria-label="Kopiuj kod" onClick={handleCopy}>
-			{copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+			{copied ? (
+				<IconCheck className="h-4 w-4" aria-hidden="true" />
+			) : (
+				<IconCopy className="h-4 w-4" aria-hidden="true" />
+			)}
 		</Button>
 	);
 }

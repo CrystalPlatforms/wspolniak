@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { Youtube } from "lucide-react";
+import { IconBrandYoutube } from "@tabler/icons-react";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
@@ -30,7 +30,7 @@ export function YoutubeConnection({
 	return (
 		<section className="rounded-lg border border-border bg-card p-4">
 			<div className="mb-2 flex items-center gap-2">
-				<Youtube className="h-4 w-4 text-foreground" />
+				<IconBrandYoutube className="h-4 w-4 text-foreground" aria-hidden="true" />
 				<h2 className="text-sm font-medium text-foreground">YouTube</h2>
 			</div>
 

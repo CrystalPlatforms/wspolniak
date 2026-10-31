@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { AtSign, Paperclip, Slash } from "lucide-react";
+import { IconAt, IconPaperclip, IconSlash } from "@tabler/icons-react";
 import { useRef, useState } from "react";
 import { calendarProposalTemplate } from "@/components/app/calendar-proposal";
 import {
@@ -480,7 +480,7 @@ export function ChatInput({
 					onClick={insertAtButton}
 					className="flex size-11 shrink-0 items-center justify-center rounded-full border border-input bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 				>
-					<AtSign className="size-5" />
+					<IconAt className="size-5" aria-hidden="true" />
 				</button>
 				<button
 					type="button"
@@ -489,7 +489,7 @@ export function ChatInput({
 					aria-expanded={showCommandPicker}
 					className="flex size-11 shrink-0 items-center justify-center rounded-full border border-input bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 				>
-					<Slash className="size-5" />
+					<IconSlash className="size-5" aria-hidden="true" />
 				</button>
 				<button
 					type="button"
@@ -497,7 +497,7 @@ export function ChatInput({
 					onClick={openFilePicker}
 					className="flex size-11 shrink-0 items-center justify-center rounded-full border border-input bg-background text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 				>
-					<Paperclip className="size-5" />
+					<IconPaperclip className="size-5" aria-hidden="true" />
 				</button>
 				{/* Natywna wybierarka (F4 #217) — otwierana programowo; wielokrotny wybór,
 				    bez `accept`: każdy typ poza wideo (video odcina walidacja z komunikatem). */}

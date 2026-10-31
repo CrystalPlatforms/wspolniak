@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { IconFileUnknown, IconX } from "@tabler/icons-react";
 import { Link } from "@tanstack/react-router";
-import { FileQuestion, X } from "lucide-react";
 import type { ChatMessageItem, ChatPostPreview } from "@/components/chat/chat-api";
 import { postPayloadSchema } from "@/db/chat/schema";
 import { ChatBubbleText } from "./chat-bubble-text";
@@ -50,7 +51,7 @@ function ChatPostDeletedCard() {
 			data-post-card-deleted
 			className="flex w-60 max-w-full items-center gap-2 rounded-lg bg-background/60 px-2.5 py-2 text-foreground"
 		>
-			<FileQuestion className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+			<IconFileUnknown className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
 			<span className="text-xs text-muted-foreground">Post usunięty</span>
 		</div>
 	);
@@ -103,7 +104,7 @@ export function ChatPostDraftPreview({
 				aria-label="Anuluj udostępnianie posta"
 				className="shrink-0 self-start rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 			>
-				<X className="size-4" />
+				<IconX className="size-4" aria-hidden="true" />
 			</button>
 		</div>
 	);

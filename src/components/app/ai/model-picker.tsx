@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { Bot, Check } from "lucide-react";
+import { IconCheck, IconRobot } from "@tabler/icons-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,7 +38,7 @@ export function ModelPicker({ modelId, onSelect }: ModelPickerProps) {
 					aria-label="Wybierz model AL"
 					className="shrink-0 gap-1.5 hover:border-primary dark:hover:border-primary"
 				>
-					<Bot className="size-4" />
+					<IconRobot className="size-4" aria-hidden="true" />
 					{selected?.uiName ?? "Model"}
 				</Button>
 			</DialogTrigger>
@@ -73,7 +73,9 @@ export function ModelPicker({ modelId, onSelect }: ModelPickerProps) {
 									{model.perMinuteLimit} odp./min
 								</span>
 							</span>
-							{model.id === modelId && <Check className="size-4 shrink-0 text-primary" />}
+							{model.id === modelId && (
+								<IconCheck className="size-4 shrink-0 text-primary" aria-hidden="true" />
+							)}
 						</button>
 					))}
 				</div>

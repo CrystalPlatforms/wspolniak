@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { Plus, X } from "lucide-react";
+import { IconPlus, IconX } from "@tabler/icons-react";
 import { useState } from "react";
 import { createChatMessageSchema } from "@/db/chat/schema";
 
@@ -121,7 +121,7 @@ export function ChatPollForm({ onSave, onCancel, pending = false }: ChatPollForm
 									aria-label={`Usuń opcję ${index + 1}`}
 									className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 								>
-									<X className="size-4" />
+									<IconX className="size-4" aria-hidden="true" />
 								</button>
 							) : null}
 						</div>
@@ -133,7 +133,7 @@ export function ChatPollForm({ onSave, onCancel, pending = false }: ChatPollForm
 						onClick={addOption}
 						className="flex items-center gap-1 self-start rounded-md px-1 py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 					>
-						<Plus className="size-3.5" />
+						<IconPlus className="size-3.5" aria-hidden="true" />
 						Dodaj opcję
 					</button>
 				) : null}

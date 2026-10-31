@@ -10,7 +10,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { X } from "lucide-react";
+import { IconX } from "@tabler/icons-react";
 import { useCallback, useMemo, useState } from "react";
 import { ComposerVideoPicker, type PendingVideo } from "@/components/app/composer-video-picker";
 import { Button } from "@/components/ui/button";
@@ -118,7 +118,7 @@ function SortableVideoItem({
 				onPointerDown={(e) => e.stopPropagation()}
 				className="flex size-7 shrink-0 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-90 transition-opacity hover:opacity-100"
 			>
-				<X className="size-3.5" />
+				<IconX className="size-3.5" aria-hidden="true" />
 			</button>
 		</li>
 	);

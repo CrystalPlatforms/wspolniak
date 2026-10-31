@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { IconBookmark } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bookmark } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -98,10 +99,11 @@ export function BookmarkButton({ postId }: BookmarkButtonProps) {
 			style={saved ? { color: BOOKMARK_SAVED_COLOR } : undefined}
 			className="grid size-12 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground sm:size-16"
 		>
-			<Bookmark
+			<IconBookmark
 				className="size-6 transition-colors duration-200 sm:size-8"
 				fill={saved ? "currentColor" : "none"}
 				style={popping ? { animation: "bookmark-pop 300ms ease-in-out" } : undefined}
+				aria-hidden="true"
 			/>
 		</button>
 	);

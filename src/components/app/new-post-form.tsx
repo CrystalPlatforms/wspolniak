@@ -10,7 +10,7 @@ import {
 } from "@dnd-kit/core";
 import { rectSortingStrategy, SortableContext, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { AlertTriangle, ArrowLeft, ImagePlus, X } from "lucide-react";
+import { IconAlertTriangle, IconArrowLeft, IconPhotoPlus, IconX } from "@tabler/icons-react";
 import {
 	type ChangeEvent,
 	type Dispatch,
@@ -34,9 +34,9 @@ import { Loader } from "@/components/ui/loader";
 import type { FeatureFlags } from "@/db/instance";
 import { MAX_DESCRIPTION_LENGTH } from "@/db/posts/schema";
 import type { ImageUploadProgress } from "@/images/upload";
+import { maybeIngestSharedFiles } from "@/lib/android-bridge";
 import { reorder } from "@/lib/reorder";
 import { cn } from "@/lib/utils";
-import { maybeIngestSharedFiles } from "@/lib/android-bridge";
 import { takePendingFiles } from "@/lib/waiting-room";
 
 const ACCEPTED_IMAGE_TYPES = "image/jpeg,image/png,image/webp,image/heic,image/heif";
@@ -130,7 +130,7 @@ function SortablePreview({
 					onPointerDown={(e) => e.stopPropagation()}
 					className="absolute inset-0 flex items-center justify-center rounded-md bg-destructive/60"
 				>
-					<AlertTriangle className="size-8 text-destructive-foreground" />
+					<IconAlertTriangle className="size-8 text-destructive-foreground" aria-hidden="true" />
 				</button>
 			)}
 			<button
@@ -143,7 +143,7 @@ function SortablePreview({
 				className="absolute right-1 top-1 flex size-6 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-90 transition-opacity hover:opacity-100"
 				title="Usuń"
 			>
-				<X className="h-3 w-3" />
+				<IconX className="h-3 w-3" aria-hidden="true" />
 			</button>
 		</div>
 	);
@@ -210,7 +210,7 @@ function ComposerHeader({ onBack, aiSlot }: { onBack?: () => void; aiSlot: React
 					className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
 					title="Wróć do feeda"
 				>
-					<ArrowLeft className="h-5 w-5" />
+					<IconArrowLeft className="h-5 w-5" aria-hidden="true" />
 				</button>
 			)}
 			<h1 className="text-2xl font-bold text-foreground">Nowy post</h1>
@@ -436,7 +436,7 @@ export function NewPostForm({
 							disabled={images.length >= MAX_IMAGES}
 							title={images.length > 0 ? `${images.length}/${MAX_IMAGES}` : "Dodaj zdjęcia"}
 						>
-							<ImagePlus className="h-4 w-4" />
+							<IconPhotoPlus className="h-4 w-4" aria-hidden="true" />
 							<span className="ml-2">
 								{images.length > 0 ? `${images.length}/${MAX_IMAGES}` : "Dodaj zdjęcia"}
 							</span>

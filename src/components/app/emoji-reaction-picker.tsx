@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { X } from "lucide-react";
+import { IconX } from "@tabler/icons-react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import type { KeyboardEvent, ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -476,7 +476,7 @@ export function EmojiReactionPicker({
 					)}
 				>
 					{open ? (
-						<X size={s.icon} strokeWidth={2} />
+						<IconX size={s.icon} strokeWidth={2} aria-hidden="true" />
 					) : last ? (
 						<AppleEmoji name={last} size={Math.round(s.emoji * 0.72)} />
 					) : (

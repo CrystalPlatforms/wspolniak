@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { IconCrosshair, IconMapPin } from "@tabler/icons-react";
 import L from "leaflet";
-import { Crosshair, MapPin } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader } from "@/components/ui/loader";
 import "leaflet/dist/leaflet.css";
@@ -134,7 +134,7 @@ export function ChatLocationForm({ onSave, onCancel, pending = false }: ChatLoca
 							// Mały spinner z kropkami (nasz Loader) + „Lokalizowanie…" — HITL.
 							<Loader size={1.5} />
 						) : (
-							<Crosshair className="size-3.5" aria-hidden="true" />
+							<IconCrosshair className="size-3.5" aria-hidden="true" />
 						)}
 						{locating ? "Lokalizowanie…" : "Użyj mojej lokalizacji"}
 					</button>
@@ -185,7 +185,7 @@ export function ChatLocationForm({ onSave, onCancel, pending = false }: ChatLoca
 						disabled={!pin || pending}
 						className="flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
 					>
-						<MapPin className="size-4" aria-hidden="true" />
+						<IconMapPin className="size-4" aria-hidden="true" />
 						{pending ? "Wysyłanie…" : "Wyślij"}
 					</button>
 				</div>

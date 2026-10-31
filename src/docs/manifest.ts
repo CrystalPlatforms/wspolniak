@@ -5,33 +5,33 @@
 // więc manifest nie renderuje martwych linków.
 
 import {
-	BellRing,
-	BookOpen,
-	Bot,
-	FolderOpen,
-	Gauge,
-	Heart,
-	ImageOff,
-	KeyRound,
-	Layers,
-	type LucideIcon,
-	Newspaper,
-	ShieldCheck,
-	Sparkles,
-	Wrench,
-	Zap,
-} from "lucide-react";
+	IconBellRinging,
+	IconBolt,
+	IconBook2,
+	IconFolderOpen,
+	IconGauge,
+	IconHeart,
+	IconKey,
+	IconNews,
+	IconPhotoOff,
+	IconRobot,
+	IconShieldCheck,
+	IconSparkles,
+	IconStack2,
+	IconTool,
+	type TablerIcon,
+} from "@tabler/icons-react";
 import { type DocDepartment, getDoc } from "./registry";
 
 export interface ManifestDoc {
 	slug: string;
 	title: string;
-	icon: LucideIcon;
+	icon: TablerIcon;
 }
 
 export interface ManifestGroup {
 	label: string;
-	icon: LucideIcon;
+	icon: TablerIcon;
 	docs: ManifestDoc[];
 }
 
@@ -43,7 +43,7 @@ export interface DepartmentManifest {
 interface GroupDef {
 	label: string;
 	slugs: readonly string[];
-	icon: LucideIcon;
+	icon: TablerIcon;
 }
 
 const MANIFESTS: Record<DocDepartment, GroupDef[]> = {
@@ -51,22 +51,22 @@ const MANIFESTS: Record<DocDepartment, GroupDef[]> = {
 		{
 			label: "Posty i multimedia",
 			slugs: ["feed-and-posts", "uploading-photos", "videos"],
-			icon: Newspaper,
+			icon: IconNews,
 		},
 		{
 			label: "Interakcje",
 			slugs: ["reactions-comments", "family-chat"],
-			icon: Heart,
+			icon: IconHeart,
 		},
 		{
 			label: "Organizacja",
 			slugs: ["albums", "library", "calendar"],
-			icon: FolderOpen,
+			icon: IconFolderOpen,
 		},
 		{
 			label: "Aplikacja",
 			slugs: ["notifications-and-pwa", "logging-in", "al-assistant", "for-admins"],
-			icon: Sparkles,
+			icon: IconSparkles,
 		},
 	],
 	technical: [
@@ -80,54 +80,54 @@ const MANIFESTS: Record<DocDepartment, GroupDef[]> = {
 				"testing-strategy",
 				"docs-under-the-hood",
 			],
-			icon: Layers,
+			icon: IconStack2,
 		},
 		{
 			label: "Bezpieczeństwo",
 			slugs: ["security-and-privacy"],
-			icon: ShieldCheck,
+			icon: IconShieldCheck,
 		},
 		{
 			label: "Multimedia i limity",
 			slugs: ["photo-upload-pipeline", "video-pipeline", "limits-and-performance"],
-			icon: Gauge,
+			icon: IconGauge,
 		},
 		{
 			label: "Czas rzeczywisty",
 			slugs: ["realtime-chat", "push-under-the-hood", "pwa-offline"],
-			icon: Zap,
+			icon: IconBolt,
 		},
 		{
 			label: "Sztuczna inteligencja",
 			slugs: ["al-internals"],
-			icon: Bot,
+			icon: IconRobot,
 		},
 		{
 			label: "Dokumentacja",
 			slugs: ["docs-under-the-hood"],
-			icon: BookOpen,
+			icon: IconBook2,
 		},
 	],
 	bugs: [
 		{
 			label: "Konto i logowanie",
 			slugs: ["magic-link-not-arriving"],
-			icon: KeyRound,
+			icon: IconKey,
 		},
 		{
 			label: "Zdjęcia i filmiki",
 			slugs: ["big-photo", "youtube-video-problems", "slow-upload"],
-			icon: ImageOff,
+			icon: IconPhotoOff,
 		},
 		{
 			label: "Powiadomienia i czat",
 			slugs: ["push-notifications-missing", "chat-messages-missing"],
-			icon: BellRing,
+			icon: IconBellRinging,
 		},
 		{
 			label: "Aplikacja",
 			slugs: ["stale-content-cache", "feature-turned-off"],
-			icon: Wrench,
+			icon: IconTool,
 		},
 	],
 };

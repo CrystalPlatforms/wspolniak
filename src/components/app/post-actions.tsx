@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { IconDots, IconMessages, IconPencil, IconPinned, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { MessagesSquare, MoreHorizontalIcon, PencilIcon, PinIcon, TrashIcon } from "lucide-react";
 import { useRef, useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -81,7 +82,7 @@ export function PostActions({
 			<DropdownMenu>
 				<DropdownMenuTrigger asChild>
 					<Button variant="ghost" size="icon" className="size-12 sm:size-16">
-						<MoreHorizontalIcon className="size-6 sm:size-8" />
+						<IconDots className="size-6 sm:size-8" aria-hidden="true" />
 						<span className="sr-only">Opcje posta</span>
 					</Button>
 				</DropdownMenuTrigger>
@@ -91,7 +92,7 @@ export function PostActions({
 							onSelect={onShareToChat}
 							className="py-3 sm:py-1.5 text-base sm:text-sm"
 						>
-							<MessagesSquare />
+							<IconMessages aria-hidden="true" />
 							Wspomnij na czacie
 						</DropdownMenuItem>
 					)}
@@ -99,7 +100,7 @@ export function PostActions({
 						onSelect={() => navigate({ to: "/app/post/$id/edit", params: { id: postId } })}
 						className="py-3 sm:py-1.5 text-base sm:text-sm"
 					>
-						<PencilIcon />
+						<IconPencil aria-hidden="true" />
 						Edytuj
 					</DropdownMenuItem>
 					{isAdmin && (
@@ -107,7 +108,7 @@ export function PostActions({
 							onSelect={() => pinMutation.mutate()}
 							className="py-3 sm:py-1.5 text-base sm:text-sm"
 						>
-							<PinIcon />
+							<IconPinned aria-hidden="true" />
 							{pinned ? "Odepnij post" : "Przypnij post"}
 						</DropdownMenuItem>
 					)}
@@ -119,7 +120,7 @@ export function PostActions({
 						}}
 						className="py-3 sm:py-1.5 text-base sm:text-sm"
 					>
-						<TrashIcon />
+						<IconTrash aria-hidden="true" />
 						Usuń post
 					</DropdownMenuItem>
 				</DropdownMenuContent>

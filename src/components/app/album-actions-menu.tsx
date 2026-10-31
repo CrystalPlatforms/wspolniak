@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { Download, MoreVerticalIcon, PencilIcon } from "lucide-react";
+import { IconDotsVertical, IconDownload, IconPencil } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import {
 	DropdownMenu,
@@ -47,13 +47,13 @@ export function AlbumActionsMenu({
 					className={triggerClassName ?? "size-8"}
 					aria-label="Opcje albumu"
 				>
-					<MoreVerticalIcon className={iconClassName ?? "size-4"} />
+					<IconDotsVertical className={iconClassName ?? "size-4"} aria-hidden="true" />
 				</Button>
 			</DropdownMenuTrigger>
 			<DropdownMenuContent align={align} className="min-w-44">
 				{onEdit && (
 					<DropdownMenuItem onSelect={onEdit}>
-						<PencilIcon />
+						<IconPencil aria-hidden="true" />
 						Edytuj album
 					</DropdownMenuItem>
 				)}
@@ -61,7 +61,7 @@ export function AlbumActionsMenu({
 				{zipUrl && (
 					<DropdownMenuItem asChild>
 						<a href={zipUrl} download>
-							<Download />
+							<IconDownload aria-hidden="true" />
 							Pobierz zawartość
 						</a>
 					</DropdownMenuItem>
@@ -69,7 +69,7 @@ export function AlbumActionsMenu({
 				{videosUrl && (
 					<DropdownMenuItem asChild>
 						<a href={videosUrl} download>
-							<Download />
+							<IconDownload aria-hidden="true" />
 							Pobierz wideo
 						</a>
 					</DropdownMenuItem>

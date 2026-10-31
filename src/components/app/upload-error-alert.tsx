@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { Copy, RotateCcw } from "lucide-react";
+import { IconCopy, IconRotate2 } from "@tabler/icons-react";
 import { useState } from "react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -58,7 +58,7 @@ export function UploadErrorAlert({ error, onRetry, retryDisabled }: UploadErrorA
 							onClick={onRetry}
 							disabled={retryDisabled}
 						>
-							<RotateCcw className="h-4 w-4" aria-hidden="true" />
+							<IconRotate2 className="h-4 w-4" aria-hidden="true" />
 							Spróbuj ponownie
 						</Button>
 					) : null}
@@ -84,7 +84,7 @@ export function UploadErrorAlert({ error, onRetry, retryDisabled }: UploadErrorA
 								}
 							}}
 						>
-							<Copy className="h-4 w-4" aria-hidden="true" />
+							<IconCopy className="h-4 w-4" aria-hidden="true" />
 							Kopiuj
 						</Button>
 					) : null}

@@ -3,7 +3,7 @@
 // docsow; dociera sie do niej z linku przypietego na dole sidebara kazdego dzialu.
 // Oba przyciski powrotu sa na GORZE (obok siebie), jak w DocPage.
 
-import { ArrowLeft, BookOpen } from "lucide-react";
+import { IconArrowLeft, IconBook2 } from "@tabler/icons-react";
 import { Button } from "@/components/ui/button";
 import { useAppHref, useDocsHref } from "@/docs/use-cross-host-href";
 
@@ -19,13 +19,13 @@ export function CreditsPage() {
 				<div className="flex flex-wrap items-center gap-2 self-start">
 					<Button asChild variant="ghost" className="-ml-2 h-9 text-muted-foreground">
 						<a href={appHref}>
-							<ArrowLeft aria-hidden />
+							<IconArrowLeft aria-hidden />
 							Powrót do Wspólniaka
 						</a>
 					</Button>
 					<Button asChild variant="ghost" className="h-9 text-muted-foreground">
 						<a href={docsHref}>
-							<BookOpen aria-hidden />
+							<IconBook2 aria-hidden />
 							Powrót do dokumentacji
 						</a>
 					</Button>

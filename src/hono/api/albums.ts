@@ -5,7 +5,6 @@ import { albumDownloadNames, buildAlbumVideosHtml } from "@/core/album-downloads
 import { canManageAlbum } from "@/core/authorization";
 import { AppError } from "@/core/errors";
 import type { AlbumItem } from "@/db/albums";
-import { contentDispositionAttachment } from "@/lib/content-disposition";
 import {
 	addAlbumItems,
 	addAlbumItemsSchema,
@@ -24,6 +23,7 @@ import {
 import { createHono } from "@/hono/factory";
 import { authMiddleware } from "@/hono/middleware/auth";
 import { deleteCfImages, getImageUrl } from "@/images/client";
+import { contentDispositionAttachment } from "@/lib/content-disposition";
 
 const albumsEndpoint = createHono();
 

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { IconMessage, IconMessageOff, IconPaperclip, IconSend, IconX } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MessageSquare, MessageSquareOff, Paperclip, SendHorizontal, X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -482,7 +483,7 @@ export function ChatView({
 					) : null}
 					{visible.length === 0 && pending.length === 0 ? (
 						<div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-							<MessageSquareOff className="h-10 w-10 text-muted-foreground" aria-hidden="true" />
+							<IconMessageOff className="h-10 w-10 text-muted-foreground" aria-hidden="true" />
 							<p className="text-muted-foreground">Brak wiadomości</p>
 						</div>
 					) : null}
@@ -591,7 +592,7 @@ export function ChatView({
 					data-chat-offline
 					className="flex items-center justify-center gap-2 border-t border-border bg-muted px-3 py-2 text-sm font-medium text-muted-foreground"
 				>
-					<MessageSquare className="size-4" />
+					<IconMessage className="size-4" aria-hidden="true" />
 					Jesteś offline
 				</div>
 			)}
@@ -619,7 +620,7 @@ export function ChatView({
 									key={attachment.id}
 									className="flex items-center gap-1.5 rounded-lg border border-border bg-muted/60 px-2 py-1"
 								>
-									<Paperclip
+									<IconPaperclip
 										className="size-3.5 shrink-0 text-muted-foreground"
 										aria-hidden="true"
 									/>
@@ -635,7 +636,7 @@ export function ChatView({
 										aria-label={`Usuń załącznik ${attachment.file.name}`}
 										className="shrink-0 rounded-full p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 									>
-										<X className="size-5" />
+										<IconX className="size-5" aria-hidden="true" />
 									</button>
 								</li>
 							))}
@@ -657,7 +658,7 @@ export function ChatView({
 								aria-label="Anuluj odpowiedź"
 								className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
 							>
-								<X className="size-4" />
+								<IconX className="size-4" aria-hidden="true" />
 							</button>
 						</div>
 					) : null}
@@ -698,7 +699,7 @@ export function ChatView({
 								!online
 							}
 						>
-							<SendHorizontal className="h-5 w-5" />
+							<IconSend className="h-5 w-5" aria-hidden="true" />
 						</Button>
 					</div>
 				</div>
