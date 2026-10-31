@@ -1,3 +1,21 @@
+# [5.22.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.21.0...v5.22.0) (2026-10-31)
+
+
+### Bug Fixes
+
+* **posts:** mark pinned posts in single-post response ([#227](https://github.com/CrystalPlatforms/wspolniak/issues/227)) ([3250eb2](https://github.com/CrystalPlatforms/wspolniak/commit/3250eb259d21fa4f9a4225dadfcda512f9e27122))
+* **pwa:** network-first for all /app navigations + auto-reload on new SW ([#226](https://github.com/CrystalPlatforms/wspolniak/issues/226)) ([7c6de80](https://github.com/CrystalPlatforms/wspolniak/commit/7c6de80917d806ba97040dc975d03856c6d7e281))
+* **pwa:** no service worker in the Android shell — self-heals stale cache ([#225](https://github.com/CrystalPlatforms/wspolniak/issues/225)) ([d3921d8](https://github.com/CrystalPlatforms/wspolniak/commit/d3921d8fc8199cc5ae176bda372074d12fcaeac6))
+* **pwa:** versioned apple-touch-icon URLs to bust iOS icon cache ([#228](https://github.com/CrystalPlatforms/wspolniak/issues/228)) ([01bfabf](https://github.com/CrystalPlatforms/wspolniak/commit/01bfabf251f975a9c42fc1467abfa71a73ac40cd))
+
+
+### Features
+
+* **android:** file downloads via DownloadManager + attachment route ([#225](https://github.com/CrystalPlatforms/wspolniak/issues/225)) ([ea3900c](https://github.com/CrystalPlatforms/wspolniak/commit/ea3900c06f149d1f56bf882bfd785daffd574d07))
+* **android:** native long-press image save + harden download paths ([#225](https://github.com/CrystalPlatforms/wspolniak/issues/225)) ([2b9d862](https://github.com/CrystalPlatforms/wspolniak/commit/2b9d8626192b15015ecc9d61c69e3584d8007630))
+* **android:** save downloads through the JS bridge — no navigation, lightbox stays ([#225](https://github.com/CrystalPlatforms/wspolniak/issues/225)) ([98fbfa9](https://github.com/CrystalPlatforms/wspolniak/commit/98fbfa98bd0d2f2563bd622acaed0e4ad59026f0))
+* **android:** share intake — gallery media flies into a new post ([#222](https://github.com/CrystalPlatforms/wspolniak/issues/222)) ([503a223](https://github.com/CrystalPlatforms/wspolniak/commit/503a22329d610f3b48df3adb100546f8e93c6eab))
+
 # [5.21.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.20.0...v5.21.0) (2026-10-22)
 
 
