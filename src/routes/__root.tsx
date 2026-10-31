@@ -11,6 +11,7 @@ import { NotFound } from "@/components/not-found";
 import { ThemeProvider } from "@/components/theme";
 import { Toaster } from "@/components/ui/sonner";
 import { BootSplash } from "@/core/boot-splash";
+import { pwaIconLinks } from "@/pwa/head-links";
 import appCss from "@/styles.css?url";
 import { seo } from "@/utils/seo";
 
@@ -53,17 +54,7 @@ export const Route = createRootRouteWithContext<{
 		],
 		links: [
 			{ rel: "stylesheet", href: appCss },
-			{
-				rel: "apple-touch-icon",
-				sizes: "180x180",
-				href: "/apple-touch-icon-dark.png",
-				media: "(prefers-color-scheme: dark)",
-			},
-			{
-				rel: "apple-touch-icon",
-				sizes: "180x180",
-				href: "/apple-touch-icon.png",
-			},
+			...pwaIconLinks,
 			{ rel: "manifest", href: "/manifest.webmanifest" },
 			{ rel: "icon", href: "/favicon.ico" },
 		],
