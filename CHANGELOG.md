@@ -1,3 +1,10 @@
+# [5.23.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.22.0...v5.23.0) (2026-11-05)
+
+
+### Features
+
+* **chat:** render message reactions as shadcn BubbleReactions pill ([#231](https://github.com/CrystalPlatforms/wspolniak/issues/231)) ([1f4f04b](https://github.com/CrystalPlatforms/wspolniak/commit/1f4f04bc407e2d2e99f2d4dc58f3b200addea366))
+
 # [5.22.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.21.0...v5.22.0) (2026-10-31)
 
 
