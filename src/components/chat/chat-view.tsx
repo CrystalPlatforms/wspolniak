@@ -519,6 +519,8 @@ export function ChatView({
 											{message.replyText}
 										</button>
 									) : null}
+									{/* relative + bez overflow-hidden: pigułka reakcji (#231)
+									    wisi na dolnej krawędzi i musi wystawać poza dymek. */}
 									<div
 										role="button"
 										tabIndex={0}
@@ -531,10 +533,12 @@ export function ChatView({
 										onPointerLeave={cancelPress}
 										onContextMenu={(event) => handleContextMenu(message, event)}
 										onKeyDown={(event) => handleKeyDown(message, event)}
-										className={`flex max-w-[85%] min-w-0 cursor-default items-end gap-2 overflow-hidden rounded-2xl px-3 py-2 [-webkit-touch-callout:none] select-none ${side === "own" ? "rounded-br-md bg-primary text-primary-foreground" : "rounded-bl-md bg-muted text-foreground"}`}
+										className={`relative flex max-w-[85%] min-w-0 cursor-default items-end gap-2 rounded-2xl px-3 py-2 [-webkit-touch-callout:none] select-none ${side === "own" ? "rounded-br-md bg-primary text-primary-foreground" : "rounded-bl-md bg-muted text-foreground"}`}
 									>
-										{/* Małe emoji od innych — od zewnętrznego rogu dymka. */}
-										{side === "other" ? <ChatBubbleReactions messageId={message.id} /> : null}
+										{/* Pigułka reakcji (#231) — od zewnętrznego rogu dymka. */}
+										{side === "other" ? (
+											<ChatBubbleReactions messageId={message.id} own={false} />
+										) : null}
 										{message.kind === "poll" ? (
 											<ChatBubblePoll message={message} own={side === "own"} />
 										) : message.kind === "location" ? (
@@ -549,7 +553,7 @@ export function ChatView({
 										<span className="shrink-0 text-[10px] opacity-60">
 											{formatChatTime(message.createdAt)}
 										</span>
-										{side === "own" ? <ChatBubbleReactions messageId={message.id} /> : null}
+										{side === "own" ? <ChatBubbleReactions messageId={message.id} own /> : null}
 									</div>
 									{/* Reakcje NA dymku (rewizja HITL #161 — zmiana decyzji
 									    z F5); pill „Zareaguj" zakotwiczony w wiadomości. */}
