@@ -99,10 +99,7 @@
 			"!.claude/settings.local.json",
 			"!.claude/skills",
 			"!.wrangler",
-			"!ai-demo",
-			"!**/crs-assets",
-			"!**/crs-assets 2",
-			"!.claude/settings 2.json"
+			"!ai-demo"
 		]
 	},
 	"plugins": [

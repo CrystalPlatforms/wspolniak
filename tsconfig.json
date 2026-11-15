@@ -3,9 +3,7 @@
 	// ai-demo to OSOBNY projekt (własny routeTree + konfiguracja) — jego pliki
 	// nie mogą się mieszać do typów głównej aplikacji (konflikt Register w
 	// @tanstack/react-router rozbijał kontekst tras na `never`).
-	// crs-assets: react-bits BranchedMenu jest już zwendored do src/components/docs/
-	// (F5 #208) — folder można usunąć; do czasu usunięcia zostaje wykluczony z kompilacji.
-	"exclude": ["node_modules", "ai-demo", "crs-assets", "crs-assets 2"],
+	"exclude": ["node_modules", "ai-demo"],
 	"compilerOptions": {
 		"target": "ES2022",
 		"jsx": "react-jsx",

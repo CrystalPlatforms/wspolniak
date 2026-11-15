@@ -43,7 +43,6 @@
 | `src/test/` | Vitest setup, `cloudflare-workers-stub.ts` (DO stub), fake-xhr |
 | `scripts/` | `inject-sw-version.mjs` (SW cache busting), `regenerate-admin-token.ts`, `trigger-calendar-job.ts` |
 | `plans/` | PRDs/phasing plans (untracked) |
-| `crs-assets/`, `crs-assets 2/` | Vendored react-bits/CRS theme assets (see §11 Gotchas #10) |
 | `android/` | Android wrapper app (Gradle/Kotlin) |
 | `public/` | `sw.js`, manifest.webmanifest, icons, emoji, logos |
 | `.claude/` | CLAUDE.md template copy, `rules/` (15 scoped rule files), `agents/` (dd-i, dd-w, mvp-e), `commands/` (implement, verify-dd), `settings.json` (hooks) |
@@ -117,8 +116,6 @@
 | `plans/wspolniak-glass.md` | Liquid Glass UI plan (issue #233): overlay token layer, glass-chrome/glass-surface recipes, default ON, localStorage pref |
 | `plans/wspolniak-android-wrapper-prd.md` | Android wrapper PRD (share sheet, deep links) — draft, next step /carve |
 | `plans/wspolniak-contact-email.md` | Decision record + HITL setup guide for contact@wspolniak.com (Cloudflare/Resend/Google) |
-| `plans/* 2.md` (4 files) | macOS Finder duplicates of the above (identical sizes) |
-| `crs-assets/wifi-spinner.md` | Source snippet for wifi spinner component |
 | `.claude/rules/*.md` (15) | Scoped rules with `paths:` frontmatter: general, deep-modules, atomic-imports, error-handling, api/hono, api/cloudflare-workers, db/{drizzle,neon,zod}, frontend/{react,tanstack,ui,form-patterns,shadcn-tweakcn}, cloudflare-deployment |
 | `.claude/agents/` | dd-i (implement design doc), dd-w (write design doc), mvp-e (MVP advisor) |
 | `.claude/commands/` | `/implement` (dd-i on a doc), `/verify-dd` (review docs readiness) |
@@ -168,10 +165,8 @@ From tracked `.example.vars` + wrangler configs + `src/env.d.ts` + code usage:
 7. **Git workflow: no branches** — commit + push straight to `main`, no PRs, no approval questions. CI then runs semantic-release.
 8. **Deploy trap**: `@cloudflare/vite-plugin` bakes ONLY the top-level wrangler config; `env:` blocks are ignored. Prod deploys must go through `pnpm build:production` (sets `DEPLOY_ENV=production` → `wrangler.prod.jsonc`) + `wrangler deploy --env=''`. Verify with `--dry-run` printing name `wspolniak`. Cloudflare rules: `custom_domain: true`, never the "HTTP→HTTPS redirect rule" template (301 loops), SSL mode Full.
 9. **UPLOAD_TIMEOUT_MS = 7000** (`src/images/upload.ts`) applies to fast JSON requests only; file/video upload has deliberately NO hard timeout. Slow-link warning (`onSlowLink`, ~100 KB/s) shows once per file. Video = chunked upload with own progress. In-flight work (issue #199/#203): oversized-image pre-publish detection, crop/compress dialog, limit 15→19 MB (Cloudflare Images hard cap 20 MB).
-10. **`crs-assets/` and `crs-assets 2/`**: vendored react-bits/CRS design assets; `crs-assets 2/` is a macOS Finder copy (files suffixed " 2") and is a subset — duplicate junk. Both dirs excluded from tsconfig and biome; tsconfig comment says BranchedMenu is already vendored into `src/components/docs/`, so `crs-assets/` can be deleted. `crs-assets/crack-button/` contains its own `node_modules`.
-11. **`plans/* 2.md`** are also macOS duplicates (identical sizes) of the four real plans.
-12. **`src/server.ts` fragility**: HMR workaround uses dynamic import of `@tanstack/react-start/server-entry` + `import.meta.hot.accept` invalidation (TanStack #7285). DO NOT DELETE. Related: vite dev disables the HMR overlay; `pnpm-workspace.yaml` hoists `@tanstack/*` to top-level because workerd doesn't follow pnpm symlinks (pnpm v11 reads these from `pnpm-workspace.yaml`, NOT `.npmrc`).
-13. **Tests**: `cloudflare:workers` must be aliased to the stub in vitest; route files excluded; globals on.
-14. **Docs contract**: `/docs` (src/docs/content) is the single source of truth for business requirements; never create separate md files for reviews/audits — apply notes directly into the corresponding design doc.
-15. **AGPL SPDX header** (`// SPDX-License-Identifier: AGPL-3.0-or-later`) is expected on source files (enforced by `spdx-headers.test.ts`).
-16. **Wrangler triggers**: two crons — daily 06:00 UTC calendar job, hourly `7 * * * *` chat expiry (`src/scheduled.ts` branches on `controller.cron`). `pnpm dev` never fires `scheduled`; use `pnpm calendar:dev:trigger`.
+10. **`src/server.ts` fragility**: HMR workaround uses dynamic import of `@tanstack/react-start/server-entry` + `import.meta.hot.accept` invalidation (TanStack #7285). DO NOT DELETE. Related: vite dev disables the HMR overlay; `pnpm-workspace.yaml` hoists `@tanstack/*` to top-level because workerd doesn't follow pnpm symlinks (pnpm v11 reads these from `pnpm-workspace.yaml`, NOT `.npmrc`).
+11. **Tests**: `cloudflare:workers` must be aliased to the stub in vitest; route files excluded; globals on.
+12. **Docs contract**: `/docs` (src/docs/content) is the single source of truth for business requirements; never create separate md files for reviews/audits — apply notes directly into the corresponding design doc.
+13. **AGPL SPDX header** (`// SPDX-License-Identifier: AGPL-3.0-or-later`) is expected on source files (enforced by `spdx-headers.test.ts`).
+14. **Wrangler triggers**: two crons — daily 06:00 UTC calendar job, hourly `7 * * * *` chat expiry (`src/scheduled.ts` branches on `controller.cron`). `pnpm dev` never fires `scheduled`; use `pnpm calendar:dev:trigger`.
