@@ -16,6 +16,10 @@ Stack technologiczny:
 - **Testing**: Vitest + Testing Library
 - **Package manager**: pnpm
 
+## INDEX.md — mapa projektu (czytaj PRZED szukaniem)
+
+W root jest `INDEX.md` — wygenerowana mapa projektu dla agentów AI. **Za każdym razem, gdy chcesz czegoś znaleźć lub zeskanować repo, najpierw przeczytaj `INDEX.md`** (mapa katalogów, kluczowe pliki, komendy, gotchas) — oszczędzasz tokeny i skanowanie. Sekcji "Secrets map" nie pomijaj: ścieżki z niej są ZAKAZANE do czytania — wykrywaj je tylko po nazwie. Jeśli data generacji w nagłówku ma więcej niż 14 dni, zaproponuj regenerację przez `/index-md`.
+
 ## Komendy
 
 ### Development

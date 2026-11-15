@@ -5,7 +5,7 @@
 	// @tanstack/react-router rozbijał kontekst tras na `never`).
 	// crs-assets: react-bits BranchedMenu jest już zwendored do src/components/docs/
 	// (F5 #208) — folder można usunąć; do czasu usunięcia zostaje wykluczony z kompilacji.
-	"exclude": ["node_modules", "ai-demo", "crs-assets"],
+	"exclude": ["node_modules", "ai-demo", "crs-assets", "crs-assets 2"],
 	"compilerOptions": {
 		"target": "ES2022",
 		"jsx": "react-jsx",
