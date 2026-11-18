@@ -1,3 +1,10 @@
+# [5.24.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.23.0...v5.24.0) (2026-11-18)
+
+
+### Features
+
+* **ui:** glass surfaces, skeleton loading states and zero artificial boot delays ([2e0880e](https://github.com/CrystalPlatforms/wspolniak/commit/2e0880ed725cfcfae33ad9604f2822edd3ce9fb0)), closes [234/#235](https://github.com/CrystalPlatforms/wspolniak/issues/235)
+
 # [5.23.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.22.0...v5.23.0) (2026-11-05)
 
 
