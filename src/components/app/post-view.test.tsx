@@ -147,8 +147,8 @@ describe("PostView", () => {
 });
 
 describe("PostView — choreografia widoku posta (#147)", () => {
-	it("etapy mają ścisłą kolejność: photos → comments → text", () => {
-		expect(POST_VIEW_STAGES).toEqual(["photos", "comments", "text"]);
+	it("etapy mają ścisłą kolejność: text → comments → photos (tekst bez czekania)", () => {
+		expect(POST_VIEW_STAGES).toEqual(["text", "comments", "photos"]);
 	});
 
 	it("revealText=false: autor, opis i reakcje czekają na szkieletach (etap text)", () => {

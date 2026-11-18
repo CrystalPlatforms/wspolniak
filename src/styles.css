@@ -4,6 +4,8 @@
 
 @import 'tw-animate-css';
 
+@import './components/glass/glass.css';
+
 @custom-variant dark (&:is(.dark *));
 
 body {

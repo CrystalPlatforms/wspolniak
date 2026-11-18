@@ -46,10 +46,11 @@ function PostPage() {
 		queryFn: () => fetchPost(id),
 	});
 
-	// Choreografia #147: photos → comments → text. Komentarze pobierane RÓWNOLEGLE
-	// z postem (ten sam klucz co CommentSection — jeden fetch), gotowość = koniec
-	// pending (sukces lub błąd). Etap photos odblokowuje wygaszenie PIERWSZEGO
-	// zdjęcia (post bez zdjęć → od razu) — dalsze fade'ują niezależnie.
+	// Choreografia (reviza: zero sztucznych czekań) — text → comments → photos.
+	// Komentarze pobierane RÓWNOLEGLE z postem (ten sam klucz co CommentSection —
+	// jeden fetch), gotowość = koniec pending (sukces lub błąd). Tekst NIE czeka
+	// na zdjęcia; zdjęcia fade'ują per-obraz (pierwszy obraz = etap terminalny,
+	// niczym już nie bramkowany).
 	const commentsQuery = useQuery(commentsQueryOptions(id));
 	// Bramka zapamiętana per id posta — nawigacja do innego posta wraca do czekania.
 	const [firstImageLoadedFor, setFirstImageLoadedFor] = useState<string | null>(null);

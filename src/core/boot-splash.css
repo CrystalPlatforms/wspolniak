@@ -1,56 +1,25 @@
-/* Static cold-start splash (Loading Harmony P2, #144) — czarne tło, TailChase, tytuł.
-   Nieprzezroczysty overlay nad całą aplikacją (także nad MaintenanceOverlay z-9999):
-   treść SSR renderuje się pod spodem, więc usunięcie splasha nie mignie bielą.
-   Animacja TailChase i reduced-motion dziedziczą z loader.css (klasa .loader). */
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/* Static cold-start splash (Loading Harmony P2, #144) — reviza: wygląda 1:1
+   jak ładujący się feed. Tło aplikacji (var --background), treść od góry
+   jak strona feedu (px-4 py-6), karty PostCardSkeleton w kolumnie max-w-2xl
+   ze space-y-6. Zero czarnego ekranu i tytułu — splash płynie w feed bez mignięcia.
+   Nieprzezroczysty overlay nad całą aplikacją (także nad MaintenanceOverlay
+   z-9999); shimmer szkieletu i reduced-motion żyją w post-card-skeleton.css. */
 .boot-splash {
 	position: fixed;
 	inset: 0;
 	z-index: 10000;
+	overflow: hidden;
+	background-color: var(--background);
+	padding: 24px 16px;
+}
+
+.boot-splash-skeleton {
+	/* Kolumna szkieletów kart 1:1 jak w feedzie: max-w-2xl → 42rem szerokości
+	   treści, space-y-6 → 24px między kartami. Widoczne OD RAZU. */
 	display: flex;
 	flex-direction: column;
-	align-items: center;
-	justify-content: center;
 	gap: 24px;
-	background-color: #000;
-}
-
-.boot-splash-loader {
-	/* Reviza #187: loader (uib-dot-loader) dołącza PO napisie — płynny fade-in
-	   bez migania w pierwszych klatkach (animacja loadera gra niezależnie). */
-	opacity: 0;
-	animation: splash-loader-in 320ms ease-out 380ms forwards;
-}
-
-.boot-splash-title {
-	margin: 0;
-	font-size: 28px;
-	font-weight: 700;
-	letter-spacing: 0.02em;
-	color: #fafafa;
-	animation: splash-title-in 200ms ease-out both;
-}
-
-@keyframes splash-title-in {
-	from {
-		opacity: 0;
-		transform: translateY(4px);
-	}
-	to {
-		opacity: 1;
-		transform: none;
-	}
-}
-
-@keyframes splash-loader-in {
-	to {
-		opacity: 1;
-	}
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.boot-splash-loader,
-	.boot-splash-title {
-		animation: none;
-		opacity: 1;
-	}
+	max-width: 42rem;
 }

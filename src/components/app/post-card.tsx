@@ -16,6 +16,7 @@ import {
 import { PostCornerActions } from "@/components/app/post-corner-actions";
 import { PostWhoReacted } from "@/components/app/post-who-reacted";
 import { VideoDialog, VideoPosterButton } from "@/components/app/video-player-dialog";
+import { GLASS_SURFACE_CLASS, useGlass } from "@/components/glass";
 import { useBootSequence } from "@/core/boot-sequence";
 import { getImageUrl } from "@/images/client";
 
@@ -85,6 +86,9 @@ export function PostCard({
 	/** Wideo otwarte w dialogu (Video v2 F4 #198) — null = zamknięty. */
 	const [dialogVideo, setDialogVideo] = useState<PostCardVideo | null>(null);
 
+	// Wspólniak Glass (#234): receptura powierzchni na karcie — tylko gdy ON
+	// (OFF = karta 1:1 jak przed zmianą, klasa nie jest doklejana).
+	const { on: glassOn } = useGlass();
 	const canManage = post.authorId === currentUserId || currentUserRole === "admin";
 	const visibleImages = post.images.slice(0, MAX_FEED_IMAGES);
 	const remaining = post.images.length - MAX_FEED_IMAGES;
@@ -117,7 +121,7 @@ export function PostCard({
 
 	return (
 		<article
-			className={`relative rounded-lg border bg-card p-4 ${
+			className={`relative rounded-lg border bg-card p-4 ${glassOn ? GLASS_SURFACE_CLASS : ""} ${
 				post.pinned ? "border-2 border-primary" : "border-border"
 			}`}
 		>

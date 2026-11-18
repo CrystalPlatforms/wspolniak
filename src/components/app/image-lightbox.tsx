@@ -12,6 +12,9 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AddToAlbumButton } from "@/components/app/add-to-album-button";
+// Klasa .skeleton (shimmer) — jawny import, żeby szkielet miał style niezależnie
+// od tego, co jeszcze jest na stronie (lightbox żyje w portalu na body).
+import "@/components/app/post-card-skeleton.css";
 import { Loader } from "@/components/ui/loader";
 import { downloadImage, isAndroidWrapper, saveBlobViaBridge } from "@/lib/download-image";
 import { clampOffset, MAX_ZOOM, MIN_ZOOM, usePinchZoom } from "./use-pinch-zoom";
@@ -114,6 +117,21 @@ export function ImageLightbox({
 	const [visible, setVisible] = useState(false);
 	const [animatingOut, setAnimatingOut] = useState(false);
 	const [currentIndex, setCurrentIndex] = useState(initialIndex);
+	/**
+	 * ID zdjęć z dostarczonymi bajtami (jak loadedImages w PostCard). Set zamiast
+	 * flagi bool: re-rendery rodzica i re-run efektu `open` nie kasują stanu —
+	 * szkielet znika definitywnie w chwili, gdy zdjęcie jest, i wraca tylko dla
+	 * zdjęcia, którego jeszcze nie ma w cache przeglądarki.
+	 */
+	const [loadedIds, setLoadedIds] = useState<ReadonlySet<string>>(() => new Set());
+	const markImageLoaded = useCallback((imageId: string) => {
+		setLoadedIds((prev) => {
+			if (prev.has(imageId)) return prev;
+			const next = new Set(prev);
+			next.add(imageId);
+			return next;
+		});
+	}, []);
 	const [slideDirection, setSlideDirection] = useState<"right" | "left">("right");
 	const [downloading, setDownloading] = useState(false);
 	const [downloadProgress, setDownloadProgress] = useState(0);
@@ -337,10 +355,26 @@ export function ImageLightbox({
 				key={currentIndex}
 				className={`relative flex max-h-screen min-h-0 flex-1 items-center justify-center p-4 ${slideClass}`}
 			>
+				{!loadedIds.has(image.id) && (
+					/* Szkielet w trakcie wczytywania zdjęcia: znika w chwili gotowości
+					 * bajtów (Set per zdjęcie — re-rendery go nie przywracają);
+					 * pointer-events-none, żeby klik (zamknięcie) przechodził. */
+					<div
+						aria-hidden="true"
+						className="pointer-events-none absolute inset-0 flex items-center justify-center p-4"
+					>
+						<div className="skeleton aspect-video w-full max-w-md rounded-lg" />
+					</div>
+				)}
 				<img
-					ref={imgRef}
+					ref={(el) => {
+						imgRef.current = el;
+						// Zdjęcia z cache bywają gotowe przed podpięciem onLoad (jak w FadeImage).
+						if (el?.complete) markImageLoaded(image.id);
+					}}
 					src={image.src}
 					alt={image.alt}
+					onLoad={() => markImageLoaded(image.id)}
 					className={`max-h-[72vh] max-w-full rounded-lg object-contain ${isPanning ? "" : "transition-transform duration-150"}`}
 					style={
 						zoom > MIN_ZOOM

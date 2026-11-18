@@ -1,14 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { useEffect, useState } from "react";
-import { Loader } from "@/components/ui/uib-loader";
+import { PostCardSkeleton } from "@/components/app/post-card-skeleton";
 import "./boot-splash.css";
 
-/** Minimalny czas życia splasha w milisekundach (liczony od startu nawigacji). */
-export const SPLASH_MIN_MS = 600;
+/**
+ * Minimalny czas życia splasha (liczony od startu nawigacji). Reviza: 0 —
+ * splash znika w chwili hydratacji, zero sztucznego czekania.
+ */
+export const SPLASH_MIN_MS = 0;
 
-/** Czas wjazdu pasków nawigacji (boot-slide-*, styles.css) — po nim treść zaczyna się wypełniać (#145). */
-export const BOOT_SLIDE_MS = 400;
+/**
+ * Czas wjazdu pasków nawigacji (boot-slide-*, styles.css) — reviza: 0.
+ * Treść nie czeka na osiadnięcie pasków; wjazd to czysta animacja CSS.
+ */
+export const BOOT_SLIDE_MS = 0;
 
 /** Ile jeszcze czekać z ukryciem splasha; 0, gdy minimum już minęło. */
 export function splashRemainingMs(elapsedMs: number): number {
@@ -134,21 +140,29 @@ export function useBootSettled(): boolean {
 }
 
 /**
- * Statyczny splash w shellu HTML: czarne tło, TailChase, tytuł. Widoczny
- * od pierwszego paintu SSR — zero JS, zero danych. Ukrywany po hydratacji
- * (reguła min. SPLASH_MIN_MS), nieprzezroczysty overlay nad aplikacją.
+ * Statyczna treść splasha — wydzielona dla testów i czytelności: nagłówek
+ * „Witaj <name>" (jak w feedzie, ten sam styl h1) i karty PostCardSkeleton
+ * na tle aplikacji (var --background), bez tytułu apki i bez loadera.
+ * Widoczna od pierwszego paintu SSR — imię pochodzi z sesji SSR (layout /app).
+ * BootSplash renderuje ją dopóki żyje; SPLASH_MIN_MS = 0 → znika w pierwszym
+ * efekcie, więc testy widzą markup przez BootSplashContent.
  */
-export function BootSplash() {
-	const hidden = useBootReveal();
-	if (hidden) return null;
+export function BootSplashContent({ name }: { name?: string }) {
 	return (
 		<div className="boot-splash">
-			{/* Reviza #187: najpierw napis, CHWILĘ PÓŹNIEJ loader (uib-dot-loader,
-			    fade-in CSS) — zero migania przed pierwszą klatką. */}
-			<p className="boot-splash-title">Wspólniak</p>
-			<div className="boot-splash-loader">
-				<Loader />
+			<div className="boot-splash-skeleton">
+				{name ? <h1 className="text-2xl font-bold text-foreground">Witaj {name}</h1> : null}
+				<PostCardSkeleton />
+				<PostCardSkeleton />
+				<PostCardSkeleton />
 			</div>
 		</div>
 	);
+}
+
+/** Splash z powitaniem — montowany w layout /app (sesja SSR zna imię usera). */
+export function BootSplash({ name }: { name?: string }) {
+	const hidden = useBootReveal();
+	if (hidden) return null;
+	return <BootSplashContent name={name} />;
 }

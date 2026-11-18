@@ -9,6 +9,7 @@ import type { CommentWithAuthor } from "@/components/app/comment-section";
 import { EmojiReactions } from "@/components/app/emoji-reactions";
 import { type Mention, MentionInput } from "@/components/app/mention-input";
 import { MentionText } from "@/components/app/mention-text";
+import { GLASS_SURFACE_CLASS, useGlass } from "@/components/glass";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
@@ -52,6 +53,9 @@ export function CommentItem({ comment, postId, currentUserId, currentUserRole }:
 	const isTopLevel = comment.parentId === null;
 	const canManage = currentUserId === comment.authorId || currentUserRole === "admin";
 	const replyAllowed = isTopLevel && canAddReply(comment.replies.length);
+	// Wspólniak Glass (#234): receptura powierzchni tylko na kartach top-level
+	// (odpowiedzi zostają lekkie); OFF = klasa w ogóle nie jest doklejana.
+	const { on: glassOn } = useGlass();
 
 	const replyMutation = useMutation({
 		mutationFn: ({ body, mentions }: { body: string; mentions: Mention[] }) =>
@@ -68,7 +72,7 @@ export function CommentItem({ comment, postId, currentUserId, currentUserRole }:
 		<div
 			className={
 				isTopLevel
-					? "rounded-md border border-border bg-muted/50 p-3"
+					? `rounded-md border border-border bg-muted/50 p-3 ${glassOn ? GLASS_SURFACE_CLASS : ""}`
 					: "rounded-md bg-background/40 p-2"
 			}
 		>

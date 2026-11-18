@@ -144,35 +144,6 @@ export function ThemeProvider({
 		applyTheme(currentTheme);
 	}, [theme, systemTheme, applyTheme]);
 
-	// Prevent flash during SSR by applying theme via script
-	React.useEffect(() => {
-		if (typeof document === "undefined") return;
-
-		// Create a script that runs before React hydration to prevent FOIT
-		const script = document.createElement("script");
-		script.innerHTML = `
-      try {
-        var theme = localStorage.getItem('${storageKey}') || '${defaultTheme}';
-        var systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        var resolvedTheme = theme === 'system' ? systemTheme : theme;
-        
-        if (resolvedTheme === 'dark') {
-          document.documentElement.classList.add('dark');
-          document.documentElement.classList.remove('light');
-        } else {
-          document.documentElement.classList.add('light');
-          document.documentElement.classList.remove('dark');
-        }
-      } catch (e) {}
-    `;
-
-		// Only add if not already present
-		if (!document.querySelector(`script[data-theme-script]`)) {
-			script.setAttribute("data-theme-script", "true");
-			document.head.appendChild(script);
-		}
-	}, [storageKey, defaultTheme]);
-
 	const value = React.useMemo(
 		() => ({
 			theme,
@@ -199,3 +170,21 @@ export const useTheme = () => {
 
 	return context;
 };
+
+/**
+ * Skrypt do <head>, renderowany SSR — nakłada klasę motywu (light/dark) NA
+ * <html> PRZED pierwszym malowaniem (zero FOUC): splash, skeletony i cały shell
+ * dostają od pierwszej klatki właściwe (ciemne/jasne) wartości zmiennych motywu.
+ * Zastępuje dawniejszy skrypt wstrzykiwany useEffectem po hydratacji (za późno
+ * na splash). Logika 1:1 z domyślnymi propsami ThemeProvidera (storageKey
+ * "ui-theme", default "system").
+ */
+export function ThemeHeadScript() {
+	const script =
+		"try{var t=localStorage.getItem('ui-theme')||'system';" +
+		"var s=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';" +
+		"var r=t==='system'?s:t;" +
+		"var d=document.documentElement;d.classList.remove('light','dark');" +
+		"d.classList.add(r)}catch(e){}";
+	return <script>{script}</script>;
+}

@@ -29,7 +29,10 @@ import { downloadImage, isAndroidWrapper, saveBlobViaBridge } from "@/lib/downlo
  * na końcu reszta (autor, opis, reakcje). Sekwencer prowadzi strona
  * (komentarze to rodzeństwo PostView), PostView dostaje wynik w propsach.
  */
-export const POST_VIEW_STAGES = ["photos", "comments", "text"] as const;
+// Kolejność etapów (reviza: zero sztucznych czekań) — tekst i komentarze
+// NIE czekają na zdjęcia: tekst gotowy od razu, komentarze na swój fetch,
+// fotosy (etap nieużywany bezpośrednio — zdjęcia fade'ują per-obraz) na końcu.
+export const POST_VIEW_STAGES = ["text", "comments", "photos"] as const;
 export type PostViewStage = (typeof POST_VIEW_STAGES)[number];
 
 interface PostImage {

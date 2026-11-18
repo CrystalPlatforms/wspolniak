@@ -73,6 +73,26 @@ describe("ImageLightbox", () => {
 		expect(img.getAttribute("src")).toBe("https://example.com/1.jpg");
 	});
 
+	it("shows the skeleton while loading and hides it once the image loads", () => {
+		render(<ImageLightbox images={images} open={true} onClose={() => {}} />);
+
+		// Przed onLoad: szkielet widoczny (klikalność zapewniona pointer-events-none).
+		expect(document.querySelector(".skeleton")).not.toBeNull();
+
+		fireEvent.load(screen.getByRole("img"));
+		expect(document.querySelector(".skeleton")).toBeNull();
+	});
+
+	it("skeleton returns while the next image loads after navigation", () => {
+		render(<ImageLightbox images={images} open={true} onClose={() => {}} />);
+
+		fireEvent.load(screen.getByRole("img"));
+		expect(document.querySelector(".skeleton")).toBeNull();
+
+		fireEvent.keyDown(document, { key: "ArrowRight" });
+		expect(document.querySelector(".skeleton")).not.toBeNull();
+	});
+
 	it("renders image at specified initialIndex", () => {
 		render(<ImageLightbox images={images} initialIndex={2} open={true} onClose={() => {}} />);
 

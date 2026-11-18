@@ -1,19 +1,18 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * Założenia zakodowane w testach (stan na RED):
- * - Min. czas splasha liczy się od STARTU NAWIGACJI (performance.now() przy pierwszym
- *   efekcie klienta ≈ moment hydratacji), nie od pierwszego renderu Reacta.
- * - `splashRemainingMs(elapsed)` zwraca ile milisekund brakuje do SPLASH_MIN_MS;
- *   0 gdy elapsed już przekroczył minimum (zero sztucznych opóźnień).
+ * - REVIZA (zero sztucznych czekań): SPLASH_MIN_MS = 0 i BOOT_SLIDE_MS = 0 —
+ *   splash znika w chwili hydratacji, treść nie czeka na osiadnięcie pasków.
+ * - Splash wygląda 1:1 jak ładujący się feed (PostCardSkeleton na tle aplikacji).
  * - Splash jest całodokumentowy (shell HTML), stan modułu przeżywa remounty
  *   (error boundary nie przywraca splasha).
- * - `useBootReveal` odblokowuje choreografię pasków dokładnie w chwili ukrycia splasha.
- * - Offline fast-path (#148): boot przy navigator.onLine=false pomija min. czas splasha
- *   i osiadanie pasków — cache'owany feed ma być widoczny natychmiast.
+ * - `useBootReveal` odblokowuje choreografię pasków w chwili ukrycia splasha.
+ * - Offline fast-path (#148): boot przy navigator.onLine=false omija timery —
+ *   cache'owany feed ma być widoczny natychmiast.
  * - NIE testujemy tu: okablowania pasków/klas CSS (HITL), wyglądu.
  */
 import { act, render, screen } from "@testing-library/react";
-import { SPLASH_MIN_MS, splashRemainingMs } from "./boot-splash";
+import { BootSplashContent, SPLASH_MIN_MS, splashRemainingMs } from "./boot-splash";
 
 /** Stan bootu jest singletonem modułu — testy cyklu życia potrzebują świeżej kopii. */
 async function freshBootSplash() {
@@ -23,64 +22,55 @@ async function freshBootSplash() {
 
 describe("boot splash", () => {
 	describe("splashRemainingMs", () => {
-		it("zwraca brakujący czas do minimum, gdy hydratacja przyszła przed 600 ms", () => {
-			expect(splashRemainingMs(200)).toBe(400);
-		});
-
-		it("zwraca 0 dokładnie na granicy minimum", () => {
+		it("zawsze zwraca 0 — brak sztucznego minimum czekania", () => {
+			expect(splashRemainingMs(200)).toBe(0);
 			expect(splashRemainingMs(SPLASH_MIN_MS)).toBe(0);
-		});
-
-		it("zwraca 0, gdy elapsed przekroczył minimum — natychmiastowe ukrycie", () => {
 			expect(splashRemainingMs(1500)).toBe(0);
 		});
 	});
 
 	describe("BootSplash", () => {
-		it("renderuje statyczny markup: tytuł Wspólniak i TailChase (6 kropek)", async () => {
-			const { BootSplash: FreshSplash } = await freshBootSplash();
-			vi.useFakeTimers();
-			const nowSpy = vi.spyOn(performance, "now").mockReturnValue(0);
-			try {
-				const { container } = render(<FreshSplash />);
+		it("statyczny markup 1:1 jak ładujący się feed (bez tytułu i loadera)", () => {
+			// Markup przez BootSplashContent: przy SPLASH_MIN_MS = 0 BootSplash znika
+			// już w pierwszym efekcie, więc mount nie pokaże statycznej treści.
+			const { container } = render(<BootSplashContent />);
 
-				expect(screen.getByText("Wspólniak")).toBeTruthy();
-				// Reviza #187: uib-dot-loader (crs-assets) — 6 kroppek.
-				const dots = container.querySelectorAll(".boot-splash-loader .uib-dot");
-				expect(dots.length).toBe(6);
-			} finally {
-				nowSpy.mockRestore();
-				vi.useRealTimers();
-			}
+			expect(container.querySelector(".boot-splash")).not.toBeNull();
+			// Karty szkieletu jak w feedzie — trzy na kolumnę (feed dokłada resztę).
+			const cards = container.querySelectorAll(".boot-splash-skeleton article");
+			expect(cards.length).toBe(3);
+			// Reviza: ani zielonego loadera (uib-dot-loader), ani tytułu na tle aplikacji.
+			expect(container.querySelector(".uib-dot")).toBeNull();
+			expect(container.querySelector(".boot-splash-title")).toBeNull();
 		});
 
-		it("znika dopiero po upływie min. 600 ms od startu nawigacji", async () => {
+		it("pokazuje powitanie Witaj + imię z sesji w nagłówku splasha", () => {
+			const { container, getByText } = render(<BootSplashContent name="Tomek" />);
+
+			expect(getByText(/^Witaj Tomek$/)).not.toBeNull();
+			// Powitanie nie może być aria-hidden (to treść, nie dekoracja).
+			expect(getByText(/^Witaj Tomek$/).closest("[aria-hidden='true']")).toBeNull();
+			// Karty zostają dekoracyjne.
+			expect(
+				container.querySelector(".boot-splash-skeleton article")?.getAttribute("aria-hidden"),
+			).toBe("true");
+		});
+
+		it("bez imienia nie renderuje nagłówka powitania", () => {
+			const { container, queryByText } = render(<BootSplashContent />);
+
+			expect(queryByText(/^Witaj/)).toBeNull();
+			expect(container.querySelectorAll(".boot-splash-skeleton article").length).toBe(3);
+		});
+
+		it("znika od razu po hydratacji — zero czekania niezależnie od zegara", async () => {
 			const { BootSplash: FreshSplash } = await freshBootSplash();
 			vi.useFakeTimers();
 			const nowSpy = vi.spyOn(performance, "now").mockReturnValue(200);
 			try {
-				render(<FreshSplash />);
-				expect(screen.getByText("Wspólniak")).toBeTruthy();
-
-				act(() => vi.advanceTimersByTime(399));
-				expect(screen.getByText("Wspólniak")).toBeTruthy();
-
-				act(() => vi.advanceTimersByTime(1));
-				expect(screen.queryByText("Wspólniak")).toBeNull();
-			} finally {
-				nowSpy.mockRestore();
-				vi.useRealTimers();
-			}
-		});
-
-		it("znika natychmiast, gdy hydratacja nastąpiła po 600 ms — bez czekania na timery", async () => {
-			const { BootSplash: FreshSplash } = await freshBootSplash();
-			vi.useFakeTimers();
-			const nowSpy = vi.spyOn(performance, "now").mockReturnValue(900);
-			try {
-				render(<FreshSplash />);
-
-				expect(screen.queryByText("Wspólniak")).toBeNull();
+				const { container } = render(<FreshSplash />);
+				// Bez advanceTimers — efekt ujawnia natychmiast (SPLASH_MIN_MS = 0).
+				expect(container.querySelector(".boot-splash")).toBeNull();
 			} finally {
 				nowSpy.mockRestore();
 				vi.useRealTimers();
@@ -92,12 +82,12 @@ describe("boot splash", () => {
 			vi.useFakeTimers();
 			const nowSpy = vi.spyOn(performance, "now").mockReturnValue(900);
 			try {
-				const { unmount } = render(<FreshSplash />);
+				const { unmount, container } = render(<FreshSplash />);
 				unmount();
 
-				render(<FreshSplash />);
-
-				expect(screen.queryByText("Wspólniak")).toBeNull();
+				const second = render(<FreshSplash />);
+				expect(second.container.querySelector(".boot-splash")).toBeNull();
+				expect(container).toBeDefined();
 			} finally {
 				nowSpy.mockRestore();
 				vi.useRealTimers();
@@ -111,7 +101,7 @@ describe("boot splash", () => {
 			return <div data-testid="reveal">{revealed ? "true" : "false"}</div>;
 		}
 
-		it("zwraca false przed ukryciem splasha i true w chwili ukrycia", async () => {
+		it("zwraca true od razu po montażu — zero czekania", async () => {
 			const { BootSplash: FreshSplash, useBootReveal } = await freshBootSplash();
 			vi.useFakeTimers();
 			const nowSpy = vi.spyOn(performance, "now").mockReturnValue(0);
@@ -122,12 +112,6 @@ describe("boot splash", () => {
 						<Probe useReveal={useBootReveal} />
 					</>,
 				);
-				expect(screen.getByTestId("reveal").textContent).toBe("false");
-
-				act(() => vi.advanceTimersByTime(599));
-				expect(screen.getByTestId("reveal").textContent).toBe("false");
-
-				act(() => vi.advanceTimersByTime(1));
 				expect(screen.getByTestId("reveal").textContent).toBe("true");
 			} finally {
 				nowSpy.mockRestore();
@@ -157,8 +141,8 @@ describe("boot splash", () => {
 			return <div data-testid="settled">{settled ? "true" : "false"}</div>;
 		}
 
-		it("false w chwili ukrycia splasha, true dopiero po BOOT_SLIDE_MS (wjazd pasków)", async () => {
-			const { BootSplash: FreshSplash, useBootSettled, BOOT_SLIDE_MS } = await freshBootSplash();
+		it("true od razu — treść nie czeka na osiadnięcie pasków (BOOT_SLIDE_MS = 0)", async () => {
+			const { BootSplash: FreshSplash, useBootSettled } = await freshBootSplash();
 			vi.useFakeTimers({ now: 0 });
 			const nowSpy = vi.spyOn(performance, "now").mockImplementation(() => Date.now());
 			try {
@@ -169,32 +153,6 @@ describe("boot splash", () => {
 					</>,
 				);
 
-				act(() => vi.advanceTimersByTime(SPLASH_MIN_MS));
-				expect(screen.getByTestId("settled").textContent).toBe("false");
-
-				act(() => vi.advanceTimersByTime(BOOT_SLIDE_MS - 1));
-				expect(screen.getByTestId("settled").textContent).toBe("false");
-
-				act(() => vi.advanceTimersByTime(1));
-				expect(screen.getByTestId("settled").textContent).toBe("true");
-			} finally {
-				nowSpy.mockRestore();
-				vi.useRealTimers();
-			}
-		});
-
-		it("subskrybent zamontowany między reveal a osiadnięciem dostaje false, potem true", async () => {
-			const { BootSplash: FreshSplash, useBootSettled, BOOT_SLIDE_MS } = await freshBootSplash();
-			vi.useFakeTimers({ now: 0 });
-			const nowSpy = vi.spyOn(performance, "now").mockImplementation(() => Date.now());
-			try {
-				render(<FreshSplash />);
-				act(() => vi.advanceTimersByTime(SPLASH_MIN_MS)); // reveal
-
-				render(<SettledProbe useSettled={useBootSettled} />);
-				expect(screen.getByTestId("settled").textContent).toBe("false");
-
-				act(() => vi.advanceTimersByTime(BOOT_SLIDE_MS));
 				expect(screen.getByTestId("settled").textContent).toBe("true");
 			} finally {
 				nowSpy.mockRestore();
@@ -203,12 +161,12 @@ describe("boot splash", () => {
 		});
 
 		it("późny montaż po osiadnięciu dostaje true od razu", async () => {
-			const { BootSplash: FreshSplash, useBootSettled, BOOT_SLIDE_MS } = await freshBootSplash();
+			const { BootSplash: FreshSplash, useBootSettled } = await freshBootSplash();
 			vi.useFakeTimers({ now: 0 });
 			const nowSpy = vi.spyOn(performance, "now").mockImplementation(() => Date.now());
 			try {
 				render(<FreshSplash />);
-				act(() => vi.advanceTimersByTime(SPLASH_MIN_MS + BOOT_SLIDE_MS));
+				act(() => vi.advanceTimersByTime(0));
 
 				render(<SettledProbe useSettled={useBootSettled} />);
 				expect(screen.getByTestId("settled").textContent).toBe("true");
@@ -238,16 +196,16 @@ describe("boot splash", () => {
 			setOnline(true);
 		});
 
-		it("splash znika natychmiast — bez czekania na min. 600 ms od nawigacji", async () => {
+		it("splash znika natychmiast — bez czekania na jakiekolwiek timery", async () => {
 			setOnline(false);
 			const { BootSplash: FreshSplash } = await freshBootSplash();
 			vi.useFakeTimers();
 			const nowSpy = vi.spyOn(performance, "now").mockReturnValue(100);
 			try {
-				render(<FreshSplash />);
+				const { container } = render(<FreshSplash />);
 
 				// Zero advanceTimers — ukrycie w tej samej ticki efektu.
-				expect(screen.queryByText("Wspólniak")).toBeNull();
+				expect(container.querySelector(".boot-splash")).toBeNull();
 			} finally {
 				nowSpy.mockRestore();
 				vi.useRealTimers();

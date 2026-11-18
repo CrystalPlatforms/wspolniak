@@ -1,0 +1,75 @@
+/* SPDX-License-Identifier: AGPL-3.0-or-later */
+
+/*
+ * Wspólniak Glass (#234/#235) — warstwa nakładki na CRS-Theme.
+ *
+ * Zasady trwałe (PRD #233):
+ * - NIE modyfikujemy tokenów bazowych :root/.dark — dokładamy wyłącznie --glass-*.
+ * - OFF = wygląd 1:1 jak przed zmianą: wszystko poniżej jest bramkowane atrybutem
+ *   `data-glass="on"` na <html> (podwójna bramka: klasa komponentowa + atrybut).
+ * - Receptury: .glass-surface (lekkie szkło, BEZ blur per karta) i .glass-chrome
+ *   (pełne szkło: blur + saturate + opcjonalna refrakcja z --glass-filter).
+ * - --glass-filter i --glass-rim ustawia imperatywnie useGlassChrome() (F2 #235);
+ *   gdy ich brak (Firefox/jsdom), deklaracja zostaje blur + saturate — grace'owy
+ *   fallback bez rozbitej stylistyki.
+ */
+
+:root {
+	--glass-surface-bg: oklch(0.985 0 0 / 0.78);
+	--glass-surface-border: oklch(1 0 0 / 0.6);
+	--glass-surface-shadow: 0 1px 4px -1.5px oklch(0 0 0 / 0.1);
+	--glass-surface-glow: inset 0 1px 0 oklch(1 0 0 / 0.65);
+	--glass-chrome-bg: oklch(0.931 0 0 / 0.55);
+	--glass-chrome-border: oklch(1 0 0 / 0.5);
+	--glass-chrome-shadow: 0 1px 3px oklch(0 0 0 / 0.08);
+	--glass-chrome-blur: 16px;
+	--glass-chrome-saturate: 1.6;
+}
+
+.dark {
+	--glass-surface-bg: oklch(0.24 0 0 / 0.62);
+	--glass-surface-border: oklch(1 0 0 / 0.09);
+	--glass-surface-shadow: 0 1px 4px -1.5px oklch(0 0 0 / 0.35);
+	--glass-surface-glow: inset 0 1px 0 oklch(1 0 0 / 0.07);
+	--glass-chrome-bg: oklch(0.2 0 0 / 0.48);
+	--glass-chrome-border: oklch(1 0 0 / 0.1);
+	--glass-chrome-shadow: 0 1px 3px oklch(0 0 0 / 0.3);
+	--glass-chrome-blur: 16px;
+	--glass-chrome-saturate: 1.4;
+}
+
+/* Powierzchnie: karty postów/komentarzy — przezroczyste tło, hairline, cień,
+ * statyczna poświata górnej krawędzi. Celowo BEZ backdrop-filter (wydajność
+ * scrolla: brak per-card blur). */
+html[data-glass="on"] .glass-surface {
+	background-color: var(--glass-surface-bg);
+	border-color: var(--glass-surface-border);
+	box-shadow: var(--glass-surface-glow), var(--glass-surface-shadow);
+}
+
+/* Przypięty post zachowuje obrys primary — receptura nie może go zabić. */
+html[data-glass="on"] .glass-surface.border-primary {
+	border-color: var(--primary);
+}
+
+/* Chrome: pasek nawigacji i FAB — pełne szkło. --glass-filter (refrakcja) i
+ * --glass-rim (poświata krawędzi) podpina useGlassChrome(); bez nich zostaje
+ * rozmycie z nasyceniem (v0 z #234 i fallback Firefox). */
+html[data-glass="on"] .glass-chrome {
+	background-color: var(--glass-chrome-bg);
+	border-color: var(--glass-chrome-border);
+	box-shadow: var(--glass-chrome-shadow);
+	background-image: var(--glass-rim, none);
+	background-size: 100% 100%;
+	-webkit-backdrop-filter: blur(var(--glass-chrome-blur))
+		var(--glass-filter, saturate(var(--glass-chrome-saturate)));
+	backdrop-filter: blur(var(--glass-chrome-blur))
+		var(--glass-filter, saturate(var(--glass-chrome-saturate)));
+}
+
+/* FAB („Dodaj”) to jedyny chrome element .rounded-full — szkło zachowuje
+ * zielony odcień primary zamiast neutralnego tła receptury. */
+html[data-glass="on"] .glass-chrome.rounded-full {
+	background-color: color-mix(in srgb, var(--primary) 82%, transparent);
+	border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+}

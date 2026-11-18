@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { ChatSettingsNote } from "@/components/app/chat-settings-note";
+import { GlassToggle } from "@/components/glass";
 import { ThemeToggle } from "@/components/theme";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -75,6 +76,10 @@ function SettingsPage() {
 				<div className="flex items-center justify-between gap-4">
 					<p className="text-sm text-muted-foreground">Motyw aplikacji</p>
 					<ThemeToggle variant="outline" showLabel />
+				</div>
+				{/* Wspólniak Glass (#234): pod przełącznikiem motywu, natychmiastowa zmiana. */}
+				<div className="mt-4">
+					<GlassToggle />
 				</div>
 			</section>
 

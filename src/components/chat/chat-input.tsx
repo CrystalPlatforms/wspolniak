@@ -468,8 +468,10 @@ export function ChatInput({
 
 	return (
 		// flex-1: root rozpycha się w rzędzie formularza (input pełnej szerokości
-		// jak przed #214) — bez tego zapada się do szerokości treści.
-		<div className="flex flex-1 items-center gap-2">
+		// jak przed #214) — bez tego zapada się do szerokości treści. items-end:
+		// przy rozwiniętym komponerze przyciski @ / / / spinacz stoją przy dolnej
+		// krawędzi (jak przycisk wyślij obok), nie płyną do góry razem z inputem.
+		<div className="flex flex-1 items-end gap-2">
 			{/* Pasek komend (#214): @, / i spinacz (#217) — okrągłe przyciski po lewej inputu.
 			    Mobilnie chowają się przy rozwiniętym komponerze (>20 znaków) — input
 			    rozciąga się na ich miejsce; desktopowo zostają. */}

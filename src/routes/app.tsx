@@ -11,6 +11,7 @@ import { PwaShell } from "@/components/pwa/pwa-shell";
 import { Loader } from "@/components/ui/loader";
 import { useAiAccess } from "@/core/ai/use-ai-access";
 import { loadAppBootstrap, useAppBootstrap } from "@/core/app-bootstrap";
+import { BootSplash } from "@/core/boot-splash";
 
 export const Route = createFileRoute("/app")({
 	// Bootstrap (sesja/maintenance/flagi) get-or-fetch z query cache: sieć tylko
@@ -55,12 +56,18 @@ function AppLayout() {
 	}
 
 	return (
-		<PwaShell>
-			<DesktopSidebar role={session.role} featureFlags={featureFlags} aiEntrance={aiEntrance} />
-			<main className="sm:ml-[240px]">
-				<Outlet />
-			</main>
-			<MobileNav role={session.role} featureFlags={featureFlags} aiEntrance={aiEntrance} />
-		</PwaShell>
+		<>
+			{/* Splash (reviza): montowany w /app — sesja SSR zna imię usera, więc
+			    splash od pierwszej klatki z „Witaj <name>"; znika w chwili hydratacji
+			    (SPLASH_MIN_MS = 0). Ekran Loadera niżej to ścieżka bez SSR-cache. */}
+			<BootSplash name={session.name} />
+			<PwaShell>
+				<DesktopSidebar role={session.role} featureFlags={featureFlags} aiEntrance={aiEntrance} />
+				<main className="sm:ml-[240px]">
+					<Outlet />
+				</main>
+				<MobileNav role={session.role} featureFlags={featureFlags} aiEntrance={aiEntrance} />
+			</PwaShell>
+		</>
 	);
 }

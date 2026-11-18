@@ -3,6 +3,7 @@
 import { IconHome, IconMessage, IconPlus } from "@tabler/icons-react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { MobileSidebar } from "@/components/app/mobile-sidebar";
+import { GLASS_CHROME_CLASS, useGlassChrome } from "@/components/glass";
 import { Button } from "@/components/ui/button";
 import { useBootReveal } from "@/core/boot-splash";
 import { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from "@/db/instance";
@@ -22,14 +23,20 @@ export function MobileNav({
 }: MobileNavProps) {
 	const { pathname } = useLocation();
 	const bootRevealed = useBootReveal();
+	// Wspólniak Glass (#234/#235): chrome receptura na pasku i FAB-ie; refrakcja
+	// podpina się imperatywnie (ref) przez useGlassChrome.
+	const chrome = useGlassChrome<HTMLElement>();
+	const fab = useGlassChrome<HTMLButtonElement>();
 	const isHomeActive = pathname === "/app";
 	const isChatActive = pathname.startsWith("/app/chat");
 
 	return (
 		<nav
+			ref={chrome.ref}
 			className={cn(
 				"fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background pb-safe sm:hidden",
 				bootRevealed && "boot-reveal-up",
+				chrome.on && GLASS_CHROME_CLASS,
 			)}
 		>
 			<div className="flex items-center justify-around px-2 py-3">
@@ -47,7 +54,11 @@ export function MobileNav({
 				</Link>
 
 				<Link to="/app/new" className="flex flex-col items-center gap-1.5">
-					<Button size="lg" className="h-14 w-14 rounded-full px-0">
+					<Button
+						ref={fab.ref}
+						size="lg"
+						className={cn("h-14 w-14 rounded-full px-0", fab.on && GLASS_CHROME_CLASS)}
+					>
 						{/* size-* omija nadpisanie [&_svg]:size-4 z Buttona (h-12 nie działało). */}
 						<IconPlus className="size-12" aria-hidden="true" />
 					</Button>
