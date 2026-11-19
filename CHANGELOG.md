@@ -1,3 +1,10 @@
+# [7.1.0](https://github.com/CrystalPlatforms/wspolniak/compare/v7.0.0...v7.1.0) (2026-11-19)
+
+
+### Features
+
+* **search:** replace AL assistant with full-archive /app/search ([9e60503](https://github.com/CrystalPlatforms/wspolniak/commit/9e6050332bf65bd8590de5af4ebb06769bbcc8e9))
+
 # [5.24.0](https://github.com/CrystalPlatforms/wspolniak/compare/v5.23.0...v5.24.0) (2026-11-18)
 
 
