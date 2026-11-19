@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Loader } from "@/components/ui/loader";
-import { Switch } from "@/components/ui/switch";
 
 /** Członek rodziny z `GET /api/admin/members` (wiersz panelu admina). */
 export interface Member {
@@ -15,40 +14,31 @@ export interface Member {
 	name: string;
 	role: string;
 	createdAt: string;
-	// AL (F1 #179) — blokada AI nałożona przez admina na tego członka.
-	aiBlocked: boolean;
 }
 
 interface MemberRowProps {
 	member: Member;
 	isRegenerating: boolean;
 	isDeleting: boolean;
-	/** Zapis przełącznika AL w toku — blokuje switch na czas mutacji. */
-	isAiSaving: boolean;
 	/** Generuje nowy magic link; zwraca go do wyświetlenia w dialogu IconInfoCircle. */
 	onRegenerate: () => Promise<string>;
 	onDelete: () => void;
 	onRename: (id: string, name: string) => Promise<void>;
-	/** Ustaw blokadę AL dla członka (true = AI zablokowane). */
-	onAiBlockedChange: (blocked: boolean) => void;
 }
 
 /**
  * Wiersz członka w panelu admina — na liście tylko imię, badge roli i przycisk
- * „IconInfoCircle". Wszystkie opcje członka (przełącznik AL, zmiana imienia, nowy link
+ * „IconInfoCircle". Wszystkie opcje członka (zmiana imienia, nowy link
  * logowania, usuwanie) otwierają się w dialogu IconInfoCircle (przebudowa 2026-09-01,
- * na prośbę usera — czystszy główny ekran admina). Usuwać można tylko
- * członków; switch AL może zablokować każdego, także admina.
+ * na prośbę usera — czystszy główny ekran admina). Usuwać można tylko członków.
  */
 export function MemberRow({
 	member,
 	isRegenerating,
 	isDeleting,
-	isAiSaving,
 	onRegenerate,
 	onDelete,
 	onRename,
-	onAiBlockedChange,
 }: MemberRowProps) {
 	const [infoOpen, setInfoOpen] = useState(false);
 
@@ -77,20 +67,18 @@ export function MemberRow({
 				onOpenChange={setInfoOpen}
 				isRegenerating={isRegenerating}
 				isDeleting={isDeleting}
-				isAiSaving={isAiSaving}
 				onRegenerate={onRegenerate}
 				onDelete={onDelete}
 				onRename={onRename}
-				onAiBlockedChange={onAiBlockedChange}
 			/>
 		</div>
 	);
 }
 
 /**
- * Dialog „IconInfoCircle" członka — wszystkie opcje usera w jednym miejscu: przełącznik
- * AL, zmiana imienia, generowanie magic linka (z kopiowaniem) i usuwanie
- * (tylko członkowie). Otwierany przyciskiem IconInfoCircle na wierszu listy.
+ * Dialog „IconInfoCircle" członka — wszystkie opcje usera w jednym miejscu: zmiana
+ * imienia, generowanie magic linka (z kopiowaniem) i usuwanie (tylko członkowie).
+ * Otwierany przyciskiem IconInfoCircle na wierszu listy.
  */
 function MemberInfoDialog({
 	member,
@@ -98,11 +86,9 @@ function MemberInfoDialog({
 	onOpenChange,
 	isRegenerating,
 	isDeleting,
-	isAiSaving,
 	onRegenerate,
 	onDelete,
 	onRename,
-	onAiBlockedChange,
 }: MemberRowProps & { open: boolean; onOpenChange: (open: boolean) => void }) {
 	const [draft, setDraft] = useState(member.name);
 	const [error, setError] = useState<string | null>(null);
@@ -167,16 +153,6 @@ function MemberInfoDialog({
 
 				<div className="space-y-4">
 					{error && <Alert variant="destructive">{error}</Alert>}
-
-					<section className="flex items-center justify-between gap-4">
-						<span className="font-medium text-foreground">AL (asystent AI)</span>
-						<Switch
-							checked={!member.aiBlocked}
-							disabled={isAiSaving}
-							onCheckedChange={(checked) => onAiBlockedChange(!checked)}
-							aria-label={`AI dla ${member.name}`}
-						/>
-					</section>
 
 					<section className="space-y-2">
 						<p className="text-sm font-medium text-foreground">Imię</p>

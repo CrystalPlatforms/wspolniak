@@ -22,7 +22,6 @@ describe("FeatureToggles — Video v2 (#194): bez przełącznika Wideo", () => {
 			library: true,
 			chat: true,
 			albums: true,
-			ai: false,
 		});
 
 		expect(screen.queryByRole("switch", { name: "Wideo" })).toBeNull();
@@ -34,7 +33,6 @@ describe("FeatureToggles — Video v2 (#194): bez przełącznika Wideo", () => {
 			library: true,
 			chat: true,
 			albums: true,
-			ai: false,
 		});
 
 		for (const label of ["Edytor (Markdown)", "Biblioteka", "Chat", "Albumy"]) {
@@ -52,10 +50,7 @@ describe("FeatureToggles — Video v2 (#194): bez przełącznika Wideo", () => {
 
 	it("reflects albums: false as unchecked and fires onChange({ albums: true }) on toggle", async () => {
 		const onChange = vi.fn();
-		renderToggles(
-			{ markdown: true, library: true, chat: true, albums: false, ai: false },
-			onChange,
-		);
+		renderToggles({ markdown: true, library: true, chat: true, albums: false }, onChange);
 
 		const albumsSwitch = screen.getByRole("switch", { name: "Albumy" });
 		expect(albumsSwitch.getAttribute("aria-checked")).toBe("false");

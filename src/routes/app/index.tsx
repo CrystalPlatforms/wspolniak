@@ -1,17 +1,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { IconSettings } from "@tabler/icons-react";
+import { IconSearch, IconSettings } from "@tabler/icons-react";
 import { infiniteQueryOptions, useInfiniteQuery } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
 import { Feed } from "@/components/app/feed";
 import { type FeedPage, feedQueryKey } from "@/components/app/feed-query";
-import { filterPosts } from "@/components/app/feed-search";
-import { FeedSearchBar } from "@/components/app/feed-search-bar";
 import { PullToRefresh } from "@/components/app/pull-to-refresh";
 import { useVideoPublishedToast } from "@/components/app/use-video-published-toast";
 import { Button } from "@/components/ui/button";
-import { useAiAccess } from "@/core/ai/use-ai-access";
 import { getFeedPage } from "@/core/functions/feed";
 
 type FeedCursor = NonNullable<FeedPage["meta"]["nextCursor"]>;
@@ -48,11 +44,6 @@ function FeedScreen() {
 	const { videoPublished } = Route.useSearch();
 	const { data, hasNextPage, isFetchingNextPage, fetchNextPage, refetch, isPending } =
 		useInfiniteQuery(feedOptions);
-	// Chat AL (F6 #184): wejście z nagłówka feeda przy skutecznym dostępie.
-	const { data: aiAccess } = useAiAccess();
-	const aiEntrance = aiAccess?.effective === true;
-	// Wyszukiwarka feedu (F7 #185): live-filtr załadowanych postów + wyślij do AL.
-	const [query, setQuery] = useState("");
 
 	const allPosts = data?.pages.flatMap((page) => page.data) ?? [];
 	const imageAccountHash = data?.pages[0]?.meta.imageAccountHash ?? "";
@@ -73,31 +64,20 @@ function FeedScreen() {
 				<div className="mb-6 flex items-center gap-2">
 					<h1 className="text-2xl font-bold text-foreground">Witaj {session.name}</h1>
 					<div className="flex-1" />
-					{/* Chat AL (F6 #184): logo obok geara, tylko przy skutecznym dostępie. */}
-					{aiEntrance && (
-						<Link to="/app/ai" aria-label="Chat AL">
-							<Button variant="ghost" size="lg" title="Chat AL">
-								<img src="/AL-logo-static.svg" alt="" className="size-7" />
-							</Button>
-						</Link>
-					)}
+					{/* Wyszukiwarka: lupka obok geara — pełne szukanie po archiwum (/app/search). */}
+					<Link to="/app/search" aria-label="Wyszukiwarka">
+						<Button variant="ghost" size="lg" title="Wyszukiwarka">
+							<IconSearch className="size-6" aria-hidden="true" />
+						</Button>
+					</Link>
 					<Link to="/app/settings">
 						<Button variant="ghost" size="lg" title="Ustawienia">
 							<IconSettings className="size-6" aria-hidden="true" />
 						</Button>
 					</Link>
 				</div>
-				{/* Wyszukiwarka (F7 #185): trzecie wejście do AL — widoczna tylko przy skutecznym dostępie. */}
-				{aiEntrance && (
-					<FeedSearchBar
-						query={query}
-						onQueryChange={setQuery}
-						noResults={query.trim() !== "" && filterPosts(allPosts as never[], query).length === 0}
-					/>
-				)}
 				<Feed
-					posts={filterPosts(allPosts as never[], query) as never[]}
-					query={query}
+					posts={allPosts as never[]}
 					imageAccountHash={imageAccountHash}
 					currentUserId={session.userId}
 					currentUserRole={session.role}

@@ -129,8 +129,6 @@ export interface FeatureFlags {
 	library: boolean;
 	chat: boolean;
 	albums: boolean;
-	// AL — jedyny flag domyślnie wyłączony (AI nie działa bez zgody admina).
-	ai: boolean;
 }
 
 export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
@@ -138,7 +136,6 @@ export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
 	library: true,
 	chat: true,
 	albums: true,
-	ai: false,
 };
 
 const FEATURE_FLAGS_CACHE_TTL_MS = 60_000;
@@ -158,7 +155,6 @@ export async function getFeatureFlags(): Promise<FeatureFlags> {
 			libraryEnabled: instanceConfig.libraryEnabled,
 			chatEnabled: instanceConfig.chatEnabled,
 			albumsEnabled: instanceConfig.albumsEnabled,
-			aiEnabled: instanceConfig.aiEnabled,
 		})
 		.from(instanceConfig)
 		.limit(1);
@@ -168,7 +164,6 @@ export async function getFeatureFlags(): Promise<FeatureFlags> {
 		library: row?.libraryEnabled ?? DEFAULT_FEATURE_FLAGS.library,
 		chat: row?.chatEnabled ?? DEFAULT_FEATURE_FLAGS.chat,
 		albums: row?.albumsEnabled ?? DEFAULT_FEATURE_FLAGS.albums,
-		ai: row?.aiEnabled ?? DEFAULT_FEATURE_FLAGS.ai,
 	};
 	featureFlagsCache = { data: flags, expiresAt: Date.now() + FEATURE_FLAGS_CACHE_TTL_MS };
 	return flags;
@@ -179,7 +174,6 @@ export interface FeatureFlagsUpdate {
 	library?: boolean;
 	chat?: boolean;
 	albums?: boolean;
-	ai?: boolean;
 }
 
 export async function updateFeatureFlags(input: FeatureFlagsUpdate): Promise<void> {
@@ -190,7 +184,6 @@ export async function updateFeatureFlags(input: FeatureFlagsUpdate): Promise<voi
 	if (input.library !== undefined) set.libraryEnabled = input.library;
 	if (input.chat !== undefined) set.chatEnabled = input.chat;
 	if (input.albums !== undefined) set.albumsEnabled = input.albums;
-	if (input.ai !== undefined) set.aiEnabled = input.ai;
 
 	if (Object.keys(set).length > 0) {
 		await getDb().update(instanceConfig).set(set).where(eq(instanceConfig.id, id));

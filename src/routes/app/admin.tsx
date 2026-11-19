@@ -31,8 +31,6 @@ interface Member {
 	name: string;
 	role: string;
 	createdAt: string;
-	// AL (F1 #179) — blokada AI nałożona przez admina na tego członka.
-	aiBlocked: boolean;
 }
 
 interface CreateMemberResponse {
@@ -125,21 +123,6 @@ function AdminPage() {
 		onSuccess: async () => {
 			await queryClient.invalidateQueries({ queryKey: ["admin", "members"] });
 			await queryClient.invalidateQueries({ queryKey: feedQueryKey });
-		},
-	});
-
-	// AL (F1 #179) — blokada AI per członek; przełącznik w wierszu MemberRow.
-	const aiBlockedMutation = useMutation({
-		mutationFn: async ({ id, blocked }: { id: string; blocked: boolean }) => {
-			const res = await fetch(`/api/admin/members/${id}/ai-blocked`, {
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({ blocked }),
-			});
-			if (!res.ok) throw new Error("Nie udało się zapisać ustawienia AI");
-		},
-		onSuccess: async () => {
-			await queryClient.invalidateQueries({ queryKey: ["admin", "members"] });
 		},
 	});
 
@@ -393,7 +376,6 @@ function AdminPage() {
 							member={member}
 							isRegenerating={regenerateMutation.isPending}
 							isDeleting={deleteMutation.isPending}
-							isAiSaving={aiBlockedMutation.isPending}
 							onRegenerate={async () => {
 								const result = await regenerateMutation.mutateAsync({
 									id: member.id,
@@ -403,7 +385,6 @@ function AdminPage() {
 							}}
 							onDelete={() => deleteMutation.mutate(member.id)}
 							onRename={(id, name) => renameMutation.mutateAsync({ id, name })}
-							onAiBlockedChange={(blocked) => aiBlockedMutation.mutate({ id: member.id, blocked })}
 						/>
 					))}
 				</div>

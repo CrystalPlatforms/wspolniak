@@ -1,12 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import {
-	Dialog,
-	DialogContent,
-	DialogDescription,
-	DialogHeader,
-	DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { MaintenanceConfig, MaintenanceUpdate } from "@/db/instance/queries";
 import { MaintenanceSection } from "./maintenance-section";
 
@@ -32,9 +26,6 @@ export function MaintenanceDialog({
 			<DialogContent>
 				<DialogHeader>
 					<DialogTitle>Tryb awaryjny</DialogTitle>
-					<DialogDescription>
-						Włączony tryb ukrywa apkę przed zwykłymi użytkownikami. Admin widzi apkę normalnie.
-					</DialogDescription>
 				</DialogHeader>
 				<MaintenanceSection
 					config={config}

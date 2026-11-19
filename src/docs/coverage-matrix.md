@@ -20,7 +20,6 @@ istnieć w registry — pilnuje tego test coverage.test.ts obok registry. -->
 | 12  | Powiadomienia push                                          | product/notifications-and-pwa            |
 | 13  | PWA — instalacja i tryb offline                             | product/notifications-and-pwa            |
 | 14  | Logowanie magic linkami (+ /share z kodem dostępu)          | product/logging-in                       |
-| 15  | AL — asystent AI (modele, szukanie postów, pomoc w pisaniu) | product/al-assistant                     |
 | 16  | Admin — panel, członkowie, tryb awaryjny, YouTube           | product/for-admins                       |
 | 17  | Admin — statystyki i ranking rodziny                        | product/for-admins                       |
 | 18  | Przełączniki funkcji on/off                                 | product/for-admins                       |

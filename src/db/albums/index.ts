@@ -30,4 +30,6 @@ export {
 	type UpdateAlbumRequest,
 	updateAlbumSchema,
 } from "./schema";
+export type { AlbumMatch } from "./search";
+export { searchAlbums } from "./search";
 export { albumItems, albums } from "./table";

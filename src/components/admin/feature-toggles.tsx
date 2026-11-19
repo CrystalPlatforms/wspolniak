@@ -12,7 +12,6 @@ interface FeatureTogglesProps {
 		library?: boolean;
 		chat?: boolean;
 		albums?: boolean;
-		ai?: boolean;
 	}) => void;
 }
 
@@ -26,8 +25,6 @@ export function FeatureToggles({ flags, isSaving, onChange }: FeatureTogglesProp
 	const library = flags?.library ?? true;
 	const chat = flags?.chat ?? true;
 	const albums = flags?.albums ?? true;
-	// AL — jedyny flag z domyślnym stanem WYŁĄCZONYM (PRD #178).
-	const ai = flags?.ai ?? false;
 
 	return (
 		<div className="rounded-lg border border-border bg-card p-4">
@@ -63,13 +60,6 @@ export function FeatureToggles({ flags, isSaving, onChange }: FeatureTogglesProp
 					checked={albums}
 					disabled={isSaving}
 					onCheckedChange={(v) => onChange({ albums: v })}
-				/>
-				<ToggleRow
-					label="AL (AI)"
-					description="Asystent AL — czat dla rodziny na Groq. Domyślnie wyłączony."
-					checked={ai}
-					disabled={isSaving}
-					onCheckedChange={(v) => onChange({ ai: v })}
 				/>
 			</div>
 		</div>

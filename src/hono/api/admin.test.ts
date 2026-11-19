@@ -630,7 +630,6 @@ describe("GET /api/admin/features", () => {
 			library: true,
 			chat: true,
 			albums: true,
-			ai: false,
 		});
 
 		const api = createApi();
@@ -649,7 +648,6 @@ describe("GET /api/admin/features", () => {
 			library: true,
 			chat: true,
 			albums: true,
-			ai: false,
 		});
 	});
 });
@@ -661,7 +659,6 @@ describe("PUT /api/admin/features", () => {
 			library: false,
 			chat: false,
 			albums: true,
-			ai: false,
 		});
 
 		const api = createApi();
@@ -695,7 +692,6 @@ describe("PUT /api/admin/features", () => {
 			library: true,
 			chat: true,
 			albums: true,
-			ai: false,
 		});
 
 		const api = createApi();
@@ -719,7 +715,6 @@ describe("PUT /api/admin/features", () => {
 			library: true,
 			chat: true,
 			albums: true,
-			ai: false,
 		});
 
 		const api = createApi();
@@ -867,7 +862,6 @@ describe("feature flags — albums (#176)", () => {
 			library: true,
 			chat: true,
 			albums: true,
-			ai: false,
 		});
 
 		const api = createApi();

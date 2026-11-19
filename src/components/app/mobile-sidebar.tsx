@@ -8,8 +8,9 @@ import {
 	IconMenu2,
 	IconMessage,
 	IconPhoto,
+	IconPhotoPlus,
 	IconPlus,
-	IconRobot,
+	IconSearch,
 } from "@tabler/icons-react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useState } from "react";
@@ -28,8 +29,6 @@ interface NavItem {
 	adminOnly?: boolean;
 	/** Wypełnij ikonę (fill) gdy pozycja jest aktywna — np. zakładka w Bibliotece. */
 	fillWhenActive?: boolean;
-	/** Pozycja czatu AL — renderowana wyłącznie gdy aiEntrance (F6). */
-	aiOnly?: boolean;
 }
 
 // Mirror desktop-sidebar.tsx NAV_ITEMS — jedno źródło prawdy dla nawigacji.
@@ -41,8 +40,6 @@ const NAV_ITEMS: NavItem[] = [
 	{ to: "/app/albums", icon: IconPhoto, label: "Albumy" },
 	// F8 #159: nazwa usera „Chat" (nie „Czat"); wypełniona gdy aktywna.
 	{ to: "/app/chat", icon: IconMessage, label: "Chat", fillWhenActive: true },
-	// Chat AL (F6 #184): widoczny tylko przy skutecznym dostępie (prop aiEntrance).
-	{ to: "/app/ai", icon: IconRobot, label: "Chat AL", fillWhenActive: true, aiOnly: true },
 	// Admin wyjęty z menu (przebudowa 2026-09-01) — wejście tylko z Ustawień.
 	{
 		to: "/app/calendar",
@@ -51,6 +48,8 @@ const NAV_ITEMS: NavItem[] = [
 		adminOnly: false,
 		fillWhenActive: true,
 	},
+	// Wyszukiwarka: pełne szukanie po archiwum (posty, komentarze, albumy).
+	{ to: "/app/search", icon: IconSearch, label: "Wyszukiwarka" },
 	{ to: "/app/stats", icon: IconChartBar, label: "Statystyki", adminOnly: false },
 	// Ustawienia przeniesione do nagłówka feeda (ikona Cog obok „Witaj", reviza usera).
 ];
@@ -58,20 +57,13 @@ const NAV_ITEMS: NavItem[] = [
 interface MobileSidebarProps {
 	role?: string;
 	featureFlags?: FeatureFlags;
-	/** Skuteczny dostęp do AL (master ∧ ¬blocked ∧ opt-in) — pokazuje „Chat AL”. */
-	aiEntrance?: boolean;
 }
 
-/** Widoczność pozycji menu (F6): flagi funkcji, admin, wejście do czatu AL. */
+/** Widoczność pozycji menu: flagi funkcji + rola admina. */
 function isNavItemVisible(
 	item: NavItem,
-	{
-		role,
-		featureFlags,
-		aiEntrance,
-	}: { role?: string; featureFlags: FeatureFlags; aiEntrance: boolean },
+	{ role, featureFlags }: { role?: string; featureFlags: FeatureFlags },
 ): boolean {
-	if (item.aiOnly && !aiEntrance) return false;
 	if (item.adminOnly && role !== "admin") return false;
 	if (item.to === "/app/lib" && !featureFlags.library) return false;
 	if (item.to === "/app/chat" && !featureFlags.chat) return false;
@@ -81,17 +73,11 @@ function isNavItemVisible(
 
 // Hamburger (tylko mobile, sm:hidden) otwierający drawer animowany od lewej.
 // Zawiera wszystkie pozycje jak desktop-sidebar + Nowy post.
-export function MobileSidebar({
-	role,
-	featureFlags = DEFAULT_FEATURE_FLAGS,
-	aiEntrance = false,
-}: MobileSidebarProps) {
+export function MobileSidebar({ role, featureFlags = DEFAULT_FEATURE_FLAGS }: MobileSidebarProps) {
 	const [open, setOpen] = useState(false);
 	const { pathname } = useLocation();
 	const { resolvedTheme } = useTheme();
-	const items = NAV_ITEMS.filter((item) =>
-		isNavItemVisible(item, { role, featureFlags, aiEntrance }),
-	);
+	const items = NAV_ITEMS.filter((item) => isNavItemVisible(item, { role, featureFlags }));
 
 	// Kropka „new" przy „Albumy" (#176): najnowszy album vs timestamp widzianych.
 	const hasNewAlbums = useAlbumsNewDot();
@@ -133,14 +119,10 @@ export function MobileSidebar({
 										: "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
 								)}
 							>
-								{item.aiOnly ? (
-									<img src="/AL-logo-static.svg" alt="" className="size-6 shrink-0" />
-								) : (
-									<Icon
-										className="size-6 shrink-0"
-										fill={isActive && item.fillWhenActive ? "currentColor" : "none"}
-									/>
-								)}
+								<Icon
+									className="size-6 shrink-0"
+									fill={isActive && item.fillWhenActive ? "currentColor" : "none"}
+								/>
 								<span>{item.label}</span>
 								{item.to === "/app/albums" && hasNewAlbums && (
 									<span aria-hidden="true" className="ml-auto size-2 rounded-full bg-primary" />
@@ -151,6 +133,12 @@ export function MobileSidebar({
 				</nav>
 
 				<div className="flex flex-col gap-2 border-t border-border p-4">
+					<Link to="/app/new-album" onClick={() => setOpen(false)}>
+						<Button variant="secondary" className="w-full rounded-full py-4 text-lg font-bold">
+							<IconPhotoPlus className="mr-2 size-6" aria-hidden="true" />
+							Nowy album
+						</Button>
+					</Link>
 					<Link to="/app/new" onClick={() => setOpen(false)}>
 						<Button className="w-full rounded-full py-4 text-lg font-bold">
 							<IconPlus className="mr-2 size-6" aria-hidden="true" />

@@ -7,8 +7,9 @@ import {
 	IconHome,
 	IconMessage,
 	IconPhoto,
+	IconPhotoPlus,
 	IconPlus,
-	IconRobot,
+	IconSearch,
 } from "@tabler/icons-react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useTheme } from "@/components/theme/theme-provider";
@@ -26,15 +27,11 @@ interface NavItem {
 	adminOnly?: boolean;
 	/** Wypełnij ikonę (fill) gdy pozycja jest aktywna — np. zakładka w Bibliotece. */
 	fillWhenActive?: boolean;
-	/** Pozycja czatu AL — renderowana wyłącznie gdy aiEntrance (F6). */
-	aiOnly?: boolean;
 }
 
 interface DesktopSidebarProps {
 	role?: string;
 	featureFlags?: FeatureFlags;
-	/** Skuteczny dostęp do AL (master ∧ ¬blocked ∧ opt-in) — pokazuje „Chat AL”. */
-	aiEntrance?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -45,8 +42,6 @@ const NAV_ITEMS: NavItem[] = [
 	{ to: "/app/albums", icon: IconPhoto, label: "Albumy" },
 	// F8 #159: nazwa usera „Chat" (nie „Czat"); wypełniona gdy aktywna.
 	{ to: "/app/chat", icon: IconMessage, label: "Chat", fillWhenActive: true },
-	// Chat AL (F6 #184): widoczny tylko przy skutecznym dostępie (prop aiEntrance).
-	{ to: "/app/ai", icon: IconRobot, label: "Chat AL", fillWhenActive: true, aiOnly: true },
 	// Admin wyjęty z menu (przebudowa 2026-09-01) — wejście tylko z Ustawień.
 	{
 		to: "/app/calendar",
@@ -55,6 +50,8 @@ const NAV_ITEMS: NavItem[] = [
 		adminOnly: false,
 		fillWhenActive: true,
 	},
+	// Wyszukiwarka: pełne szukanie po archiwum (posty, komentarze, albumy).
+	{ to: "/app/search", icon: IconSearch, label: "Wyszukiwarka" },
 	{ to: "/app/stats", icon: IconChartBar, label: "Statystyki", adminOnly: false },
 	// Ustawienia przeniesione do nagłówka feeda (ikona Cog obok „Witaj", reviza usera).
 ];
@@ -62,13 +59,11 @@ const NAV_ITEMS: NavItem[] = [
 export function DesktopSidebar({
 	role,
 	featureFlags = DEFAULT_FEATURE_FLAGS,
-	aiEntrance = false,
 }: DesktopSidebarProps) {
 	const location = useLocation();
 	const { resolvedTheme } = useTheme();
 
 	const items = NAV_ITEMS.filter((item) => {
-		if (item.aiOnly && !aiEntrance) return false;
 		if (item.to === "/app/lib" && !featureFlags.library) return false;
 		if (item.to === "/app/chat" && !featureFlags.chat) return false;
 		if (item.to === "/app/albums" && !featureFlags.albums) return false;
@@ -114,14 +109,10 @@ export function DesktopSidebar({
 									: "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
 							)}
 						>
-							{item.aiOnly ? (
-								<img src="/AL-logo-static.svg" alt="" className="size-6 shrink-0" />
-							) : (
-								<Icon
-									className="size-6 shrink-0"
-									fill={isActive && item.fillWhenActive ? "currentColor" : "none"}
-								/>
-							)}
+							<Icon
+								className="size-6 shrink-0"
+								fill={isActive && item.fillWhenActive ? "currentColor" : "none"}
+							/>
 							<span>{item.label}</span>
 							{item.to === "/app/albums" && hasNewAlbums && (
 								<span aria-hidden="true" className="ml-auto size-2 rounded-full bg-primary" />
@@ -132,6 +123,12 @@ export function DesktopSidebar({
 			</nav>
 
 			<div className="mt-6 flex flex-col gap-2 px-3">
+				<Link to="/app/new-album">
+					<Button variant="secondary" className="w-full rounded-full py-4 text-lg font-bold">
+						<IconPhotoPlus className="mr-2 size-6" aria-hidden="true" />
+						Nowy album
+					</Button>
+				</Link>
 				<Link to="/app/new">
 					<Button className="w-full rounded-full py-4 text-lg font-bold">
 						<IconPlus className="mr-2 size-6" aria-hidden="true" />

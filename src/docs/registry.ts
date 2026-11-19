@@ -15,11 +15,6 @@ export interface Doc {
 	content: string;
 }
 
-export interface DocSearchResult {
-	doc: Doc;
-	score: number;
-}
-
 const modules = import.meta.glob("./content/*/*.md", {
 	query: "?raw",
 	import: "default",
@@ -66,39 +61,4 @@ export function getDoc(department: DocDepartment, slug: string): Doc | null {
 
 export function listDocs(department: DocDepartment): Doc[] {
 	return ALL_DOCS.filter((doc) => doc.department === department);
-}
-
-/**
- * Normalizacja do szukania: małe litery + bez diakrytyków — "zdjęć" i "zdjec"
- * (zapytanie bez polskich znaków, typowe na klawiaturach) mają trafiać tak samo.
- */
-function normalizeForSearch(text: string): string {
-	return text.toLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
-}
-
-/**
- * Keyword/substring scoring po tytułach i treści (PL i EN). Dopasowanie w tytule
- * waży 10, w treści 1 — ranking deterministyczny (przy remisie wygrywa kolejność
- * z ALL_DOCS). Wyniki z zerowym score są pomijane. Matching po normalizacji
- * (bez diakrytyków), więc PL z ogonkami i bez trafia identycznie.
- */
-export function searchDocs(query: string, limit = 5): DocSearchResult[] {
-	const tokens = normalizeForSearch(query)
-		.split(/\s+/)
-		.filter((token) => token.length > 0);
-	if (tokens.length === 0) return [];
-
-	const results: DocSearchResult[] = [];
-	for (const doc of ALL_DOCS) {
-		let score = 0;
-		const title = normalizeForSearch(doc.title);
-		const content = normalizeForSearch(doc.content);
-		for (const token of tokens) {
-			if (title.includes(token)) score += 10;
-			if (content.includes(token)) score += 1;
-		}
-		if (score > 0) results.push({ doc, score });
-	}
-
-	return results.sort((a, b) => b.score - a.score).slice(0, limit);
 }

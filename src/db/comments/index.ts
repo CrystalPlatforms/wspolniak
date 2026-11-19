@@ -14,4 +14,6 @@ export {
 } from "./queries";
 export type { CreateReplyRequest } from "./schema";
 export { createReplySchema } from "./schema";
+export type { CommentMatch } from "./search";
+export { searchComments } from "./search";
 export { comments } from "./table";

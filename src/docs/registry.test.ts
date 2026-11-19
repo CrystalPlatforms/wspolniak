@@ -7,14 +7,11 @@
  *   żeby authored content pozostał sparsowalny.
  * - Frontmatter zawiera wyłącznie `title:`, treść dokumentu jest resztą pliku.
  * - Nieznany slug → null; nieznany dział → typodowo niemożliwy (union DocDepartment).
- * - searchDocs: tokeny z zapytania punktują +10 w tytule, +1 w treści;
- *   dokumenty bez trafienia nie wchodzą do wyników; sortowanie malejące po
- *   score jest deterministyczne (przy remisie wygrywa kolejność dział/slug).
  * - NIE testujemy tu: renderowania Markdown (testy markdown.tsx), host brancha
  *   (host.test.ts), treści merytorycznej dokumentów (HITL).
  */
 
-import { DOC_DEPARTMENTS, getDoc, listDocs, searchDocs } from "./registry";
+import { DOC_DEPARTMENTS, getDoc, listDocs } from "./registry";
 
 describe("docs registry", () => {
 	describe("getDoc", () => {
@@ -49,7 +46,6 @@ describe("docs registry", () => {
 			const slugs = listDocs("product").map((doc) => doc.slug);
 
 			expect(slugs).toEqual([
-				"al-assistant",
 				"albums",
 				"calendar",
 				"family-chat",
@@ -66,7 +62,6 @@ describe("docs registry", () => {
 
 		it("zwraca dokumenty techniczne posortowane po slugu (F9 #213 — pełne pokrycie platformy)", () => {
 			expect(listDocs("technical").map((doc) => doc.slug)).toEqual([
-				"al-internals",
 				"architecture",
 				"database-and-domains",
 				"deploy-and-migrations",
@@ -100,38 +95,6 @@ describe("docs registry", () => {
 			for (const department of DOC_DEPARTMENTS) {
 				expect(listDocs(department).length).toBeGreaterThan(0);
 			}
-		});
-	});
-
-	describe("searchDocs", () => {
-		it("trafienie w tytule wygrywa z trafieniem w treści", () => {
-			const results = searchDocs("wideo");
-
-			// Tytułowe trafienia (10) wygrywają z treściowymi: uploading-photos,
-			// videos i video-pipeline (F9 #213) mają „wideo" w tytule (remis —
-			// kolejność z ALL_DOCS: product przed technical), pozostałe
-			// dokumenty mają „wideo" tylko w treści.
-			const resultsSlugs = results.map((result) => result.doc.slug);
-			expect(resultsSlugs.slice(0, 3)).toEqual(["uploading-photos", "videos", "video-pipeline"]);
-			for (const result of results.slice(3)) {
-				expect(result.score).toBeLessThan(10);
-			}
-		});
-
-		it("kilkuczłonowe zapytanie sumuje score z tytułu i treści", () => {
-			const results = searchDocs("feed posty");
-
-			expect(results[0]?.doc.slug).toBe("feed-and-posts");
-			expect(results[0]?.score).toBeGreaterThan(10);
-		});
-
-		it("zapytanie niepasujące do niczego zwraca pustą listę", () => {
-			expect(searchDocs("ksylometazolina")).toEqual([]);
-		});
-
-		it("puste zapytanie zwraca pustą listę", () => {
-			expect(searchDocs("")).toEqual([]);
-			expect(searchDocs("   ")).toEqual([]);
 		});
 	});
 });

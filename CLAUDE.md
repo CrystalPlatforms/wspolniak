@@ -177,6 +177,17 @@ PostToolUse hooks (biome, eslint) mogą auto-deletować "unused" imports między
 
 Max 500 linii per source file — split gdy exceeding.
 
+## Historyczne decyzje
+
+- **Asystent AL (listopad 2026, usunięty):** Wspólniak miał czat AI „AL" na Groq
+  (`/app/ai`, opt-in per user, flaga admina, generowanie opisów zdjęć). Został
+  zastąpiony klasyczną wyszukiwarką `/app/search` (posty + komentarze + albumy,
+  keyword search w `src/db/posts/search.ts`, `src/db/comments/search.ts`,
+  `src/db/albums/search.ts`, endpoint `GET /api/app/search`). Kolumny DB po AL
+  (`users.ai_opt_in`, `users.ai_blocked`, `instance_config.ai_enabled`) zostały
+  w bazie (bez migracji) — martwe, nie używać. `GROQ_API_KEY` może jeszcze
+  leżeć w `.dev.vars`/`.production.vars` (sekrety, nie ruszać).
+
 ## Dokumentacja biznesowa
 
 - `/docs` — single source of truth dla business requirements

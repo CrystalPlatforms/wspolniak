@@ -333,34 +333,9 @@ describe("Feed", () => {
 		expect(mention.className).toContain("text-primary");
 	});
 
-	it("aktywne wyszukiwanie bez trafień pokazuje „Nic nie znaleziono” zamiast „Brak postów”", () => {
-		render(<Feed posts={[]} {...defaultProps} query="xyzabc" />, { wrapper: createWrapper() });
+	it("pusty feed pokazuje „Brak postów”", () => {
+		render(<Feed posts={[]} {...defaultProps} />, { wrapper: createWrapper() });
 
-		expect(screen.getByText("Nic nie znaleziono")).toBeDefined();
-		expect(screen.getByText(/wyczyść wyszukiwanie/i)).toBeDefined();
-		expect(screen.queryByText(/brak postów/i)).toBeNull();
-	});
-
-	it("aktywne wyszukiwanie chowa footer paginacji („Załaduj więcej”/„Koniec”)", () => {
-		const now = new Date().toISOString();
-		const posts = [
-			{
-				id: "post-1",
-				authorId: "u1",
-				description: "Wakacje nad morzem",
-				createdAt: now,
-				updatedAt: now,
-				author: { id: "u1", name: "Tomek" },
-				images: [],
-			},
-		];
-
-		render(<Feed posts={posts} {...defaultProps} query="morzem" hasNextPage={false} />, {
-			wrapper: createWrapper(),
-		});
-
-		expect(screen.getByText("Tomek")).toBeDefined();
-		expect(screen.queryByText(/koniec/i)).toBeNull();
-		expect(screen.queryByText(/załaduj więcej/i)).toBeNull();
+		expect(screen.getByText("Brak postów")).toBeDefined();
 	});
 });

@@ -8,8 +8,8 @@ export const users = pgTable("users", {
 	tokenHash: text("token_hash").notNull().unique(),
 	deletedAt: timestamp("deleted_at"),
 	createdAt: timestamp("created_at").defaultNow().notNull(),
-	// AL (Wspólniak AI) — dostęp per user (PRD #178). Opt-in ustawia user
-	// w Ustawieniach; blokady dokonuje admin na liście członków.
+	// MARTWE (11.2026): po usunięciu asystenta AL zostały w bazie bez migracji —
+	// nie używać w kodzie (historia: PRD #178, dostęp per user).
 	aiOptIn: boolean("ai_opt_in").notNull().default(false),
 	aiBlocked: boolean("ai_blocked").notNull().default(false),
 });

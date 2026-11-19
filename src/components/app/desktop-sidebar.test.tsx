@@ -30,7 +30,6 @@ describe("DesktopSidebar — Video v2 (#194): biblioteka usunięta", () => {
 					library: true,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -50,7 +49,6 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 					library: true,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -68,7 +66,6 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 					library: true,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -86,7 +83,6 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 					library: true,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -105,7 +101,6 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 					library: true,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -127,7 +122,6 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 					library: true,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -147,7 +141,6 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 					library: true,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -164,7 +157,6 @@ describe("DesktopSidebar — Biblioteka nav link (#129)", () => {
 					library: false,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -186,7 +178,6 @@ describe("DesktopSidebar — Chat nav link (F8 #159)", () => {
 					library: true,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -204,7 +195,6 @@ describe("DesktopSidebar — Chat nav link (F8 #159)", () => {
 					library: true,
 					chat: false,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -221,7 +211,6 @@ describe("DesktopSidebar — Chat nav link (F8 #159)", () => {
 					library: true,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -239,7 +228,6 @@ describe("DesktopSidebar — Chat nav link (F8 #159)", () => {
 					library: true,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -262,7 +250,6 @@ describe("DesktopSidebar — Albumy nav link (#170)", () => {
 					library: true,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -280,7 +267,6 @@ describe("DesktopSidebar — Albumy nav link (#170)", () => {
 					library: true,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -300,7 +286,6 @@ describe("DesktopSidebar — Albumy nav link (#170)", () => {
 					library: true,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -322,7 +307,6 @@ describe("DesktopSidebar — Ustawienia moved to feed header (reviza usera)", ()
 					library: true,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -348,7 +332,6 @@ describe("DesktopSidebar — flaga albums i kropka „new” (#176)", () => {
 					library: true,
 					chat: true,
 					albums: false,
-					ai: false,
 				}}
 			/>,
 		);
@@ -366,7 +349,6 @@ describe("DesktopSidebar — flaga albums i kropka „new” (#176)", () => {
 					library: true,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -385,7 +367,6 @@ describe("DesktopSidebar — flaga albums i kropka „new” (#176)", () => {
 					library: true,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);

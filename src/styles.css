@@ -684,10 +684,10 @@ code {
 	text-decoration: var(--shiki-dark-text-decoration);
 }
 
-/* Czat rodzinny i czat AL (naprawa): oba ekrany scrollują WŁASNE treści
-   (wewnętrzne kontenery), a scroll dokumentu ma być zablokowany — pusty ogon
-   strony pod treścią bywał przewijalny. Reguła żyje tylko gdy któraś z tras
-   jest zamontowana (atrybut data-lock-scroll na katalogu trasy + :has()). */
+/* Czat rodzinny (naprawa): ekran scrolluje WŁASNE treści (wewnętrzny kontener),
+   a scroll dokumentu ma być zablokowany — pusty ogon strony pod treścią bywał
+   przewijalny. Reguła żyje tylko gdy trasa jest zamontowana (atrybut
+   data-lock-scroll na katalogu trasy + :has()). */
 html:has([data-lock-scroll]) {
 	overflow: hidden;
 }
@@ -725,7 +725,7 @@ html:has([data-lock-scroll]) {
 	background: transparent;
 }
 
-/* Pola tekstowe (komposery czatu i AL): pasek scrolla NIEWIDOCZNY, ale treść
+/* Pola tekstowe (komposer czatu): pasek scrolla NIEWIDOCZNY, ale treść
    przewija się dalej (kółko/gesty/strzałki) — czyściocha przy długiej treści. */
 .no-scrollbar {
 	scrollbar-width: none;

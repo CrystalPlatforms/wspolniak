@@ -17,8 +17,6 @@ interface FeedProps {
 	onLoadMore?: () => void;
 	/** Pierwsza strona danych jeszcze leci (#145) — szkielety zamiast mylącego „Brak postów". */
 	isPending?: boolean;
-	/** Aktywne zapytanie wyszukiwarki (F7 #185): chowa footer i zmienia empty state. */
-	query?: string;
 }
 
 export function Feed({
@@ -32,9 +30,7 @@ export function Feed({
 	isFetchingNextPage,
 	onLoadMore,
 	isPending = false,
-	query = "",
 }: FeedProps) {
-	const queryActive = query.trim() !== "";
 	if (isPending) {
 		return (
 			<div className="space-y-6" aria-busy="true">
@@ -49,14 +45,7 @@ export function Feed({
 	if (posts.length === 0) {
 		return (
 			<div className="py-12 text-center">
-				<p className="text-muted-foreground">
-					{queryActive ? "Nic nie znaleziono" : "Brak postów"}
-				</p>
-				{queryActive && (
-					<p className="mt-1 text-sm text-muted-foreground">
-						Wyczyść wyszukiwanie, żeby wrócić do feedu.
-					</p>
-				)}
+				<p className="text-muted-foreground">Brak postów</p>
 			</div>
 		);
 	}
@@ -75,31 +64,28 @@ export function Feed({
 				/>
 			))}
 
-			{/* Przy aktywnym wyszukiwaniu footer paginacji nie ma sensu — wraca po wyczyszczeniu. */}
-			{!queryActive && (
-				<div>
-					{isFetchingNextPage && (
-						<div className="flex items-center justify-center py-4">
-							<Loader loading size={6} />
-						</div>
-					)}
-					{hasNextPage && !isFetchingNextPage && (
-						<div className="flex justify-center py-4">
-							<button
-								type="button"
-								onClick={onLoadMore}
-								className="inline-flex items-center gap-2 rounded-lg border border-border px-6 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
-							>
-								<IconRotate2 className="h-4 w-4" aria-hidden="true" />
-								Załaduj więcej
-							</button>
-						</div>
-					)}
-					{!hasNextPage && posts.length > 0 && !isFetchingNextPage && (
-						<p className="py-4 text-center text-muted-foreground">Koniec</p>
-					)}
-				</div>
-			)}
+			<div>
+				{isFetchingNextPage && (
+					<div className="flex items-center justify-center py-4">
+						<Loader loading size={6} />
+					</div>
+				)}
+				{hasNextPage && !isFetchingNextPage && (
+					<div className="flex justify-center py-4">
+						<button
+							type="button"
+							onClick={onLoadMore}
+							className="inline-flex items-center gap-2 rounded-lg border border-border px-6 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+						>
+							<IconRotate2 className="h-4 w-4" aria-hidden="true" />
+							Załaduj więcej
+						</button>
+					</div>
+				)}
+				{!hasNextPage && posts.length > 0 && !isFetchingNextPage && (
+					<p className="py-4 text-center text-muted-foreground">Koniec</p>
+				)}
+			</div>
 		</div>
 	);
 }

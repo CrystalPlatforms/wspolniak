@@ -6,7 +6,6 @@ import {
 	createMember,
 	listActiveMembers,
 	regenerateMemberToken,
-	setUserAiBlocked,
 	softDeleteMember,
 	updateMemberName,
 } from "@/db/identity/queries";
@@ -52,23 +51,8 @@ adminEndpoint.get("/members", async (c) => {
 		name: m.name,
 		role: m.role,
 		createdAt: m.createdAt,
-		aiBlocked: m.aiBlocked,
 	}));
 	return c.json({ data });
-});
-
-// PUT /members/:id/ai-blocked — przełącznik AI na liście członków (PRD #178).
-// Switch w UI pokazuje „AI włączone" = !blocked; domyślnie każdy ma dostęp.
-adminEndpoint.put("/members/:id/ai-blocked", async (c) => {
-	const userId = c.req.param("id");
-	const body = await c.req.json<{ blocked?: unknown }>();
-
-	if (typeof body.blocked !== "boolean") {
-		return c.json({ error: "blocked must be a boolean" }, 400);
-	}
-
-	await setUserAiBlocked(userId, body.blocked);
-	return c.json({ data: { id: userId, aiBlocked: body.blocked } });
 });
 
 adminEndpoint.post("/members/:id/regenerate", async (c) => {
@@ -178,10 +162,9 @@ adminEndpoint.get("/features", async (c) => {
 adminEndpoint.put("/features", async (c) => {
 	const body = await c.req.json<Record<string, unknown>>();
 
-	// F1 #179: `ai` dołącza do istniejących flag — jedna pętla waliduje wszystkie
-	// (boolean-check + komunikat 400 per nazwa pola, jak wcześniej per-flag).
-	// Wideo nie ma flagi od Video v2 (#194) — zawsze włączone.
-	const FLAG_KEYS = ["markdown", "library", "chat", "albums", "ai"] as const;
+	// Jedna pętla waliduje wszystkie flagi (boolean-check + komunikat 400 per
+	// nazwa pola). Wideo nie ma flagi od Video v2 (#194) — zawsze włączone.
+	const FLAG_KEYS = ["markdown", "library", "chat", "albums"] as const;
 	const update: Partial<Record<(typeof FLAG_KEYS)[number], boolean>> = {};
 	for (const key of FLAG_KEYS) {
 		const value = body[key];

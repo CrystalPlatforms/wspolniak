@@ -162,8 +162,8 @@ const EditorPart = memo(function EditorPart({
  *
  * Mały interface (value / onChange) ukrywa całą konfigurację MDXEditora.
  * Źródłem prawdy jest Markdown: edytor serializuje treść przez onChange, a
- * zmiana `value` SPOZA edytorem (np. wynik AL „Popraw opis") wraca do edytora
- * przez setMarkdown (reviza #187 — bez tego MDXEditor ignorowałby nowy prop).
+ * zmiana `value` SPOZA edytorem (np. edycja formularza przez rodzica) wraca do
+ * edytora przez setMarkdown (reviza #187 — bez tego MDXEditor ignorowałby nowy prop).
  *
  * Reviza #187: formatowanie zawsze dostępne (bez switcha, każde urządzenie),
  * z @mentions — wpisanie `@` otwiera dropdown aktywnych członków; klik/Enter
@@ -184,7 +184,7 @@ export default function WysiwygEditor({
 	 * Treść POCZĄTKOWA — jedyna, jaka trafia do propa `markdown`. MDXEditor
 	 * musi być uncontrolled: controlled markdown (value przy każdym renderze)
 	 * wywoływał re-import dokumentu przy każdej zmianie — lag w pisaniu i
-	 * zjadanie nowych akapitów (Enter znikał). Zmiany rodzica (AL) wracają
+	 * zjadanie nowych akapitów (Enter znikał). Zmiany rodzica wracają
 	 * przez setMarkdown w efekcie poniżej.
 	 */
 	const initialMarkdown = useRef(value);
@@ -213,7 +213,7 @@ export default function WysiwygEditor({
 		return allMembers.filter((m) => m.name.toLowerCase().includes(query));
 	}, [allMembers, detection?.query]);
 
-	// Zewnętrzna zmiana value (AL) → wstrzyknij do edytora.
+	// Zewnętrzna zmiana value (rodzic) → wstrzyknij do edytora.
 	useEffect(() => {
 		if (value !== lastInternal.current) {
 			lastInternal.current = value;

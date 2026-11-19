@@ -15,7 +15,6 @@ import {
 	type ChangeEvent,
 	type Dispatch,
 	type FormEvent,
-	type ReactNode,
 	type SetStateAction,
 	useCallback,
 	useEffect,
@@ -23,7 +22,6 @@ import {
 	useRef,
 	useState,
 } from "react";
-import { GradientAiButton } from "@/components/app/ai/gradient-ai-button";
 import { ComposerVideoPicker, type PendingVideo } from "@/components/app/composer-video-picker";
 import type { Mention } from "@/components/app/mention-input";
 import { OversizedImageDialog } from "@/components/app/oversized-image-dialog";
@@ -149,11 +147,6 @@ function SortablePreview({
 	);
 }
 
-/** Pierwsze przypięte zdjęcie = podstawa „Zaproponuj opis" (F3 #190). */
-function firstMediaFile(media: MediaItem[]): File | null {
-	return media.find((item) => item.file)?.file ?? null;
-}
-
 /**
  * Plik → element listy zdjęć (podgląd + flaga „za duże"). Wspólny dla ręcznego
  * pickera i odbioru poczekalni (#220) — detekcja rozmiaru w jednym miejscu.
@@ -197,10 +190,9 @@ function applyPendingFiles(
 }
 
 /**
- * Reviza #187: nagłówek kompozytora — strzałka powrotu, tytuł i slot na
- * parę przycisków AL (po prawej, na wysokości tytułu).
+ * Reviza #187: nagłówek kompozytora — strzałka powrotu i tytuł.
  */
-function ComposerHeader({ onBack, aiSlot }: { onBack?: () => void; aiSlot: ReactNode }) {
+function ComposerHeader({ onBack }: { onBack?: () => void }) {
 	return (
 		<div className="mb-2 flex items-center gap-4">
 			{onBack && (
@@ -214,7 +206,6 @@ function ComposerHeader({ onBack, aiSlot }: { onBack?: () => void; aiSlot: React
 				</button>
 			)}
 			<h1 className="text-2xl font-bold text-foreground">Nowy post</h1>
-			<div className="ml-auto">{aiSlot}</div>
 		</div>
 	);
 }
@@ -383,19 +374,7 @@ export function NewPostForm({
 
 	return (
 		<form onSubmit={handleSubmit} className="space-y-4">
-			{/* Reviza #187: nagłówek strony w formie — para przycisków AL stoi
-			    na wysokości tytułu „Nowy post", nad inputem i formatowaniem. */}
-			<ComposerHeader
-				onBack={onBack}
-				aiSlot={
-					<GradientAiButton
-						target="post-description"
-						text={description}
-						file={firstMediaFile(media)}
-						onResult={setDescription}
-					/>
-				}
-			/>
+			<ComposerHeader onBack={onBack} />
 
 			{error && (
 				<Alert variant="destructive">
@@ -404,14 +383,10 @@ export function NewPostForm({
 			)}
 
 			<div className="space-y-2">
-				{/* F3 #190: podstawa „Zaproponuj opis" = pierwsze przypięte zdjęcie.
-				    Reviza #187: para AL wyłączona tutaj — stoi przy nagłówku formy. */}
 				<PostDescriptionField
 					value={description}
 					onChange={setDescription}
 					onMentionsChange={setMentions}
-					proposeFile={media.find((item) => item.file)?.file ?? null}
-					showAiButtons={false}
 				/>
 			</div>
 

@@ -54,7 +54,7 @@ function NewPostPage() {
 
 	return (
 		<div className="max-w-2xl bg-background px-4 py-6 pb-50 sm:pb-6">
-			{/* Reviza #187: nagłówek (strzałka + tytuł + przyciski AL) rysuje NewPostForm. */}
+			{/* Reviza #187: nagłówek (strzałka + tytuł) rysuje NewPostForm. */}
 			<UploadErrorAlert
 				error={isError ? error : null}
 				onRetry={async () => {

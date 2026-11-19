@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { IconArrowLeft, IconPhotoPlus, IconX } from "@tabler/icons-react";
 import { useRef, useState } from "react";
-import { GradientAiButton } from "@/components/app/ai/gradient-ai-button";
 import { ComposerVideoPicker, type PendingVideo } from "@/components/app/composer-video-picker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -32,10 +31,10 @@ interface NewAlbumFormProps {
 
 /**
  * Reviza #187: tworzenie albumu jako PODSTRONA zamiast dialogu — układ
- * wzorowany na kompozytorze posta (/app/new): nagłówek ze strzałką i parą
- * AL na wysokości tytułu, mniejszy input tytułu, przyciski wyboru plików
- * z ikonami, podglądy zdjęć i picker wideo (upload → YouTube). Bez
- * formatowania, bez wspomnień i bez „Popraw opis" — album ma tylko tytuł.
+ * wzorowany na kompozytorze posta (/app/new): nagłówek ze strzałką, mniejszy
+ * input tytułu, przyciski wyboru plików z ikonami, podglądy zdjęć i picker
+ * wideo (upload → YouTube). Bez formatowania i bez wspomnień — album ma
+ * tylko tytuł.
  */
 export function NewAlbumForm({
 	onSubmit,
@@ -106,9 +105,6 @@ export function NewAlbumForm({
 					</button>
 				)}
 				<h1 className="text-2xl font-bold text-foreground">Nowy album</h1>
-				<div className="ml-auto">
-					<GradientAiButton target="album-title" files={files} onResult={setTitle} />
-				</div>
 			</div>
 
 			{error && (

@@ -10,17 +10,11 @@ import { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from "@/db/instance";
 import { cn } from "@/lib/utils";
 
 interface MobileNavProps {
-	/** Skuteczny dostęp do AL — pokazuje „Chat AL” w drawerze (F6). */
-	aiEntrance?: boolean;
 	role?: string;
 	featureFlags?: FeatureFlags;
 }
 
-export function MobileNav({
-	role,
-	featureFlags = DEFAULT_FEATURE_FLAGS,
-	aiEntrance = false,
-}: MobileNavProps) {
+export function MobileNav({ role, featureFlags = DEFAULT_FEATURE_FLAGS }: MobileNavProps) {
 	const { pathname } = useLocation();
 	const bootRevealed = useBootReveal();
 	// Wspólniak Glass (#234/#235): chrome receptura na pasku i FAB-ie; refrakcja
@@ -40,7 +34,7 @@ export function MobileNav({
 			)}
 		>
 			<div className="flex items-center justify-around px-2 py-3">
-				<MobileSidebar role={role} featureFlags={featureFlags} aiEntrance={aiEntrance} />
+				<MobileSidebar role={role} featureFlags={featureFlags} />
 
 				<Link
 					to="/app"

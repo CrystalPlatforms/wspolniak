@@ -14,7 +14,6 @@ import {
 	IconKey,
 	IconNews,
 	IconPhotoOff,
-	IconRobot,
 	IconShieldCheck,
 	IconSparkles,
 	IconStack2,
@@ -65,7 +64,7 @@ const MANIFESTS: Record<DocDepartment, GroupDef[]> = {
 		},
 		{
 			label: "Aplikacja",
-			slugs: ["notifications-and-pwa", "logging-in", "al-assistant", "for-admins"],
+			slugs: ["notifications-and-pwa", "logging-in", "for-admins"],
 			icon: IconSparkles,
 		},
 	],
@@ -96,11 +95,6 @@ const MANIFESTS: Record<DocDepartment, GroupDef[]> = {
 			label: "Czas rzeczywisty",
 			slugs: ["realtime-chat", "push-under-the-hood", "pwa-offline"],
 			icon: IconBolt,
-		},
-		{
-			label: "Sztuczna inteligencja",
-			slugs: ["al-internals"],
-			icon: IconRobot,
 		},
 		{
 			label: "Dokumentacja",

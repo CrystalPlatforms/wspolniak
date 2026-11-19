@@ -51,7 +51,6 @@ function makeFlags(overrides: Partial<FeatureFlags> = {}): FeatureFlags {
 		library: true,
 		chat: true,
 		albums: true,
-		ai: false,
 		...overrides,
 	};
 }

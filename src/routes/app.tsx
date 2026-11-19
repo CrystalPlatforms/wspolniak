@@ -9,7 +9,6 @@ import {
 } from "@/components/maintenance/maintenance-overlay";
 import { PwaShell } from "@/components/pwa/pwa-shell";
 import { Loader } from "@/components/ui/loader";
-import { useAiAccess } from "@/core/ai/use-ai-access";
 import { loadAppBootstrap, useAppBootstrap } from "@/core/app-bootstrap";
 import { BootSplash } from "@/core/boot-splash";
 
@@ -26,9 +25,6 @@ export const Route = createFileRoute("/app")({
 function AppLayout() {
 	const navigate = useNavigate();
 	const { session, maintenance, featureFlags, isPending } = useAppBootstrap();
-	// Wejścia do czatu AL (F6 #184) — skuteczny dostęp steruje widocznością.
-	const aiAccess = useAiAccess();
-	const aiEntrance = aiAccess.data?.effective === true;
 
 	// Live redirect: background refresh wykrył wygasłą sesję w trakcie sesji.
 	useEffect(() => {
@@ -62,11 +58,11 @@ function AppLayout() {
 			    (SPLASH_MIN_MS = 0). Ekran Loadera niżej to ścieżka bez SSR-cache. */}
 			<BootSplash name={session.name} />
 			<PwaShell>
-				<DesktopSidebar role={session.role} featureFlags={featureFlags} aiEntrance={aiEntrance} />
+				<DesktopSidebar role={session.role} featureFlags={featureFlags} />
 				<main className="sm:ml-[240px]">
 					<Outlet />
 				</main>
-				<MobileNav role={session.role} featureFlags={featureFlags} aiEntrance={aiEntrance} />
+				<MobileNav role={session.role} featureFlags={featureFlags} />
 			</PwaShell>
 		</>
 	);

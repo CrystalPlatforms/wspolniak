@@ -3,7 +3,6 @@
 import { IconArrowBackUp } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { GradientAiButton } from "@/components/app/ai/gradient-ai-button";
 import { CommentActions } from "@/components/app/comment-actions";
 import type { CommentWithAuthor } from "@/components/app/comment-section";
 import { EmojiReactions } from "@/components/app/emoji-reactions";
@@ -133,7 +132,6 @@ export function CommentItem({ comment, postId, currentUserId, currentUserRole }:
 						maxLength={1000}
 						rows={2}
 					/>
-					<GradientAiButton target="comment" text={replyBody} onResult={setReplyBody} />
 					<div className="flex items-center justify-between">
 						<span className="text-xs text-muted-foreground">{replyBody.length}/1000</span>
 						<div className="flex gap-2">

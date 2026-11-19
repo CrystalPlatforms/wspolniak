@@ -36,7 +36,6 @@ describe("MobileSidebar — Biblioteka nav link (#129)", () => {
 					library: true,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -55,7 +54,6 @@ describe("MobileSidebar — Biblioteka nav link (#129)", () => {
 					library: true,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -74,7 +72,6 @@ describe("MobileSidebar — Biblioteka nav link (#129)", () => {
 					library: true,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -93,7 +90,6 @@ describe("MobileSidebar — Biblioteka nav link (#129)", () => {
 					library: false,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -116,7 +112,6 @@ describe("MobileSidebar — Chat nav link (F8 #159)", () => {
 					library: true,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -135,7 +130,6 @@ describe("MobileSidebar — Chat nav link (F8 #159)", () => {
 					library: true,
 					chat: false,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -153,7 +147,6 @@ describe("MobileSidebar — Chat nav link (F8 #159)", () => {
 					library: true,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -176,7 +169,6 @@ describe("MobileSidebar — Albumy nav link (#170)", () => {
 					library: true,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -195,7 +187,6 @@ describe("MobileSidebar — Albumy nav link (#170)", () => {
 					library: true,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -218,7 +209,6 @@ describe("MobileSidebar — Ustawienia moved to feed header (reviza usera)", () 
 					library: true,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -245,7 +235,6 @@ describe("MobileSidebar — flaga albums i kropka „new” (#176)", () => {
 					library: true,
 					chat: true,
 					albums: false,
-					ai: false,
 				}}
 			/>,
 		);
@@ -264,7 +253,6 @@ describe("MobileSidebar — flaga albums i kropka „new” (#176)", () => {
 					library: true,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);
@@ -284,7 +272,6 @@ describe("MobileSidebar — flaga albums i kropka „new” (#176)", () => {
 					library: true,
 					chat: true,
 					albums: true,
-					ai: false,
 				}}
 			/>,
 		);

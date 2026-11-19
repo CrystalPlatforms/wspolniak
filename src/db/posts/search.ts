@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { and, asc, desc, eq, ilike, isNull, or } from "drizzle-orm";
 import { users } from "@/db/identity/table";
+import { rankSearchResults, tokenizeSearchQuery } from "@/db/search";
 import { getDb } from "@/db/setup";
 import { postImages, posts } from "./table";
 
-export interface AiPostMatch {
+export interface PostMatch {
 	id: string;
 	description: string;
 	authorName: string;
@@ -14,7 +15,7 @@ export interface AiPostMatch {
 }
 
 /**
- * Superlatywy chronologiczne w zapytaniu („pokaż najstarszy/najnowszy post”).
+ * Superlatywy chronologiczne w zapytaniu („pokaż najstarszy/najnowszy post").
  * Obie flagi false = zwykły keyword search.
  */
 function dateIntent(query: string): { wantsOldest: boolean; wantsNewest: boolean } {
@@ -25,23 +26,9 @@ function dateIntent(query: string): { wantsOldest: boolean; wantsNewest: boolean
 }
 
 /**
- * Tokeny zapytania: ≥3 znaki, max 12, unikalne. Stemowanie naiwne: polskie
- * przypadki docięte do prefiksu („wakacjach” → „wakac”) trafiają w formy
- * bazowe w opisach („wakacje”) i odwrotnie — bez tego keyword search nie
- * znajduje postów po odmienionych słowach.
+ * Tokeny zapytania pochodzą ze wspólnych helperów (@/db/search) — ta sama
+ * tokenizacja dla postów, komentarzy i albumów.
  */
-function tokenize(query: string): string[] {
-	return [
-		...new Set(
-			query
-				.toLowerCase()
-				.split(/[^a-ząćęłńóśźż0-9]+/)
-				.filter((token) => token.length >= 3)
-				.map((token) => (token.length > 5 ? token.slice(0, 5) : token))
-				.slice(0, 12),
-		),
-	];
-}
 
 interface SearchRow {
 	id: string;
@@ -53,13 +40,18 @@ interface SearchRow {
 
 /**
  * Kandydaci do rankingu: ILIKE po opisie LUB nazwie autora (trafienie w
- * autora czyni widzialnymi posty bez opisu, np. zapytania „posty Mamy”).
+ * autora czyni widzialnymi posty bez opisu, np. zapytania „posty Mamy").
  * `undefined` w where: przy intencji daty filtr słów odpada w całości.
- * Pula kandydatów: 1000 postów — przy intencji daty właściwy koniec historii
- * (najstarsze/najnowsze), inaczej 1000 najnowszych.
+ * Pula kandydatów: tryb keyword BEZ LIMITU (ILIKE już odfiltrował — szukamy
+ * po całym archiwum); tryb daty 1000 postów — właściwy koniec historii
+ * (najstarsze/najnowsze).
  */
-async function fetchSearchCandidates(tokens: string[], wantsOldest: boolean): Promise<SearchRow[]> {
-	return getDb()
+async function fetchSearchCandidates(
+	tokens: string[],
+	wantsOldest: boolean,
+	cap: number | undefined,
+): Promise<SearchRow[]> {
+	const query = getDb()
 		.select({
 			id: posts.id,
 			description: posts.description,
@@ -85,13 +77,13 @@ async function fetchSearchCandidates(tokens: string[], wantsOldest: boolean): Pr
 		.orderBy(
 			wantsOldest ? asc(posts.createdAt) : desc(posts.createdAt),
 			asc(postImages.displayOrder),
-		)
-		.limit(1000);
+		);
+	return cap === undefined ? query : query.limit(cap);
 }
 
-/** Wiersze SQL → jeden AiPostMatch na post (pierwsze zdjęcie wg displayOrder). */
-function aggregateSearchRows(rows: SearchRow[]): AiPostMatch[] {
-	const byId = new Map<string, AiPostMatch>();
+/** Wiersze SQL → jeden PostMatch na post (pierwsze zdjęcie wg displayOrder). */
+function aggregateSearchRows(rows: SearchRow[]): PostMatch[] {
+	const byId = new Map<string, PostMatch>();
 	for (const row of rows) {
 		const existing = byId.get(row.id);
 		if (existing) {
@@ -110,51 +102,34 @@ function aggregateSearchRows(rows: SearchRow[]): AiPostMatch[] {
 }
 
 /**
- * Ranking: liczba unikalnych tokenów trafionych w opisie albo autora,
- * remisy rozstrzyga nowsza data. Zwraca top `limit` postów.
+ * Ranking po wspólnych helperach (@/db/search): liczba unikalnych tokenów
+ * trafionych w opis albo autora, remisy rozstrzyga nowsza data.
  */
-function rankByTokenHits(posts: AiPostMatch[], tokens: string[], limit: number): AiPostMatch[] {
-	return posts
-		.map((post) => ({
-			post,
-			score: tokens.reduce(
-				(total, token) =>
-					total +
-					(post.description.toLowerCase().includes(token) ||
-					post.authorName.toLowerCase().includes(token)
-						? 1
-						: 0),
-				0,
-			),
-		}))
-		.filter((entry) => entry.score > 0)
-		.sort((a, b) => b.score - a.score || b.post.createdAt.getTime() - a.post.createdAt.getTime())
-		.slice(0, limit)
-		.map((entry) => entry.post);
+function rankPosts(posts: PostMatch[], tokens: string[], limit: number): PostMatch[] {
+	return rankSearchResults(posts, tokens, limit, (post) => [post.description, post.authorName]);
 }
 
 /**
- * Search-before-answer (F5 #183): keyword search po opisach i autorach postów.
- * Zapytanie usera tnie na słowa (≥3 znaki, max 12), SQL wyłapuje kandydatów
- * przez ILIKE po opisie LUB nazwie autora, JS liczy wynik = liczba unikalnych
- * tokenów trafionych w opisie/autorze (remisy: nowszy post wygrywa). Zwraca
- * WYŁĄCZNIE metadane — id, opis, autor, data, pierwsze zdjęcie; bez komentarzy,
- * czatu i bajtów obrazów. Rodzinna skala: pula kandydatów przycięta do 1000
- * postów (2026-09-05: było 300 — rodzina już je przekroczyła).
+ * Keyword search po opisach i autorach postów. Zapytanie tnie na słowa
+ * (≥3 znaki, max 12), SQL wyłapuje kandydatów przez ILIKE po opisie LUB
+ * nazwie autora, JS liczy wynik = liczba unikalnych tokenów trafionych
+ * w opisie/autorze (remisy: nowszy post wygrywa). Zwraca WYŁĄCZNIE metadane —
+ * id, opis, autor, data, pierwsze zdjęcie. Rodzinna skala: pula kandydatów
+ * przycięta do 1000 postów.
  *
- * Intencja chronologiczna („pokaż najstarszy/najnowszy post”): keyword search
+ * Intencja chronologiczna („pokaż najstarszy/najnowszy post"): keyword search
  * nie rozumie superlatywów — ranking po trafieniach zwracał zły post, więc
  * przy tej intencji filtr słów odpada, a wynik jest porządkowany DATĄ:
  * rosnąco dla najstarszego, malejąco dla najnowszego.
  */
-export async function searchPostsForAi(query: string, limit: number): Promise<AiPostMatch[]> {
+export async function searchPosts(query: string, limit: number): Promise<PostMatch[]> {
 	if (limit <= 0) return [];
 	const { wantsOldest, wantsNewest } = dateIntent(query);
 	const byDate = wantsOldest || wantsNewest;
-	const tokens = byDate ? [] : tokenize(query);
+	const tokens = byDate ? [] : tokenizeSearchQuery(query);
 	if (tokens.length === 0 && !byDate) return [];
 
-	const rows = await fetchSearchCandidates(tokens, wantsOldest);
+	const rows = await fetchSearchCandidates(tokens, wantsOldest, byDate ? 1000 : undefined);
 	const candidates = aggregateSearchRows(rows);
 
 	// Intencja daty: kolejność chronologiczna zamiast rankingu trafień
@@ -166,5 +141,5 @@ export async function searchPostsForAi(query: string, limit: number): Promise<Ai
 			.slice(0, limit);
 	}
 
-	return rankByTokenHits(candidates, tokens, limit);
+	return rankPosts(candidates, tokens, limit);
 }

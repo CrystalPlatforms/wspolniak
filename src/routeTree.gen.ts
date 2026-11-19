@@ -16,7 +16,6 @@ import { Route as SetupRouteImport } from './routes/setup'
 import { Route as ShareRouteImport } from './routes/share'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppAdminRouteImport } from './routes/app/admin'
-import { Route as AppAiRouteImport } from './routes/app/ai'
 import { Route as AppAlbumsRouteImport } from './routes/app/albums'
 import { Route as AppCalendarRouteImport } from './routes/app/calendar'
 import { Route as AppChatRouteImport } from './routes/app/chat'
@@ -24,6 +23,7 @@ import { Route as AppLibRouteImport } from './routes/app/lib'
 import { Route as AppNewRouteImport } from './routes/app/new'
 import { Route as AppNewAlbumRouteImport } from './routes/app/new-album'
 import { Route as AppNewVideoRouteImport } from './routes/app/new-video'
+import { Route as AppSearchRouteImport } from './routes/app/search'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
 import { Route as AppStatsRouteImport } from './routes/app/stats'
 import { Route as AppVideoRouteImport } from './routes/app/video'
@@ -74,11 +74,6 @@ const AppAdminRoute = AppAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AppRoute,
 } as any)
-const AppAiRoute = AppAiRouteImport.update({
-  id: '/ai',
-  path: '/ai',
-  getParentRoute: () => AppRoute,
-} as any)
 const AppAlbumsRoute = AppAlbumsRouteImport.update({
   id: '/albums',
   path: '/albums',
@@ -112,6 +107,11 @@ const AppNewAlbumRoute = AppNewAlbumRouteImport.update({
 const AppNewVideoRoute = AppNewVideoRouteImport.update({
   id: '/new-video',
   path: '/new-video',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSearchRoute = AppSearchRouteImport.update({
+  id: '/search',
+  path: '/search',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
@@ -192,7 +192,6 @@ export interface FileRoutesByFullPath {
   '/setup': typeof SetupRoute
   '/share': typeof ShareRoute
   '/app/admin': typeof AppAdminRoute
-  '/app/ai': typeof AppAiRoute
   '/app/albums': typeof AppAlbumsRouteWithChildren
   '/app/calendar': typeof AppCalendarRoute
   '/app/chat': typeof AppChatRoute
@@ -200,6 +199,7 @@ export interface FileRoutesByFullPath {
   '/app/new': typeof AppNewRoute
   '/app/new-album': typeof AppNewAlbumRoute
   '/app/new-video': typeof AppNewVideoRoute
+  '/app/search': typeof AppSearchRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/stats': typeof AppStatsRoute
   '/app/video': typeof AppVideoRouteWithChildren
@@ -222,13 +222,13 @@ export interface FileRoutesByTo {
   '/setup': typeof SetupRoute
   '/share': typeof ShareRoute
   '/app/admin': typeof AppAdminRoute
-  '/app/ai': typeof AppAiRoute
   '/app/calendar': typeof AppCalendarRoute
   '/app/chat': typeof AppChatRoute
   '/app/lib': typeof AppLibRoute
   '/app/new': typeof AppNewRoute
   '/app/new-album': typeof AppNewAlbumRoute
   '/app/new-video': typeof AppNewVideoRoute
+  '/app/search': typeof AppSearchRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/stats': typeof AppStatsRoute
   '/app/video': typeof AppVideoRouteWithChildren
@@ -253,7 +253,6 @@ export interface FileRoutesById {
   '/setup': typeof SetupRoute
   '/share': typeof ShareRoute
   '/app/admin': typeof AppAdminRoute
-  '/app/ai': typeof AppAiRoute
   '/app/albums': typeof AppAlbumsRouteWithChildren
   '/app/calendar': typeof AppCalendarRoute
   '/app/chat': typeof AppChatRoute
@@ -261,6 +260,7 @@ export interface FileRoutesById {
   '/app/new': typeof AppNewRoute
   '/app/new-album': typeof AppNewAlbumRoute
   '/app/new-video': typeof AppNewVideoRoute
+  '/app/search': typeof AppSearchRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/stats': typeof AppStatsRoute
   '/app/video': typeof AppVideoRouteWithChildren
@@ -286,7 +286,6 @@ export interface FileRouteTypes {
     | '/setup'
     | '/share'
     | '/app/admin'
-    | '/app/ai'
     | '/app/albums'
     | '/app/calendar'
     | '/app/chat'
@@ -294,6 +293,7 @@ export interface FileRouteTypes {
     | '/app/new'
     | '/app/new-album'
     | '/app/new-video'
+    | '/app/search'
     | '/app/settings'
     | '/app/stats'
     | '/app/video'
@@ -316,13 +316,13 @@ export interface FileRouteTypes {
     | '/setup'
     | '/share'
     | '/app/admin'
-    | '/app/ai'
     | '/app/calendar'
     | '/app/chat'
     | '/app/lib'
     | '/app/new'
     | '/app/new-album'
     | '/app/new-video'
+    | '/app/search'
     | '/app/settings'
     | '/app/stats'
     | '/app/video'
@@ -346,7 +346,6 @@ export interface FileRouteTypes {
     | '/setup'
     | '/share'
     | '/app/admin'
-    | '/app/ai'
     | '/app/albums'
     | '/app/calendar'
     | '/app/chat'
@@ -354,6 +353,7 @@ export interface FileRouteTypes {
     | '/app/new'
     | '/app/new-album'
     | '/app/new-video'
+    | '/app/search'
     | '/app/settings'
     | '/app/stats'
     | '/app/video'
@@ -435,13 +435,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAdminRouteImport
       parentRoute: typeof AppRoute
     }
-    '/app/ai': {
-      id: '/app/ai'
-      path: '/ai'
-      fullPath: '/app/ai'
-      preLoaderRoute: typeof AppAiRouteImport
-      parentRoute: typeof AppRoute
-    }
     '/app/albums': {
       id: '/app/albums'
       path: '/albums'
@@ -489,6 +482,13 @@ declare module '@tanstack/react-router' {
       path: '/new-video'
       fullPath: '/app/new-video'
       preLoaderRoute: typeof AppNewVideoRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/search': {
+      id: '/app/search'
+      path: '/search'
+      fullPath: '/app/search'
+      preLoaderRoute: typeof AppSearchRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/settings': {
@@ -622,7 +622,6 @@ const AppVideoRouteWithChildren = AppVideoRoute._addFileChildren(
 
 interface AppRouteChildren {
   AppAdminRoute: typeof AppAdminRoute
-  AppAiRoute: typeof AppAiRoute
   AppAlbumsRoute: typeof AppAlbumsRouteWithChildren
   AppCalendarRoute: typeof AppCalendarRoute
   AppChatRoute: typeof AppChatRoute
@@ -630,6 +629,7 @@ interface AppRouteChildren {
   AppNewRoute: typeof AppNewRoute
   AppNewAlbumRoute: typeof AppNewAlbumRoute
   AppNewVideoRoute: typeof AppNewVideoRoute
+  AppSearchRoute: typeof AppSearchRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppStatsRoute: typeof AppStatsRoute
   AppVideoRoute: typeof AppVideoRouteWithChildren
@@ -640,7 +640,6 @@ interface AppRouteChildren {
 
 const AppRouteChildren: AppRouteChildren = {
   AppAdminRoute: AppAdminRoute,
-  AppAiRoute: AppAiRoute,
   AppAlbumsRoute: AppAlbumsRouteWithChildren,
   AppCalendarRoute: AppCalendarRoute,
   AppChatRoute: AppChatRoute,
@@ -648,6 +647,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppNewRoute: AppNewRoute,
   AppNewAlbumRoute: AppNewAlbumRoute,
   AppNewVideoRoute: AppNewVideoRoute,
+  AppSearchRoute: AppSearchRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppStatsRoute: AppStatsRoute,
   AppVideoRoute: AppVideoRouteWithChildren,

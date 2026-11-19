@@ -48,9 +48,9 @@ export function appOrigin(origin: string): string {
 }
 
 /**
- * URL dokumentu docsów widziany z perspektywy hosta apki (F7 #210, RAG-lite dla
- * AL): produkcyjnie absolutny na subdomenie docs.* (https://docs.wspolniak.com/…),
- * dewelopersko (localhost) ścieżka relatywna — lokalne linki bez DNS-a.
+ * URL dokumentu docsów widziany z perspektywy hosta apki (F7 #210): produkcyjnie
+ * absolutny na subdomenie docs.* (https://docs.wspolniak.com/…), dewelopersko
+ * (localhost) ścieżka relatywna — lokalne linki bez DNS-a.
  */
 export function docsPromptHref(appOrigin: string, path: string): string {
 	const { hostname } = new URL(appOrigin);
