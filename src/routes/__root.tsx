@@ -7,7 +7,6 @@ import { createRootRouteWithContext, HeadContent, Outlet, Scripts } from "@tanst
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import type * as React from "react";
 import { DefaultCatchBoundary } from "@/components/default-catch-boundary";
-import { GlassHeadScript, GlassProvider } from "@/components/glass";
 import { NotFound } from "@/components/not-found";
 import { ThemeHeadScript, ThemeProvider } from "@/components/theme";
 import { Toaster } from "@/components/ui/sonner";
@@ -79,12 +78,8 @@ function RootComponent() {
 				enableSystem
 				disableTransitionOnChange={false}
 			>
-				{/* Wspólniak Glass (#234): warstwa szkła na całej apce; docs.* host
-				    wyłącza ją sam (readGlassPreference), atrybut bramkuje receptury. */}
-				<GlassProvider>
-					<Outlet />
-					<Toaster />
-				</GlassProvider>
+				<Outlet />
+				<Toaster />
 			</ThemeProvider>
 		</RootDocument>
 	);
@@ -98,8 +93,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				{/* Motyw przed pierwszym malowaniem (reviza: splash i skeletony w ciemnym
 				    motywie od pierwszej klatki — dotąd klasa szła dopiero po hydratacji). */}
 				<ThemeHeadScript />
-				{/* Glass pre-paint: atrybut trybu jeszcze przed pierwszym malowaniem (#234). */}
-				<GlassHeadScript />
 			</head>
 			<body>
 				{children}

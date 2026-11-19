@@ -2,6 +2,7 @@
 import { eq } from "drizzle-orm";
 import { AppError } from "@/core/errors";
 import { getDb } from "@/db/setup";
+import { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from "./feature-flags";
 import { instanceConfig } from "./table";
 
 // #166 — kod dostępu /share. Rewizja usera (2026-08-24): kody wyłącznie
@@ -124,19 +125,9 @@ export async function updateMaintenance(input: MaintenanceUpdate): Promise<void>
 // enabled so existing instances keep their current behaviour once columns are added.
 // Wideo nie ma flagi od Video v2 (#194) — wideo jest zawsze włączone.
 
-export interface FeatureFlags {
-	markdown: boolean;
-	library: boolean;
-	chat: boolean;
-	albums: boolean;
-}
-
-export const DEFAULT_FEATURE_FLAGS: FeatureFlags = {
-	markdown: true,
-	library: true,
-	chat: true,
-	albums: true,
-};
+// Flagi żyją w lekkim pliku (bez drizzle) — klient importuje głęboką ścieżkę,
+// kod serwerowy i beczka @/db/instance re-eksportują stąd (issue #239).
+export { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from "./feature-flags";
 
 const FEATURE_FLAGS_CACHE_TTL_MS = 60_000;
 let featureFlagsCache: { data: FeatureFlags; expiresAt: number } | null = null;

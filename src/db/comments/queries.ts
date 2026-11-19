@@ -58,13 +58,8 @@ export async function createReply(input: {
 	return row;
 }
 
-/** Maksymalna liczba reply pod jednym komentarzem. Limit obowiązuje wszystkich (włącznie z adminem). */
-export const MAX_REPLIES_PER_COMMENT = 5;
-
-/** Czy można dodać kolejne reply, given bieżąca liczba reply pod komentarzem. */
-export function canAddReply(currentReplyCount: number): boolean {
-	return currentReplyCount < MAX_REPLIES_PER_COMMENT;
-}
+// Reguły reply żyją w lekkim pliku (bez drizzle) — re-eksport dla beczki i API (issue #239).
+export { canAddReply, MAX_REPLIES_PER_COMMENT } from "./reply-rules";
 
 /**
  * Liczy aktywne (nieusunięte) reply danego komentarza nadrzędnego.

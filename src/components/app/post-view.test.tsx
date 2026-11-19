@@ -35,7 +35,7 @@ afterEach(() => {
 });
 
 describe("PostView", () => {
-	it("renders post with author, description, and images", () => {
+	it("renders post with author, description, and images", async () => {
 		const now = new Date().toISOString();
 		const post = {
 			id: "post-1",
@@ -53,7 +53,8 @@ describe("PostView", () => {
 		render(<PostView post={post} imageAccountHash="hash-1" />, { wrapper: createWrapper() });
 
 		expect(screen.getByText("Tomek")).toBeDefined();
-		expect(screen.getByText("Wakacje nad morzem")).toBeDefined();
+		// Opis renderuje się przez lazy boundary (issue #239) — asercja asynchroniczna.
+		expect(await screen.findByText("Wakacje nad morzem")).toBeDefined();
 		const images = screen.getAllByRole("img");
 		expect(images).toHaveLength(2);
 		// lazy: off-screen nie pobiera się do czasu zbliżenia do viewportu (#146)

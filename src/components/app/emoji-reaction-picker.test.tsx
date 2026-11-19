@@ -26,7 +26,7 @@ describe("EmojiReactionPicker", () => {
 		render(<EmojiReactionPicker onReact={onReact} />);
 
 		await user.click(screen.getByRole("button", { name: "Dodaj reakcję" }));
-		expect(screen.getByRole("menu", { name: "Wybierz reakcję" })).toBeTruthy();
+		expect(await screen.findByRole("menu", { name: "Wybierz reakcję" })).toBeTruthy();
 
 		await user.click(screen.getByRole("menuitem", { name: "ogień" }));
 		expect(onReact).toHaveBeenCalledWith("flame");
@@ -47,7 +47,7 @@ describe("EmojiReactionPicker", () => {
 		render(<EmojiReactionPicker onReact={onReact} />);
 
 		await user.click(screen.getByRole("button", { name: "Dodaj reakcję" }));
-		const menuBefore = screen.getByRole("menu", { name: "Wybierz reakcję" });
+		const menuBefore = await screen.findByRole("menu", { name: "Wybierz reakcję" });
 		await user.click(screen.getByRole("menuitem", { name: "ogień" }));
 
 		expect(onReact).toHaveBeenCalledWith("flame");
@@ -64,7 +64,7 @@ describe("EmojiReactionPicker", () => {
 		render(<EmojiReactionPicker onReact={vi.fn()} active="flame" />);
 		await user.click(screen.getByRole("button", { name: "Dodaj reakcję" }));
 
-		const flame = screen.getByRole("menuitem", { name: "ogień" });
+		const flame = await screen.findByRole("menuitem", { name: "ogień" });
 		expect(flame.classList.contains("ring-2")).toBe(true);
 		expect(flame.classList.contains("ring-green-500")).toBe(true);
 		// Tylko aktywna emoji ma ring.
@@ -89,7 +89,7 @@ describe("EmojiReactionPicker", () => {
 		rerender(
 			<EmojiReactionPicker onReact={vi.fn()} open onOpenChange={onOpenChange} hideTrigger />,
 		);
-		expect(screen.getByRole("menu", { name: "Wybierz reakcję" })).toBeTruthy();
+		expect(await screen.findByRole("menu", { name: "Wybierz reakcję" })).toBeTruthy();
 
 		await user.keyboard("{Escape}");
 		expect(onOpenChange).toHaveBeenCalledWith(false);
@@ -98,7 +98,7 @@ describe("EmojiReactionPicker", () => {
 	// Regresja: w trybie hideTrigger pill pozycjonował się z nieistniejącego
 	// triggera → placeBar wychodził wcześnie i pill wylatywał na -9999px
 	// (dymek „Zareaguj" w czacie niewidoczny). anchorRect musi być kotwicą.
-	it("positions the pill from anchorRect when the trigger is hidden", () => {
+	it("positions the pill from anchorRect when the trigger is hidden", async () => {
 		render(
 			<EmojiReactionPicker
 				onReact={vi.fn()}
@@ -109,7 +109,7 @@ describe("EmojiReactionPicker", () => {
 			/>,
 		);
 
-		const pill = screen.getByRole("menu", { name: "Wybierz reakcję" });
+		const pill = await screen.findByRole("menu", { name: "Wybierz reakcję" });
 		const positioned = pill.closest(".fixed") as HTMLElement | null;
 		expect(positioned).not.toBeNull();
 		expect(positioned?.style.left).toBe("100px");

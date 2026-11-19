@@ -21,7 +21,7 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { MAX_POST_VIDEOS } from "@/db/posts";
+import { MAX_POST_VIDEOS } from "@/db/posts/schema";
 import { reorder } from "@/lib/reorder";
 
 // Role ARIA przez zmienne — biome traktuje statyczne `role="option"/"listbox"`

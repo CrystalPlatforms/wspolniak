@@ -5,7 +5,7 @@ import {
 	attachmentsPayloadSchema,
 	MAX_CHAT_ATTACHMENT_BYTES,
 	MAX_CHAT_ATTACHMENTS,
-} from "@/db/chat";
+} from "@/db/chat/schema";
 import { ShrinkError, shrinkImageToLimit } from "@/images/shrink";
 
 /** URL pobierania załącznika — prywatny bucket, więc tylko autoryzowana trasa API. */

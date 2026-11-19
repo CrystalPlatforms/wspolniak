@@ -16,7 +16,7 @@ import { useTheme } from "@/components/theme/theme-provider";
 import { Button } from "@/components/ui/button";
 import { useAlbumsNewDot } from "@/core/albums-seen";
 import { useBootReveal } from "@/core/boot-splash";
-import { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from "@/db/instance";
+import { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from "@/db/instance/feature-flags";
 import { cn } from "@/lib/utils";
 
 interface NavItem {

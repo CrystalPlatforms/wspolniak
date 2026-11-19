@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { isNotNull, isNull } from "drizzle-orm";
 import { pgTable, text, timestamp, uniqueIndex } from "drizzle-orm/pg-core";
+import { type ReactionType, reactionTypes } from "./reaction-types";
 
-export const reactionTypes = ["heart", "laugh", "flame", "wow", "sad"] as const;
-export type ReactionType = (typeof reactionTypes)[number];
+// Typy reakcji żyją w lekkim pliku (bez drizzle) — re-eksport dla kodu serwerowego.
+export { reactionTypes, type ReactionType };
 
 export const postReactions = pgTable(
 	"post_reactions",

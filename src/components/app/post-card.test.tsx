@@ -105,12 +105,12 @@ describe("PostCard — choreografia odsłaniania (#145)", () => {
 		mockedSettled.mockReset();
 	});
 
-	it("warm (boot osiadł przed montażem): etapy treści natychmiast, zero szkieletów etapów", () => {
+	it("warm (boot osiadł przed montażem): etapy treści natychmiast, zero szkieletów etapów", async () => {
 		mockedSettled.mockReturnValue(true);
 		const { container } = renderCard(makePost());
 
 		expect(screen.getByText("Babcia")).toBeTruthy();
-		expect(screen.getByText("Opis posta")).toBeTruthy();
+		expect(await screen.findByText("Opis posta")).toBeTruthy(); // opis = lazy chunk (#239)
 		expect(screen.getByText("3")).toBeTruthy();
 		expect(screen.queryByTestId("skeleton-header")).toBeNull();
 		expect(screen.queryByTestId("skeleton-meta")).toBeNull();
@@ -135,7 +135,7 @@ describe("PostCard — choreografia odsłaniania (#145)", () => {
 		expect(container.querySelectorAll('article img[loading="lazy"]').length).toBe(2);
 	});
 
-	it("osiadnięcie pasków odsłania text+reactions w tym samym renderze; zdjęcia czekają na load", () => {
+	it("osiadnięcie pasków odsłania text+reactions w tym samym renderze; zdjęcia czekają na load", async () => {
 		mockedSettled.mockReturnValue(false);
 		const { rerenderCard } = renderCard(makePost());
 
@@ -143,7 +143,7 @@ describe("PostCard — choreografia odsłaniania (#145)", () => {
 		rerenderCard(makePost());
 
 		expect(screen.getByText("Babcia")).toBeTruthy();
-		expect(screen.getByText("Opis posta")).toBeTruthy();
+		expect(await screen.findByText("Opis posta")).toBeTruthy(); // opis = lazy chunk (#239)
 		expect(screen.getByText("3")).toBeTruthy();
 		expect(screen.queryByTestId("skeleton-meta")).toBeNull();
 		// photos: nakładki nadal obecne — zdjęcia się jeszcze nie załadowały
@@ -221,5 +221,14 @@ describe("PostCard — choreografia odsłaniania (#145)", () => {
 		expect(reactions).not.toBeNull();
 		const row = reactions?.parentElement;
 		expect(row?.getAttribute("class")).toContain("gap-4");
+	});
+
+	it("opis renderuje się przez lazy boundary markdown-text (#239)", async () => {
+		mockedSettled.mockReturnValue(true);
+		renderCard(makePost());
+
+		// Lazy boundary rozwiązuje się asynchronicznie (chunk markdown-text).
+		// Zakaz eager importu react-markdown egzekwuje test w bundle-hygiene.
+		expect(await screen.findByText("Opis posta")).toBeTruthy();
 	});
 });

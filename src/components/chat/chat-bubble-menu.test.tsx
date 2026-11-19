@@ -293,7 +293,8 @@ describe("ChatBubbleMenu — reakcje (HITL: przycisk Zareaguj + pill jak w feedz
 		await user.click(screen.getByRole("menuitem", { name: "Zareaguj" }));
 
 		// Bąbelek z 5 emoji — ten sam co w feedzie.
-		const pill = screen.getByRole("menu", { name: "Wybierz reakcję" });
+		// pill = lazy chunk motion (issue #239)
+		const pill = await screen.findByRole("menu", { name: "Wybierz reakcję" });
 		expect(pill).toBeTruthy();
 		expect(screen.getByRole("menuitem", { name: "smutek" })).toBeTruthy();
 

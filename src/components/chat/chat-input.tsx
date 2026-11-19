@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { IconAt, IconPaperclip, IconSlash } from "@tabler/icons-react";
-import { useRef, useState } from "react";
+import { lazy, Suspense, useRef, useState } from "react";
 import { calendarProposalTemplate } from "@/components/app/calendar-proposal";
 import {
 	type MemberOption,
@@ -12,6 +12,7 @@ import {
 	insertMention,
 	type MentionDetection,
 } from "@/components/app/mentions-text";
+import { Loader } from "@/components/ui/loader";
 import {
 	type ChatCommand,
 	type CommandDetection,
@@ -19,7 +20,12 @@ import {
 	filterCommands,
 } from "./chat-commands";
 import { ChatLinkForm } from "./chat-link-form";
-import { ChatLocationForm } from "./chat-location-form";
+
+// Leaflet (~140 kB) leci do klienta dopiero po kliknięciu „lokalizacja" (issue #239).
+const ChatLocationForm = lazy(() =>
+	import("./chat-location-form").then((m) => ({ default: m.ChatLocationForm })),
+);
+
 import { ChatPollForm } from "./chat-poll-form";
 import { buildLinkToken } from "./link-tokens";
 
@@ -549,11 +555,22 @@ export function ChatInput({
 								pending={pollPending}
 							/>
 						) : locationOpen ? (
-							<ChatLocationForm
-								onSave={sendLocation}
-								onCancel={() => setLocationOpen(false)}
-								pending={locationPending}
-							/>
+							<Suspense
+								fallback={
+									<div
+										data-testid="location-form-skeleton"
+										className="mb-2 rounded-xl border border-border bg-popover p-3 shadow-md"
+									>
+										<Loader size={4} />
+									</div>
+								}
+							>
+								<ChatLocationForm
+									onSave={sendLocation}
+									onCancel={() => setLocationOpen(false)}
+									pending={locationPending}
+								/>
+							</Suspense>
 						) : (
 							<ChatLinkForm onSave={saveLink} onCancel={() => setLinkCaret(null)} />
 						)}

@@ -2,7 +2,7 @@
 
 import { Loader } from "@/components/ui/loader";
 import { Switch } from "@/components/ui/switch";
-import type { FeatureFlags } from "@/db/instance";
+import type { FeatureFlags } from "@/db/instance/feature-flags";
 
 interface FeatureTogglesProps {
 	flags?: FeatureFlags;

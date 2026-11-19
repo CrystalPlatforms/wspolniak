@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import type { ReactionTarget } from "@/db/post-reactions/queries";
-import { type ReactionType, reactionTypes } from "@/db/post-reactions/table";
+import { type ReactionType, reactionTypes } from "@/db/post-reactions/reaction-types";
 
 export interface ReactionConfigEntry {
 	/** Polska etykieta (aria-label, dialogi). Obrazek emoji = slug typu (/public/emoji). */

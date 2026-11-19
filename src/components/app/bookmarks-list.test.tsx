@@ -89,9 +89,9 @@ describe("BookmarksList", () => {
 			wrapper: createWrapper(),
 		});
 
-		// Pełny markup PostCard: autor + opis + przycisk zakładki (a nie surowy link).
+		// Pełny markup PostCard: autor + opis (lazy #239) + przycisk zakładki (nie surowy link).
 		expect(await screen.findByText("Tomek")).toBeDefined();
-		expect(screen.getByText("Wakacje nad morzem")).toBeDefined();
+		expect(await screen.findByText("Wakacje nad morzem")).toBeDefined();
 		expect(await screen.findByRole("button", { name: /usuń z biblioteki/i })).toBeDefined();
 	});
 

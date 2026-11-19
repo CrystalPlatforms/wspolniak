@@ -1,21 +1,31 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { IconX } from "@tabler/icons-react";
-import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import type { KeyboardEvent, ReactNode } from "react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+	type KeyboardEvent,
+	lazy,
+	type ReactNode,
+	Suspense,
+	useCallback,
+	useEffect,
+	useRef,
+	useState,
+} from "react";
 import { createPortal } from "react-dom";
 import type { ReactionType } from "@/db/post-reactions/table";
 import { cn } from "@/lib/utils";
 import { AppleEmoji } from "./apple-emoji";
-import type { Particle } from "./emoji-burst";
-import { BurstEmoji, MAX_PARTICLES, makeParticles } from "./emoji-burst";
+import { MAX_PARTICLES, makeParticles, type Particle } from "./emoji-burst";
 import { REACTION_CONFIG, REACTION_ORDER } from "./reaction-config";
 
 const HOLD_INTERVAL = 550;
 /** Bezpiecznik zamykania po burstcie: max czas lotu cząsteczki ~1.8 s + delayi. */
 const BURST_MAX_WAIT_MS = 3400;
 const GAP = 16;
+
+// Lazy boundary motion (issue #239): chunk z motion/react doladowuje sie dopiero
+// przy pierwszym otwarciu pickera; trigger renderuje sie od razu.
+const EmojiReactionPill = lazy(() => import("./emoji-reaction-pill"));
 const EDGE = 8;
 
 /**
@@ -41,7 +51,7 @@ type Align = "left" | "center" | "right";
  * pill musi uciec przed overflow/sticky kontekstami stron (np. kolumna posta
  * z overflowY: auto obcinała go przy krawędzi).
  */
-type Placement = { side: "top" | "bottom"; left: number; top: number; tailX: number };
+export type Placement = { side: "top" | "bottom"; left: number; top: number; tailX: number };
 
 function SmilePlusIcon({ size }: { size: number }) {
 	return (
@@ -102,6 +112,19 @@ function getPlacement(trigger: RectLike, width: number, height: number, align: A
 	};
 }
 
+/**
+ * Preferencja „ogranicz ruch" bez importu motion — picker (trigger, tworzenie
+ * czasteczek) czyta media query bezposrednio; hook useReducedMotion z motion
+ * zostal w pillo (lazy module).
+ */
+function prefersReducedMotion(): boolean {
+	try {
+		return window.matchMedia("(prefers-reduced-motion: reduce)")?.matches ?? false;
+	} catch {
+		return false;
+	}
+}
+
 export interface EmojiReactionPickerProps {
 	/** Reakcje w pillu; default = pełna kolejność REACTION_ORDER. */
 	reactions?: readonly ReactionType[];
@@ -146,7 +169,6 @@ export function EmojiReactionPicker({
 	anchorRect = null,
 }: EmojiReactionPickerProps) {
 	const s = SIZES[size];
-	const reduced = useReducedMotion();
 
 	// Tryb kontrolowany (open podane) albo wewnętrzny stan — wspólny setter.
 	const isControlled = controlledOpen !== undefined;
@@ -161,6 +183,9 @@ export function EmojiReactionPicker({
 	);
 
 	const [particles, setParticles] = useState<Particle[]>([]);
+	// Pill (chunk motion) montuje sie przy pierwszym otwarciu i zostaje —
+	// AnimatePresence w pillo zachowuje animacje wyjscia przy kolejnych otwarciach.
+	const [pillMounted, setPillMounted] = useState(false);
 	const [placement, setPlacement] = useState<Placement>({
 		side: "top",
 		// Poza ekranem do pierwszego pomiaru (placeBar) — motion i tak startuje z opacity 0.
@@ -228,6 +253,10 @@ export function EmojiReactionPicker({
 	);
 
 	useEffect(() => {
+		if (open) setPillMounted(true);
+	}, [open]);
+
+	useEffect(() => {
 		if (!open) return;
 
 		const onPointerDown = (event: globalThis.PointerEvent) => {
@@ -262,13 +291,13 @@ export function EmojiReactionPicker({
 			onReact(type);
 
 			const bar = barRef.current?.getBoundingClientRect();
-			if (reduced || !bar) return;
+			if (prefersReducedMotion() || !bar) return;
 			seed.current += MAX_PARTICLES; // unikalne id niezależnie od BURST_COUNT
 			setParticles((prev) =>
 				[...prev, ...makeParticles(type, seed.current, from, bar)].slice(-MAX_PARTICLES),
 			);
 		},
-		[onReact, reduced],
+		[onReact],
 	);
 
 	const startHold = useCallback(
@@ -339,10 +368,6 @@ export function EmojiReactionPicker({
 		[activeIndex, reactions.length],
 	);
 
-	const burst = particles.map((particle) => (
-		<BurstEmoji key={particle.id} particle={particle} size={s.burst} onDone={settle} />
-	));
-
 	const top = placement.side === "top";
 
 	const triggerLabel = open
@@ -351,107 +376,39 @@ export function EmojiReactionPicker({
 			? `Reagowano ${REACTION_CONFIG[last].label}`
 			: "Dodaj reakcję";
 
-	const pill = (
-		<AnimatePresence>
-			{open && (
-				<motion.div
-					className="fixed z-50"
-					initial={{
-						opacity: 0,
-						y: top ? 10 : -10,
-						scale: 0.85,
-					}}
-					animate={{ opacity: 1, y: 0, scale: 1 }}
-					exit={{ opacity: 0, y: top ? 6 : -6, scale: 0.9 }}
-					transition={
-						reduced ? { duration: 0.15 } : { type: "spring", stiffness: 520, damping: 30 }
-					}
-					style={{ left: placement.left, top: placement.top, originY: top ? 1 : 0 }}
-				>
-					<div
-						ref={placeBar}
-						role="menu"
-						aria-label="Wybierz reakcję"
-						aria-orientation="horizontal"
-						onKeyDown={onMenuKeyDown}
-						className={cn("relative flex items-center rounded-full bg-muted", s.pill)}
-					>
-						{burst}
-
-						{reactions.map((type, i) => (
-							<motion.button
-								key={type}
-								ref={(node) => {
-									itemRefs.current[i] = node;
-								}}
-								type="button"
-								role="menuitem"
-								tabIndex={i === activeIndex ? 0 : -1}
-								data-emoji={type}
-								aria-label={REACTION_CONFIG[type].label}
-								onFocus={() => setActiveIndex(i)}
-								onPointerDown={(event) =>
-									startHold(type, event.currentTarget.getBoundingClientRect())
-								}
-								onPointerUp={() => {
-									stopHold();
-									closeAfterBurst();
-								}}
-								onPointerLeave={stopHold}
-								onPointerCancel={stopHold}
-								// Klawiatura: Enter/Space reaguje i zamyka (pointer obsłużył
-								// onPointerDown/Up). preventDefault gasi syntezy clicka.
-								onKeyDown={(event) => {
-									if (event.key !== "Enter" && event.key !== " ") return;
-									event.preventDefault();
-									react(type, event.currentTarget.getBoundingClientRect());
-									closeAfterBurst();
-								}}
-								className={`relative z-10 rounded-full p-1 outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-									type === active ? "ring-2 ring-green-500" : ""
-								}`}
-								initial={reduced ? false : { scale: 0.4, opacity: 0 }}
-								animate={{ scale: 1, opacity: 1 }}
-								transition={{
-									type: "spring",
-									stiffness: 800,
-									damping: 25,
-									delay: reduced ? 0 : 0.04 + i * 0.035,
-								}}
-								whileHover={reduced ? undefined : { scale: 1.28, y: -4 }}
-								whileTap={{ scale: 0.92 }}
-							>
-								<AppleEmoji name={type} size={s.emoji} />
-							</motion.button>
-						))}
-					</div>
-
-					<span
-						className={cn(
-							"absolute size-3 -translate-x-1/2 rounded-full bg-muted",
-							top ? "-bottom-1" : "-top-1",
-						)}
-						style={{ left: placement.tailX }}
-					/>
-					<span
-						className={cn(
-							"absolute size-1.5 -translate-x-1/2 rounded-full bg-muted",
-							top ? "-bottom-4" : "-top-4",
-						)}
-						style={{ left: placement.tailX + 6 }}
-					/>
-				</motion.div>
-			)}
-		</AnimatePresence>
-	);
-
 	return (
 		<div
 			ref={rootRef}
 			data-slot="emoji-reaction-picker"
 			className={cn("relative flex w-fit items-center", className)}
 		>
-			<PillLayer>{pill}</PillLayer>
+			<PillLayer>
+				{pillMounted && (
+					<Suspense fallback={null}>
+						<EmojiReactionPill
+							open={open}
+							top={top}
+							placement={placement}
+							pillClass={s.pill}
+							emojiSize={s.emoji}
+							burstSize={s.burst}
+							reactions={reactions}
+							active={active}
+							activeIndex={activeIndex}
+							particles={particles}
+							placeBar={placeBar}
+							itemRefs={itemRefs}
+							onMenuKeyDown={onMenuKeyDown}
+							onFocusItem={setActiveIndex}
+							startHold={startHold}
+							stopHold={stopHold}
+							closeAfterBurst={closeAfterBurst}
+							onKeyboardReact={react}
+							settle={settle}
+						/>
+					</Suspense>
+				)}
+			</PillLayer>
 
 			{!hideTrigger && (
 				<button

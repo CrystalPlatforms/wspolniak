@@ -91,7 +91,7 @@ describe("EmojiReactions", () => {
 		render(<EmojiReactions target={POST_TARGET} />, { wrapper: createWrapper() });
 
 		await user.click(await screen.findByRole("button", { name: "Reagowano serce" }));
-		const heart = screen.getByRole("menuitem", { name: "serce" });
+		const heart = await screen.findByRole("menuitem", { name: "serce" });
 		expect(heart.classList.contains("ring-green-500")).toBe(true);
 	});
 

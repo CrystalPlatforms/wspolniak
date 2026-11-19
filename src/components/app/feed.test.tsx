@@ -55,7 +55,10 @@ describe("Feed", () => {
 	beforeEach(() => vi.useFakeTimers());
 	afterEach(() => vi.useRealTimers());
 
-	it("renders posts with author name and description", () => {
+	it("renders posts with author name and description", async () => {
+		// Realne timery: lazy chunk markdown-text (#239) potrzebuje żywych mikrotasków
+		// (fake timers fakują queueMicrotask i blokują rozwiązanie dynamic importu).
+		vi.useRealTimers();
 		const now = new Date().toISOString();
 		const posts = [
 			{
@@ -85,7 +88,8 @@ describe("Feed", () => {
 		render(<Feed posts={posts} {...defaultProps} />, { wrapper: createWrapper() });
 
 		expect(screen.getByText("Tomek")).toBeDefined();
-		expect(screen.getByText("Wakacje nad morzem")).toBeDefined();
+		// opis = lazy chunk markdown-text (#239)
+		expect(await screen.findByText("Wakacje nad morzem")).toBeDefined();
 		expect(screen.getByText("Kasia")).toBeDefined();
 		expect(screen.getByText("Urodziny babci")).toBeDefined();
 	});
@@ -313,7 +317,8 @@ describe("Feed", () => {
 		expect(screen.queryByLabelText("Przypięty post")).toBeNull();
 	});
 
-	it("renders a @mention in the description as green", () => {
+	it("renders a @mention in the description as green", async () => {
+		vi.useRealTimers(); // lazy chunk (#239) — patrz notka wyżej
 		const now = new Date().toISOString();
 		const posts = [
 			{
@@ -329,7 +334,8 @@ describe("Feed", () => {
 
 		render(<Feed posts={posts} {...defaultProps} />, { wrapper: createWrapper() });
 
-		const mention = screen.getByText("@Ania");
+		// opis = lazy chunk markdown-text (#239)
+		const mention = await screen.findByText("@Ania");
 		expect(mention.className).toContain("text-primary");
 	});
 

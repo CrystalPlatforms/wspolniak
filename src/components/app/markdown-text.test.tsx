@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { cleanup, render } from "@testing-library/react";
-import { MarkdownText } from "./markdown-text";
+import { MarkdownTextImpl as MarkdownText } from "./markdown-text-impl";
 
 afterEach(() => {
 	cleanup();

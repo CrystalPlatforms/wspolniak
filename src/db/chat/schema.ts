@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { z } from "zod";
-import { reactionTypes } from "@/db/post-reactions/table";
+import { reactionTypes } from "@/db/post-reactions/reaction-types";
 
 /** Rodzaje wiadomości czatu (#215, #216, #217, #218) — nowy default to zwykły tekst. */
 export const chatMessageKinds = ["text", "poll", "location", "attachments", "post"] as const;
