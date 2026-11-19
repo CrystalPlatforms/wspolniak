@@ -1,3 +1,10 @@
+## [8.0.1](https://github.com/CrystalPlatforms/wspolniak/compare/v8.0.0...v8.0.1) (2026-11-19)
+
+
+### Performance Improvements
+
+* **bundle:** remove Wspólniak Glass and lazy-load heavy deps ([#239](https://github.com/CrystalPlatforms/wspolniak/issues/239)) ([63336be](https://github.com/CrystalPlatforms/wspolniak/commit/63336be70a1bcc85096249560e794da5697d11a1))
+
 # [8.0.0](https://github.com/CrystalPlatforms/wspolniak/compare/v7.1.0...v8.0.0) (2026-11-19)
 
 
