@@ -1,3 +1,15 @@
+# [8.0.0](https://github.com/CrystalPlatforms/wspolniak/compare/v7.1.0...v8.0.0) (2026-11-19)
+
+
+* chore!: remove AL assistant (breaking) ([02a0547](https://github.com/CrystalPlatforms/wspolniak/commit/02a054784607f2b4d02069f633461549fae305b4))
+
+
+### BREAKING CHANGES
+
+* czat AL (/app/ai), endpointy /api/ai/* i flaga ai zostały
+usunięte z aplikacji. Zastąpione klasyczną wyszukiwarką /app/search
+(posty, komentarze i albumy).
+
 # [7.1.0](https://github.com/CrystalPlatforms/wspolniak/compare/v7.0.0...v7.1.0) (2026-11-19)
 
 
