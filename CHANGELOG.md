@@ -1,3 +1,10 @@
+# [8.1.0](https://github.com/CrystalPlatforms/wspolniak/compare/v8.0.1...v8.1.0) (2026-11-21)
+
+
+### Features
+
+* **posts:** rich posts — polls, locations & R2 file attachments ([#241](https://github.com/CrystalPlatforms/wspolniak/issues/241), [#242](https://github.com/CrystalPlatforms/wspolniak/issues/242), [#243](https://github.com/CrystalPlatforms/wspolniak/issues/243)) ([b01946b](https://github.com/CrystalPlatforms/wspolniak/commit/b01946bead248a0fb371af4d7beabab592bc5320))
+
 ## [8.0.1](https://github.com/CrystalPlatforms/wspolniak/compare/v8.0.0...v8.0.1) (2026-11-19)
 
 
