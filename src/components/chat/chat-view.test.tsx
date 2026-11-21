@@ -156,7 +156,7 @@ describe("ChatView — lista wiadomości", () => {
 		expect(await screen.findByText(/Brak wiadomości/i)).toBeDefined();
 	});
 
-	it("przy ponad 50 wiadomościach pokazuje 50 najnowszych + loader + notice (starsze ukryte)", async () => {
+	it("przy ponad 50 wiadomościach pokazuje 50 najnowszych + notice (starsze ukryte)", async () => {
 		const many = Array.from({ length: 51 }, (_, i) =>
 			apiMessage({ id: `m${i}`, text: `Wiadomość numer ${i}` }),
 		);
@@ -169,8 +169,7 @@ describe("ChatView — lista wiadomości", () => {
 		// Najnowsza (50) widoczna, najstarsza (0) ukryta — renderujemy tylko 50.
 		expect(await screen.findByText("Wiadomość numer 50")).toBeDefined();
 		expect(screen.queryByText("Wiadomość numer 0")).toBeNull();
-		// Wiersz loadera nad listą (starsze wiadomości istnieją, ale są ukryte).
-		expect(screen.getByRole("status")).toBeDefined();
+		// Notice nad listą (starsze wiadomości istnieją, ale są ukryte) — z pulsującą linią.
 		expect(screen.getByText(/starsze wiadomości z ostatniej doby są ukryte/i)).toBeDefined();
 	});
 });

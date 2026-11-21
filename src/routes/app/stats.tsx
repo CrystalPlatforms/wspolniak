@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { LeaderboardCategory, LeaderboardEntry, StatsSummary } from "@/db/stats";
 import { cn } from "@/lib/utils";
 
@@ -63,7 +65,17 @@ function StatsPage() {
 					Ranking rodziny
 				</h3>
 
-				{leaderboardsQuery.isLoading && <p className="text-sm text-muted-foreground">Ładowanie…</p>}
+				{leaderboardsQuery.isLoading && (
+					<div className="space-y-3" aria-busy="true">
+						{[0, 1, 2, 3].map((i) => (
+							<div key={i} className="flex items-center gap-3">
+								<Skeleton className="size-8 rounded-full" />
+								<Skeleton className="h-3 flex-1" />
+								<Skeleton className="h-3 w-10" />
+							</div>
+						))}
+					</div>
+				)}
 				{leaderboardsQuery.isError && (
 					<p className="text-sm text-destructive">{leaderboardsQuery.error.message}</p>
 				)}
@@ -131,7 +143,14 @@ function medalColor(index: number): string | undefined {
 function AdminSection({ query }: { query: ReturnType<typeof useQuery<StatsSummary>> }) {
 	return (
 		<section>
-			{query.isLoading && <p className="text-sm text-muted-foreground">Aktualizowanie...</p>}
+			{query.isLoading && (
+				<div className="grid grid-cols-2 gap-3" aria-busy="true">
+					<Skeleton className="h-20 rounded-lg" />
+					<Skeleton className="h-20 rounded-lg" />
+					<Skeleton className="h-20 rounded-lg" />
+					<Skeleton className="h-20 rounded-lg" />
+				</div>
+			)}
 			{query.isError && <p className="text-sm text-destructive">{query.error.message}</p>}
 
 			{query.data && (

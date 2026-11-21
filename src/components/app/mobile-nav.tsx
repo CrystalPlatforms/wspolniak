@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { IconHome, IconMessage, IconPlus } from "@tabler/icons-react";
+import {
+	IconHome,
+	IconHomeFilled,
+	IconMessage,
+	IconMessageFilled,
+	IconPlus,
+} from "@tabler/icons-react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { MobileSidebar } from "@/components/app/mobile-sidebar";
 import { Button } from "@/components/ui/button";
@@ -36,7 +42,11 @@ export function MobileNav({ role, featureFlags = DEFAULT_FEATURE_FLAGS }: Mobile
 						isHomeActive && "font-bold",
 					)}
 				>
-					<IconHome className="h-6 w-6 text-foreground" aria-hidden="true" />
+					{isHomeActive ? (
+						<IconHomeFilled className="h-6 w-6 text-foreground" aria-hidden="true" />
+					) : (
+						<IconHome className="h-6 w-6 text-foreground" aria-hidden="true" />
+					)}
 					<span className="text-xs text-muted-foreground">Home</span>
 				</Link>
 
@@ -56,11 +66,11 @@ export function MobileNav({ role, featureFlags = DEFAULT_FEATURE_FLAGS }: Mobile
 							isChatActive && "font-bold",
 						)}
 					>
-						<IconMessage
-							className="h-6 w-6 text-foreground"
-							fill={isChatActive ? "currentColor" : "none"}
-							aria-hidden="true"
-						/>
+						{isChatActive ? (
+							<IconMessageFilled className="h-6 w-6 text-foreground" aria-hidden="true" />
+						) : (
+							<IconMessage className="h-6 w-6 text-foreground" aria-hidden="true" />
+						)}
 						<span className="text-xs text-muted-foreground">Chat</span>
 					</Link>
 				)}

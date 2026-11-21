@@ -14,9 +14,12 @@ import {
 	SkeletonMeta,
 } from "@/components/app/post-card-skeleton";
 import { PostCornerActions } from "@/components/app/post-corner-actions";
+import { PostRichContent } from "@/components/app/post-rich-content";
 import { PostWhoReacted } from "@/components/app/post-who-reacted";
 import { VideoDialog, VideoPosterButton } from "@/components/app/video-player-dialog";
 import { useBootSequence } from "@/core/boot-sequence";
+import type { PostFileEntry } from "@/db/post-files/schema";
+import type { PostLocationPayload, PostPollData } from "@/db/posts/schema";
 import { getImageUrl } from "@/images/client";
 
 const MAX_FEED_IMAGES = 2;
@@ -49,6 +52,12 @@ export interface PostCardPost {
 	author: { id: string; name: string };
 	images: PostCardImage[];
 	videos?: PostCardVideo[];
+	/** Ankieta z zagregowanymi wynikami (#241) — dokleja enrichPosts. */
+	poll?: PostPollData | null;
+	/** Lokalizacja (#242) — kompaktowa karta z linkiem do map. */
+	location?: PostLocationPayload | null;
+	/** Załączniki (#243) — wiersze plików pod zdjęciami/wideo. */
+	files?: PostFileEntry[];
 	commentCount?: number;
 	pinned?: boolean;
 }
@@ -155,6 +164,14 @@ export function PostCard({
 					{post.description && (
 						<MarkdownText text={post.description} className="mb-3 break-words text-foreground" />
 					)}
+
+					<PostRichContent
+						postId={post.id}
+						poll={post.poll}
+						location={post.location}
+						files={post.files}
+						className="mb-3 space-y-3"
+					/>
 				</>
 			) : (
 				<>

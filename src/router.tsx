@@ -1,18 +1,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { createRouter } from "@tanstack/react-router";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
-import { Loader } from "@/components/ui/loader";
+import { ScreenSkeleton } from "@/components/ui/skeleton";
 import * as TanstackQuery from "./integrations/tanstack-query/root-provider";
 
 // Import the generated route tree
 import { routeTree } from "./routeTree.gen";
 
 function RoutePending() {
-	return (
-		<div className="flex min-h-dvh items-center justify-center bg-background">
-			<Loader size={10} />
-		</div>
-	);
+	return <ScreenSkeleton />;
 }
 
 // Create a new router instance

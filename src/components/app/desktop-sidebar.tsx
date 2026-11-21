@@ -2,14 +2,21 @@
 
 import {
 	IconBookmark,
+	IconBookmarkFilled,
 	IconCalendar,
-	IconChartBar,
+	IconCalendarFilled,
+	IconChartPie3,
+	IconChartPie3Filled,
 	IconHome,
+	IconHomeFilled,
 	IconMessage,
+	IconMessageFilled,
 	IconPhoto,
+	IconPhotoFilled,
 	IconPhotoPlus,
 	IconPlus,
 	IconSearch,
+	IconSearchFilled,
 } from "@tabler/icons-react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useTheme } from "@/components/theme/theme-provider";
@@ -22,11 +29,11 @@ import { cn } from "@/lib/utils";
 interface NavItem {
 	to: string;
 	icon: React.ComponentType<{ className?: string; fill?: string }>;
+	/** Wariant wypełniony (kategoria Filled Tablera) — renderowany gdy pozycja aktywna. */
+	iconActive?: React.ComponentType<{ className?: string }>;
 	label: string;
 	exact?: boolean;
 	adminOnly?: boolean;
-	/** Wypełnij ikonę (fill) gdy pozycja jest aktywna — np. zakładka w Bibliotece. */
-	fillWhenActive?: boolean;
 }
 
 interface DesktopSidebarProps {
@@ -35,24 +42,30 @@ interface DesktopSidebarProps {
 }
 
 const NAV_ITEMS: NavItem[] = [
-	{ to: "/app", icon: IconHome, label: "Feed", exact: true },
-	{ to: "/app/lib", icon: IconBookmark, label: "Biblioteka", fillWhenActive: true },
-	// Albumy (#170): sekcja zbiorów rodzinnych; brak flagi w F1 — zawsze widoczna.
-	// Bez fillWhenActive — wypełniona ikona IconPhoto wygląda źle (reviza usera).
-	{ to: "/app/albums", icon: IconPhoto, label: "Albumy" },
-	// F8 #159: nazwa usera „Chat" (nie „Czat"); wypełniona gdy aktywna.
-	{ to: "/app/chat", icon: IconMessage, label: "Chat", fillWhenActive: true },
-	// Admin wyjęty z menu (przebudowa 2026-09-01) — wejście tylko z Ustawień.
+	// Aktywna pozycja ma wariant Filled (reviza usera: wypełnione ikony w sidebarze).
+	{ to: "/app", icon: IconHome, iconActive: IconHomeFilled, label: "Feed", exact: true },
+	{ to: "/app/lib", icon: IconBookmark, iconActive: IconBookmarkFilled, label: "Biblioteka" },
+	// Albumy (#170): sekcja zbiorów rodzinnych; aktywna = wypełniona ramka zdjęcia.
+	{ to: "/app/albums", icon: IconPhoto, iconActive: IconPhotoFilled, label: "Albumy" },
+	// F8 #159: nazwa usera „Chat" (nie „Czat").
+	{ to: "/app/chat", icon: IconMessage, iconActive: IconMessageFilled, label: "Chat" },
 	{
 		to: "/app/calendar",
 		icon: IconCalendar,
+		iconActive: IconCalendarFilled,
 		label: "Kalendarz",
 		adminOnly: false,
-		fillWhenActive: true,
 	},
 	// Wyszukiwarka: pełne szukanie po archiwum (posty, komentarze, albumy).
-	{ to: "/app/search", icon: IconSearch, label: "Wyszukiwarka" },
-	{ to: "/app/stats", icon: IconChartBar, label: "Statystyki", adminOnly: false },
+	{ to: "/app/search", icon: IconSearch, iconActive: IconSearchFilled, label: "Wyszukiwarka" },
+	// Statystyki: ChartBar nie ma wariantu Filled — glyph podmieniony na ChartPie (reviza usera).
+	{
+		to: "/app/stats",
+		icon: IconChartPie3,
+		iconActive: IconChartPie3Filled,
+		label: "Statystyki",
+		adminOnly: false,
+	},
 	// Ustawienia przeniesione do nagłówka feeda (ikona Cog obok „Witaj", reviza usera).
 ];
 
@@ -109,10 +122,11 @@ export function DesktopSidebar({
 									: "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
 							)}
 						>
-							<Icon
-								className="size-6 shrink-0"
-								fill={isActive && item.fillWhenActive ? "currentColor" : "none"}
-							/>
+							{isActive && item.iconActive ? (
+								<item.iconActive className="size-6 shrink-0" />
+							) : (
+								<Icon className="size-6 shrink-0" fill="none" />
+							)}
 							<span>{item.label}</span>
 							{item.to === "/app/albums" && hasNewAlbums && (
 								<span aria-hidden="true" className="ml-auto size-2 rounded-full bg-primary" />

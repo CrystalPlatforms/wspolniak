@@ -43,19 +43,45 @@ vi.mock("@/db/pinned-posts", () => ({
 
 vi.mock("@/core/feed", () => ({
 	assembleFeedPage: vi.fn(),
+	enrichPosts: vi.fn(),
+}));
+
+vi.mock("@/core/post-files", () => ({
+	syncPostFiles: vi.fn(),
+	purgePostFiles: vi.fn(),
+	verifyPostFileKeys: vi.fn(),
+	deletePostFileObjects: vi.fn(),
+	uploadPostFile: vi.fn(),
+}));
+
+vi.mock("@/db/posts/polls", () => ({
+	voteOnPostPoll: vi.fn(),
+}));
+
+vi.mock("@/db/post-files/queries", () => ({
+	attachPostFiles: vi.fn(),
+	getPostFile: vi.fn(),
+	listPostFiles: vi.fn(),
+	listPostFilesByKeys: vi.fn(),
+	listPostFilesByPostIds: vi.fn(),
+	deletePostFilesByPost: vi.fn(),
+	detachRemovedPostFiles: vi.fn(),
 }));
 
 vi.mock("@/hono/api/video", () => ({
 	fireAndForgetYoutubeDelete: vi.fn(),
 }));
 
-import { assembleFeedPage } from "@/core/feed";
+import { assembleFeedPage, enrichPosts } from "@/core/feed";
+import { purgePostFiles, syncPostFiles, verifyPostFileKeys } from "@/core/post-files";
 import { deleteAlbumItemsByRefs } from "@/db/albums";
 import { deleteBookmarksByPost } from "@/db/bookmarks";
 import { findActiveUserById } from "@/db/identity/queries";
 import { verifySessionCookie } from "@/db/identity/session";
 import { createMentions, deleteMentionsByPost } from "@/db/mentions/queries";
 import { listPinnedPostIds } from "@/db/pinned-posts";
+import { attachPostFiles, getPostFile } from "@/db/post-files/queries";
+import { voteOnPostPoll } from "@/db/posts/polls";
 import {
 	addPostImages,
 	countUserPostsToday,
@@ -75,6 +101,13 @@ const mockFindUser = vi.mocked(findActiveUserById);
 const mockCreatePost = vi.mocked(createPost);
 const mockCountToday = vi.mocked(countUserPostsToday);
 const mockAssembleFeed = vi.mocked(assembleFeedPage);
+const mockEnrichPosts = vi.mocked(enrichPosts);
+const mockVerifyPostFileKeys = vi.mocked(verifyPostFileKeys);
+const mockSyncPostFiles = vi.mocked(syncPostFiles);
+const mockPurgePostFiles = vi.mocked(purgePostFiles);
+const mockVoteOnPostPoll = vi.mocked(voteOnPostPoll);
+const mockAttachPostFiles = vi.mocked(attachPostFiles);
+const mockGetPostFile = vi.mocked(getPostFile);
 const mockGetPost = vi.mocked(getPostById);
 const mockUpdatePost = vi.mocked(updatePost);
 const mockSoftDelete = vi.mocked(softDeletePost);
@@ -94,7 +127,17 @@ function createApi() {
 	return api;
 }
 
-const env = { SESSION_SECRET: "secret" };
+const env: { SESSION_SECRET: string; POST_FILES?: unknown } = { SESSION_SECRET: "secret" };
+
+/** Stub R2 (head/get) — granica storage w testach attachu i pobierania (#243). */
+function r2Stub() {
+	return {
+		head: vi.fn(async (key: string) => ({ key, size: 10 })),
+		get: vi.fn(async () => null),
+		put: vi.fn(),
+		delete: vi.fn(),
+	};
+}
 
 function authedRequest(_path: string, init?: RequestInit) {
 	return {
@@ -106,6 +149,8 @@ function authedRequest(_path: string, init?: RequestInit) {
 describe("POST /api/app/posts", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mockVerifyPostFileKeys.mockResolvedValue({ ok: true, data: undefined });
+		mockSyncPostFiles.mockResolvedValue({ ok: true, data: undefined });
 		mockVerify.mockResolvedValue({ userId: "u1", name: "Tomek", role: "member" });
 		mockFindUser.mockResolvedValue({
 			id: "u1",
@@ -131,6 +176,8 @@ describe("POST /api/app/posts", () => {
 				createdAt: now,
 				updatedAt: now,
 				videos: [],
+				poll: null,
+				location: null,
 			},
 			images: [
 				{ id: "img-1", postId: "post-1", cfImageId: "cf-aaa", displayOrder: 0, createdAt: now },
@@ -156,6 +203,8 @@ describe("POST /api/app/posts", () => {
 			description: "Test",
 			cfImageIds: ["cf-aaa"],
 			videos: [],
+			poll: null,
+			location: null,
 		});
 	});
 
@@ -179,6 +228,8 @@ describe("POST /api/app/posts", () => {
 				createdAt: now,
 				updatedAt: now,
 				videos,
+				poll: null,
+				location: null,
 			},
 			images: [],
 		});
@@ -334,6 +385,8 @@ describe("POST /api/app/posts", () => {
 				createdAt: new Date(),
 				updatedAt: new Date(),
 				videos: [],
+				poll: null,
+				location: null,
 			},
 			images: [],
 		});
@@ -364,6 +417,8 @@ describe("POST /api/app/posts", () => {
 describe("GET /api/app/posts", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mockVerifyPostFileKeys.mockResolvedValue({ ok: true, data: undefined });
+		mockSyncPostFiles.mockResolvedValue({ ok: true, data: undefined });
 		mockVerify.mockResolvedValue({ userId: "u1", name: "Tomek", role: "member" });
 		mockFindUser.mockResolvedValue({
 			id: "u1",
@@ -390,6 +445,7 @@ describe("GET /api/app/posts/:id", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockListPinnedIds.mockResolvedValue([]);
+		mockEnrichPosts.mockImplementation(async (posts) => posts as never);
 		mockVerify.mockResolvedValue({ userId: "u1", name: "Tomek", role: "member" });
 		mockFindUser.mockResolvedValue({
 			id: "u1",
@@ -412,6 +468,8 @@ describe("GET /api/app/posts/:id", () => {
 			createdAt: now,
 			updatedAt: now,
 			videos: [],
+			poll: null,
+			location: null,
 			author: { id: "u1", name: "Tomek" },
 			images: [],
 		});
@@ -477,6 +535,8 @@ describe("GET /api/app/posts/:id", () => {
 describe("GET /api/app/posts (paginated)", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mockVerifyPostFileKeys.mockResolvedValue({ ok: true, data: undefined });
+		mockSyncPostFiles.mockResolvedValue({ ok: true, data: undefined });
 		mockVerify.mockResolvedValue({ userId: "u1", name: "Tomek", role: "member" });
 		mockFindUser.mockResolvedValue({
 			id: "u1",
@@ -504,6 +564,9 @@ describe("GET /api/app/posts (paginated)", () => {
 					images: [],
 					commentCount: 3,
 					videos: [],
+					poll: null,
+					location: null,
+					files: [],
 				},
 			],
 			meta: {
@@ -569,6 +632,8 @@ const samplePost = {
 	createdAt: now,
 	updatedAt: now,
 	videos: [],
+	poll: null,
+	location: null,
 	author: { id: "u1", name: "Tomek" },
 	images: [],
 };
@@ -576,6 +641,8 @@ const samplePost = {
 describe("PATCH /api/app/posts/:id", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mockVerifyPostFileKeys.mockResolvedValue({ ok: true, data: undefined });
+		mockSyncPostFiles.mockResolvedValue({ ok: true, data: undefined });
 		mockVerify.mockResolvedValue({ userId: "u1", name: "Tomek", role: "member" });
 		mockFindUser.mockResolvedValue({
 			id: "u1",
@@ -748,6 +815,8 @@ describe("PATCH /api/app/posts/:id", () => {
 describe("PATCH /api/app/posts/:id — image operations", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mockVerifyPostFileKeys.mockResolvedValue({ ok: true, data: undefined });
+		mockSyncPostFiles.mockResolvedValue({ ok: true, data: undefined });
 		mockVerify.mockResolvedValue({ userId: "u1", name: "Tomek", role: "member" });
 		mockFindUser.mockResolvedValue({
 			id: "u1",
@@ -851,6 +920,8 @@ describe("PATCH /api/app/posts/:id — image operations", () => {
 describe("DELETE /api/app/posts/:id", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mockVerifyPostFileKeys.mockResolvedValue({ ok: true, data: undefined });
+		mockSyncPostFiles.mockResolvedValue({ ok: true, data: undefined });
 		mockVerify.mockResolvedValue({ userId: "u1", name: "Tomek", role: "member" });
 		mockFindUser.mockResolvedValue({
 			id: "u1",
@@ -970,6 +1041,8 @@ describe("DELETE /api/app/posts/:id", () => {
 describe("DELETE /api/app/posts/:id/images/:imageId", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mockVerifyPostFileKeys.mockResolvedValue({ ok: true, data: undefined });
+		mockSyncPostFiles.mockResolvedValue({ ok: true, data: undefined });
 		mockVerify.mockResolvedValue({ userId: "u1", name: "Tomek", role: "member" });
 		mockFindUser.mockResolvedValue({
 			id: "u1",
@@ -1087,6 +1160,8 @@ describe("DELETE /api/app/posts/:id/images/:imageId", () => {
 describe("DELETE /api/app/posts/:id — kaskada albumów (#174)", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mockVerifyPostFileKeys.mockResolvedValue({ ok: true, data: undefined });
+		mockSyncPostFiles.mockResolvedValue({ ok: true, data: undefined });
 		mockVerify.mockResolvedValue({ userId: "u1", name: "Tomek", role: "member" });
 		mockFindUser.mockResolvedValue({
 			id: "u1",
@@ -1143,6 +1218,8 @@ describe("DELETE /api/app/posts/:id — kaskada albumów (#174)", () => {
 describe("DELETE /api/app/posts/:id — kaskada YouTube (F3 #197)", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
+		mockVerifyPostFileKeys.mockResolvedValue({ ok: true, data: undefined });
+		mockSyncPostFiles.mockResolvedValue({ ok: true, data: undefined });
 		mockVerify.mockResolvedValue({ userId: "u1", name: "Tomek", role: "member" });
 		mockFindUser.mockResolvedValue({
 			id: "u1",
@@ -1198,5 +1275,523 @@ describe("DELETE /api/app/posts/:id — kaskada YouTube (F3 #197)", () => {
 
 		expect(res.status).toBe(200);
 		expect(fireAndForgetYoutubeDelete).not.toHaveBeenCalled();
+	});
+});
+
+// ---------------------------------------------------------------------------
+// #241 — ankiety w postach: create/update/vote (kontrakt z ticketu)
+// ---------------------------------------------------------------------------
+
+describe("POST /api/app/posts — ankieta (#241)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockCountToday.mockResolvedValue(0);
+		mockVerify.mockResolvedValue({ userId: "u1", name: "Tomek", role: "member" });
+		mockFindUser.mockResolvedValue({
+			id: "u1",
+			name: "Tomek",
+			role: "member",
+			tokenHash: "hash",
+			deletedAt: null,
+			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
+		});
+	});
+
+	async function create(body: unknown, postEnv = env) {
+		const api = createApi();
+		return api.request(
+			"/api/app/posts",
+			authedRequest("/api/app/posts", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			}),
+			postEnv,
+		);
+	}
+
+	it("tworzy post z poprawną ankietą — payload zapisany", async () => {
+		const poll = { question: "Gdzie na wakacje?", options: ["Morze", "Góry"] };
+		const res = await create({ description: "Test", poll });
+
+		expect(res.status).toBe(201);
+		expect(mockCreatePost).toHaveBeenCalledWith(expect.objectContaining({ poll }));
+	});
+
+	it.each([
+		["1 opcja", { question: "Pytanie", options: ["Jedna"] }],
+		[
+			"7 opcji",
+			{ question: "Pytanie", options: Array.from({ length: 7 }, (_, i) => `Opcja ${i + 1}`) },
+		],
+		["pusta opcja", { question: "Pytanie", options: ["A", "  "] }],
+		["opcja >100 znaków", { question: "Pytanie", options: ["A", "x".repeat(101)] }],
+		["pytanie >200 znaków", { question: "x".repeat(201), options: ["A", "B"] }],
+	])("odrzuca ankietę (%s) → 400", async (_name, poll) => {
+		const res = await create({ poll });
+		expect(res.status).toBe(400);
+		expect(mockCreatePost).not.toHaveBeenCalled();
+	});
+});
+
+describe("PATCH /api/app/posts/:id — pole poll całkowicie ignorowane (#241)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockVerify.mockResolvedValue({ userId: "u1", name: "Tomek", role: "member" });
+		mockFindUser.mockResolvedValue({
+			id: "u1",
+			name: "Tomek",
+			role: "member",
+			tokenHash: "hash",
+			deletedAt: null,
+			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
+		});
+	});
+
+	it("update z polem poll nie zmienia ankiety (i nawet nie waliduje jej kształtu)", async () => {
+		mockGetPost.mockResolvedValue(samplePost);
+		mockUpdatePost.mockResolvedValue(samplePost);
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/posts/post-1",
+			authedRequest("/api/app/posts/post-1", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				// poll celowo BEZNADZIEJNIE zepsuty — update ma go zignorować, nie odrzucić
+				body: JSON.stringify({ poll: { question: "", options: [] } }),
+			}),
+			env,
+		);
+
+		expect(res.status).toBe(200);
+		expect(mockUpdatePost).toHaveBeenCalledWith(
+			"post-1",
+			expect.not.objectContaining({ poll: expect.anything() }),
+		);
+	});
+});
+
+describe("POST /api/app/posts/:id/poll/vote (#241)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockVerify.mockResolvedValue({ userId: "u1", name: "Tomek", role: "member" });
+		mockFindUser.mockResolvedValue({
+			id: "u1",
+			name: "Tomek",
+			role: "member",
+			tokenHash: "hash",
+			deletedAt: null,
+			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
+		});
+	});
+
+	async function vote(body: unknown, pollEnv = env) {
+		const api = createApi();
+		return api.request(
+			"/api/app/posts/post-1/poll/vote",
+			authedRequest("/api/app/posts/post-1/poll/vote", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			}),
+			pollEnv,
+		);
+	}
+
+	it("głos → 200 z counts i myVoteIndex, bez id innych głosujących", async () => {
+		mockVoteOnPostPoll.mockResolvedValue({
+			ok: true,
+			data: { counts: [2, 1], myVoteIndex: 0 },
+		});
+
+		const res = await vote({ optionIndex: 0 });
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { data: Record<string, unknown> };
+		expect(body.data).toEqual({ counts: [2, 1], myVoteIndex: 0 });
+		const json = JSON.stringify(body);
+		expect(json).not.toContain("userId");
+		expect(json).not.toContain('"u');
+		expect(mockVoteOnPostPoll).toHaveBeenCalledWith("post-1", "u1", 0);
+	});
+
+	it("nieprawidłowy indeks → 400", async () => {
+		const res = await vote({ optionIndex: -1 });
+		expect(res.status).toBe(400);
+		expect(mockVoteOnPostPoll).not.toHaveBeenCalled();
+	});
+
+	it("indeks niecałkowity → 400", async () => {
+		const res = await vote({ optionIndex: 1.5 });
+		expect(res.status).toBe(400);
+	});
+
+	it("błąd domeny mapuje się na jej status (404 brak posta / 400 brak ankiety)", async () => {
+		mockVoteOnPostPoll.mockResolvedValue({
+			ok: false,
+			error: {
+				message: "Ten post nie ma ankiety",
+				code: "VALIDATION",
+				status: 400,
+				name: "AppError",
+			} as never,
+		});
+		const res = await vote({ optionIndex: 0 });
+		expect(res.status).toBe(400);
+
+		mockVoteOnPostPoll.mockResolvedValue({
+			ok: false,
+			error: {
+				message: "Post nie istnieje",
+				code: "NOT_FOUND",
+				status: 404,
+				name: "AppError",
+			} as never,
+		});
+		const res2 = await vote({ optionIndex: 0 });
+		expect(res2.status).toBe(404);
+	});
+
+	it("401 bez sesji", async () => {
+		mockVerify.mockResolvedValue(null);
+		const res = await vote({ optionIndex: 0 });
+		expect(res.status).toBe(401);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// #242 — lokalizacja w postach: create/update (zakresy geo, label opcjonalny)
+// ---------------------------------------------------------------------------
+
+describe("POST/PATCH /api/app/posts — lokalizacja (#242)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockCountToday.mockResolvedValue(0);
+		mockVerify.mockResolvedValue({ userId: "u1", name: "Tomek", role: "member" });
+		mockFindUser.mockResolvedValue({
+			id: "u1",
+			name: "Tomek",
+			role: "member",
+			tokenHash: "hash",
+			deletedAt: null,
+			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
+		});
+	});
+
+	async function create(body: unknown) {
+		const api = createApi();
+		return api.request(
+			"/api/app/posts",
+			authedRequest("/api/app/posts", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			}),
+			env,
+		);
+	}
+
+	async function patch(body: unknown) {
+		mockGetPost.mockResolvedValue(samplePost);
+		mockUpdatePost.mockResolvedValue(samplePost);
+		const api = createApi();
+		return api.request(
+			"/api/app/posts/post-1",
+			authedRequest("/api/app/posts/post-1", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(body),
+			}),
+			env,
+		);
+	}
+
+	it("tworzy post z poprawną lokalizacją (z etykietą)", async () => {
+		const location = { lat: 52.23, lng: 21.01, label: "Domek babci" };
+		const res = await create({ description: "Test", location });
+		expect(res.status).toBe(201);
+		expect(mockCreatePost).toHaveBeenCalledWith(expect.objectContaining({ location }));
+	});
+
+	it("lokalizacja bez etykiety jest OK", async () => {
+		const location = { lat: 52.23, lng: 21.01 };
+		const res = await create({ description: "Test", location });
+		expect(res.status).toBe(201);
+		expect(mockCreatePost).toHaveBeenCalledWith(expect.objectContaining({ location }));
+	});
+
+	it.each([
+		["lat poza zakresem", { lat: 91, lng: 0 }],
+		["lng poza zakresem", { lat: 0, lng: -181 }],
+		["label >200 znaków", { lat: 0, lng: 0, label: "x".repeat(201) }],
+	])("odrzuca lokalizację (%s) → 400", async (_name, location) => {
+		const res = await create({ description: "Test", location });
+		expect(res.status).toBe(400);
+		expect(mockCreatePost).not.toHaveBeenCalled();
+	});
+
+	it("PATCH ze nową lokalizacją → updatePost dostaje obiekt", async () => {
+		const location = { lat: 50.0, lng: 20.0, label: "Nówka sztuka" };
+		const res = await patch({ description: "Test", location });
+		expect(res.status).toBe(200);
+		expect(mockUpdatePost).toHaveBeenCalledWith("post-1", expect.objectContaining({ location }));
+	});
+
+	it("PATCH z null usuwa lokalizację", async () => {
+		const res = await patch({ description: "Test", location: null });
+		expect(res.status).toBe(200);
+		expect(mockUpdatePost).toHaveBeenCalledWith(
+			"post-1",
+			expect.objectContaining({ location: null }),
+		);
+	});
+
+	it("PATCH bez pola location → undefined (bez zmian)", async () => {
+		const res = await patch({ description: "Test" });
+		expect(res.status).toBe(200);
+		expect(mockUpdatePost).toHaveBeenCalledWith(
+			"post-1",
+			expect.objectContaining({ location: undefined }),
+		);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// #243 — pliki w postach: attach przy create/update, download, cleanup
+// ---------------------------------------------------------------------------
+
+const FILE_META = {
+	key: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+	name: "dokument.pdf",
+	size: 123,
+	mimeType: "application/pdf",
+};
+
+describe("POST /api/app/posts — attach plików (#243)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockCountToday.mockResolvedValue(0);
+		mockVerify.mockResolvedValue({ userId: "u1", name: "Tomek", role: "member" });
+		mockFindUser.mockResolvedValue({
+			id: "u1",
+			name: "Tomek",
+			role: "member",
+			tokenHash: "hash",
+			deletedAt: null,
+			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
+		});
+	});
+
+	it("create z plikami → head w R2 + attach po utworzeniu", async () => {
+		const postEnv = { ...env, POST_FILES: r2Stub() };
+		const res = await (async () => {
+			const api = createApi();
+			return api.request(
+				"/api/app/posts",
+				authedRequest("/api/app/posts", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ description: "Test", files: [FILE_META] }),
+				}),
+				postEnv,
+			);
+		})();
+
+		expect(res.status).toBe(201);
+		expect(mockVerifyPostFileKeys).toHaveBeenCalledWith(postEnv.POST_FILES, [FILE_META.key]);
+		expect(mockAttachPostFiles).toHaveBeenCalledWith(expect.any(String), [FILE_META]);
+	});
+
+	it("6 plików → 400 (limit 5, walidacja schematu)", async () => {
+		const files = Array.from({ length: 6 }, (_, i) => ({
+			...FILE_META,
+			key: `aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeeee${i}`,
+		}));
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/posts",
+			authedRequest("/api/app/posts", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ description: "Test", files }),
+			}),
+			env,
+		);
+		expect(res.status).toBe(400);
+	});
+
+	it("klucz nieznany (brak w R2) → 400", async () => {
+		const postEnv = { ...env, POST_FILES: { head: vi.fn(async () => null) } };
+		mockVerifyPostFileKeys.mockResolvedValue({
+			ok: false,
+			error: {
+				message: "Plik nie został znaleziony — spróbuj wysłać go ponownie",
+				code: "VALIDATION",
+				status: 400,
+				name: "AppError",
+			} as never,
+		});
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/posts",
+			authedRequest("/api/app/posts", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ description: "Test", files: [FILE_META] }),
+			}),
+			postEnv,
+		);
+		expect(res.status).toBe(400);
+		expect(mockAttachPostFiles).not.toHaveBeenCalled();
+	});
+
+	it("PATCH z files → syncPostFiles pełną listą; bez pola → sync nie wołany", async () => {
+		mockGetPost.mockResolvedValue(samplePost);
+		mockUpdatePost.mockResolvedValue(samplePost);
+		const postEnv = { ...env, POST_FILES: r2Stub() };
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/posts/post-1",
+			authedRequest("/api/app/posts/post-1", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ files: [FILE_META] }),
+			}),
+			postEnv,
+		);
+		expect(res.status).toBe(200);
+		expect(mockSyncPostFiles).toHaveBeenCalledWith(postEnv.POST_FILES, "post-1", [FILE_META]);
+
+		mockSyncPostFiles.mockClear();
+		const res2 = await api.request(
+			"/api/app/posts/post-1",
+			authedRequest("/api/app/posts/post-1", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ description: "Bez plików" }),
+			}),
+			postEnv,
+		);
+		expect(res2.status).toBe(200);
+		expect(mockSyncPostFiles).not.toHaveBeenCalled();
+	});
+});
+
+describe("GET /api/app/posts/:id/files/:fileId (#243)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockVerify.mockResolvedValue({ userId: "u1", name: "Tomek", role: "member" });
+		mockFindUser.mockResolvedValue({
+			id: "u1",
+			name: "Tomek",
+			role: "member",
+			tokenHash: "hash",
+			deletedAt: null,
+			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
+		});
+	});
+
+	async function download(fileEnv = env) {
+		mockGetPost.mockResolvedValue(samplePost);
+		const api = createApi();
+		return api.request(
+			"/api/app/posts/post-1/files/file-1",
+			authedRequest("/api/app/posts/post-1/files/file-1"),
+			fileEnv,
+		);
+	}
+
+	it("401 bez sesji", async () => {
+		mockVerify.mockResolvedValue(null);
+		mockGetPost.mockResolvedValue(samplePost);
+		const api = createApi();
+		const res = await api.request("/api/app/posts/post-1/files/file-1", {}, env);
+		expect(res.status).toBe(401);
+	});
+
+	it("404 gdy plik nie należy do posta", async () => {
+		mockGetPostFile.mockResolvedValue(null);
+		const res = await download();
+		expect(res.status).toBe(404);
+	});
+
+	it("200 + bajty z R2 dla zalogowanych (content-type z obiektu)", async () => {
+		mockGetPostFile.mockResolvedValue({
+			id: "file-1",
+			key: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+			name: "dokument.pdf",
+			mimeType: "application/pdf",
+		});
+		const bucket = {
+			get: vi.fn(async () => ({
+				body: "BINARY-BYTES",
+				size: 12,
+				httpMetadata: { contentType: "application/pdf" },
+			})),
+		};
+		const res = await download({ ...env, POST_FILES: bucket });
+
+		expect(res.status).toBe(200);
+		expect(await res.text()).toBe("BINARY-BYTES");
+		expect(res.headers.get("content-type")).toBe("application/pdf");
+		expect(bucket.get).toHaveBeenCalledWith("aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee");
+	});
+
+	it("404 gdy obiekt zniknął z R2", async () => {
+		mockGetPostFile.mockResolvedValue({
+			id: "file-1",
+			key: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+			name: "dokument.pdf",
+			mimeType: "application/pdf",
+		});
+		const res = await download({ ...env, POST_FILES: r2Stub() });
+		expect(res.status).toBe(404);
+	});
+});
+
+describe("DELETE /api/app/posts/:id — cleanup plików (#243)", () => {
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockVerify.mockResolvedValue({ userId: "u1", name: "Tomek", role: "member" });
+		mockFindUser.mockResolvedValue({
+			id: "u1",
+			name: "Tomek",
+			role: "member",
+			tokenHash: "hash",
+			deletedAt: null,
+			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
+		});
+	});
+
+	it("usunięcie posta czyści pliki z bazy i R2", async () => {
+		mockGetPost.mockResolvedValue(samplePost);
+		mockSoftDelete.mockResolvedValue({ ...samplePost, deletedAt: new Date() });
+		const postEnv = { ...env, POST_FILES: r2Stub() };
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/posts/post-1",
+			authedRequest("/api/app/posts/post-1", { method: "DELETE" }),
+			postEnv,
+		);
+
+		expect(res.status).toBe(200);
+		expect(mockPurgePostFiles).toHaveBeenCalledWith(postEnv.POST_FILES, "post-1");
 	});
 });

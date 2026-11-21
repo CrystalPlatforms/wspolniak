@@ -1,28 +1,23 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { IconArrowLeft, IconChartBar, IconMapPin, IconPaperclip } from "@tabler/icons-react";
+import { type ChangeEvent, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
-	DndContext,
-	type DragEndEvent,
-	type DragOverEvent,
-	type DragStartEvent,
-	PointerSensor,
-	useSensor,
-	useSensors,
-} from "@dnd-kit/core";
-import { rectSortingStrategy, SortableContext, useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { IconAlertTriangle, IconArrowLeft, IconPhotoPlus, IconX } from "@tabler/icons-react";
+	ComposerAttachmentsGrid,
+	MAX_IMAGE_BYTES,
+	type MediaItem,
+	toMediaItem,
+	type VideoDraft,
+} from "@/components/app/composer-image-grid";
 import {
-	type ChangeEvent,
-	type Dispatch,
-	type FormEvent,
-	type SetStateAction,
-	useCallback,
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-} from "react";
-import { ComposerVideoPicker, type PendingVideo } from "@/components/app/composer-video-picker";
+	ComposerLocationDialog,
+	type LocationDraft,
+	locationDraftError,
+} from "@/components/app/composer-location-section";
+import {
+	ComposerPollDialog,
+	type PollDraft,
+	pollDraftError,
+} from "@/components/app/composer-poll-section";
 import type { Mention } from "@/components/app/mention-input";
 import { OversizedImageDialog } from "@/components/app/oversized-image-dialog";
 import { PostDescriptionField } from "@/components/app/post-description-field";
@@ -30,17 +25,16 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
 import type { FeatureFlags } from "@/db/instance";
-import { MAX_DESCRIPTION_LENGTH } from "@/db/posts/schema";
+import { MAX_POST_FILE_BYTES, MAX_POST_FILES } from "@/db/post-files/schema";
+import { MAX_DESCRIPTION_LENGTH, MAX_POST_VIDEOS, postPollSchema } from "@/db/posts/schema";
 import type { ImageUploadProgress } from "@/images/upload";
 import { maybeIngestSharedFiles } from "@/lib/android-bridge";
-import { reorder } from "@/lib/reorder";
 import { cn } from "@/lib/utils";
 import { takePendingFiles } from "@/lib/waiting-room";
 
-const ACCEPTED_IMAGE_TYPES = "image/jpeg,image/png,image/webp,image/heic,image/heif";
-const MAX_IMAGES = 10;
 const MAX_FILE_SIZE_MB = 19;
-const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+/** Limit zdjęć kompozytora (jedno źródło prawdy dla walidacji i tytułu przycisku). */
+const MAX_IMAGES = 10;
 
 interface NewPostFormProps {
 	onSubmit: (data: {
@@ -48,145 +42,149 @@ interface NewPostFormProps {
 		files: File[];
 		pendingVideos: { file: File; title: string }[];
 		mentions: Mention[];
+		/** Ankieta (#241) — walidowana schematem wysyłki; null/undefined = brak. */
+		poll?: { question: string; options: string[] } | null;
+		/** Lokalizacja (#242) — walidowana schematem wysyłki; null/undefined = brak. */
+		location?: { lat: number; lng: number; label?: string } | null;
+		/** Pliki (#243) — lecą do R2 przy publikacji (max 5 × 19 MB, bez wideo). */
+		postFiles?: File[];
 	}) => void;
 	isSubmitting: boolean;
-	/** Postęp uploadu wideo przy publikacji — label przycisku „Wideo 1/2 — 45%" (#194). */
+	/** Postęp uploadu wideo przy publikacji — label przycisku "Wideo 1/2 - 45%" (#194). */
 	uploadProgress?: { videoIndex: number; total: number; percent: number } | null;
 	featureFlags?: FeatureFlags;
-	/** YouTube niepołączony — picker zamienia się w instrukcję admina (us story 7). */
-	videoNotConnected?: boolean;
-	/** Wstępnie wypełniony opis (np. szablon „Zaproponuj datę", #163). */
+	/** Wstępnie wypełniony opis (np. szablon "Zaproponuj datę", #163). */
 	initialDescription?: string;
 	/**
 	 * Upload zdjęcia trwa dłużej niż 7 s (issue #199) — pokazujemy ostrzeżenie
-	 * „wolne łącze" bez blokowania publikacji.
+	 * "wolne łącze" bez blokowania publikacji.
 	 */
 	isSlowUpload?: boolean;
-	/** Postęp uploadu zdjęć z realnych bajtów („Zdjęcie i/N — x%") — issue #203. */
+	/** Postęp uploadu zdjęć z realnych bajtów ("Zdjęcie i/N - x%") — issue #203. */
 	imageProgress?: ImageUploadProgress | null;
-	/** Reviza #187: nagłówek (strzałka + „Nowy post") rysuje sama forma. */
+	/** Reviza #187: nagłówek (strzałka + "Nowy post") rysuje sama forma. */
 	onBack?: () => void;
-}
-
-interface MediaItem {
-	id: string;
-	file?: File;
-	preview?: string;
-	isOversized?: boolean;
-}
-
-function SortablePreview({
-	id,
-	url,
-	index,
-	isOver,
-	isOversized,
-	fileName,
-	onRemove,
-	onOpenDetails,
-}: {
-	id: string;
-	url: string;
-	index: number;
-	isOver: boolean;
-	isOversized: boolean;
-	fileName: string;
-	onRemove: (id: string) => void;
-	onOpenDetails: (id: string) => void;
-}) {
-	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-		id,
-	});
-
-	const style: React.CSSProperties = isDragging
-		? {
-				transform: CSS.Transform.toString(transform),
-				transition,
-				zIndex: 50,
-			}
-		: {};
-
-	return (
-		<div
-			ref={setNodeRef}
-			style={style}
-			{...attributes}
-			{...listeners}
-			role="option"
-			tabIndex={0}
-			className={`relative touch-none aspect-square ${isDragging ? "scale-90 opacity-80" : ""} ${isOver ? "ring-4 ring-green-500 ring-offset-2 rounded-md" : ""}`}
-		>
-			<img src={url} alt={`Podgląd ${index + 1}`} className="w-full rounded-md object-cover" />
-			{isOversized && (
-				<button
-					type="button"
-					aria-label={`Zdjęcie za duże: ${fileName}`}
-					onClick={(e) => {
-						e.stopPropagation();
-						onOpenDetails(id);
-					}}
-					onPointerDown={(e) => e.stopPropagation()}
-					className="absolute inset-0 flex items-center justify-center rounded-md bg-destructive/60"
-				>
-					<IconAlertTriangle className="size-8 text-destructive-foreground" aria-hidden="true" />
-				</button>
-			)}
-			<button
-				type="button"
-				onClick={(e) => {
-					e.stopPropagation();
-					onRemove(id);
-				}}
-				onPointerDown={(e) => e.stopPropagation()}
-				className="absolute right-1 top-1 flex size-6 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-90 transition-opacity hover:opacity-100"
-				title="Usuń"
-			>
-				<IconX className="h-3 w-3" aria-hidden="true" />
-			</button>
-		</div>
-	);
-}
-
-/**
- * Plik → element listy zdjęć (podgląd + flaga „za duże"). Wspólny dla ręcznego
- * pickera i odbioru poczekalni (#220) — detekcja rozmiaru w jednym miejscu.
- */
-function toMediaItem(file: File, index: number): MediaItem {
-	return {
-		id: `img-${Date.now()}-${index}`,
-		file,
-		preview: URL.createObjectURL(file),
-		isOversized: file.size > MAX_FILE_SIZE_BYTES,
-	};
 }
 
 /**
  * Odbiór poczekalni plików (Android Wrapper F1, #220): pliki włożone przez
- * putPendingFiles (w F3 mostek Androida) forma bierze raz, przy montażu —
- * widoczne od razu po załadowaniu /app/new, jakby user wybrał je ręcznie.
- * Podział po MIME: image/* → podglądy (wspólny toMediaItem), video/* → karty
- * wideo (tytuł z nazwy pliku, jak prefill w dialogu pickera), reszta ignorowana.
- * Po odbiorze poczekalnia jest pusta — kolejny put czeka na następny montaż.
+ * putPendingFiles forma bierze raz, przy montażu. Podział po MIME:
+ * image/* -> kafelki zdjęć, video/* -> kafelki wideo (tytuł z nazwy pliku),
+ * reszta ignorowana. Odbiór zamyka się w kafelkach jak zwykłe załączniki.
  */
 function applyPendingFiles(
-	setMedia: Dispatch<SetStateAction<MediaItem[]>>,
-	setPendingVideos: Dispatch<SetStateAction<PendingVideo[]>>,
+	setMedia: (next: MediaItem[]) => void,
+	setPendingVideos: (next: VideoDraft[]) => void,
 ): void {
 	const pending = takePendingFiles();
 	const photos = pending.filter((f) => f.type.startsWith("image/"));
-	if (photos.length > 0) setMedia((prev) => [...prev, ...photos.map(toMediaItem)]);
+	if (photos.length > 0) setMedia([...photos.map(toMediaItem)]);
 	const videos = pending.filter((f) => f.type.startsWith("video/"));
 	if (videos.length > 0) {
-		setPendingVideos((prev) => [
-			...prev,
-			...videos.map((file) => ({
-				key: `vid-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+		setPendingVideos(
+			videos.map((file, index) => ({
+				key: `vid-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
 				file,
 				title: file.name.replace(/\.[^.]+$/, "").trim(),
 				preview: URL.createObjectURL(file),
 			})),
-		]);
+		);
 	}
+}
+
+/**
+ * Walidacja zapisanego szkicu ankiety schematem wysyłki (#241) — ostatnia
+ * linia obrony przed POST-em; dialog zapisuje już zwalidowany szkic.
+ */
+/** Wynik podziału wyboru z wybierarki na kafelki (reviza usera). */
+interface AttachmentSplit {
+	images: MediaItem[];
+	videos: VideoDraft[];
+	files: File[];
+	errors: string[];
+}
+
+/** Aktualne zapełnienie kafelków — limity liczone per typ. */
+interface AttachmentCounts {
+	images: number;
+	videos: number;
+	files: number;
+}
+
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: liniowy klasyfikator MIME z limitami — split na helpery zaciemniłby kod
+function splitAttachmentFiles(incoming: File[], counts: AttachmentCounts): AttachmentSplit {
+	const split: AttachmentSplit = { images: [], videos: [], files: [], errors: [] };
+	for (const file of incoming) {
+		const mime = file.type || "application/octet-stream";
+		if (mime.startsWith("image/")) {
+			if (counts.images + split.images.length >= MAX_IMAGES) {
+				split.errors.push(`${file.name}: limit ${MAX_IMAGES} zdjęć`);
+				continue;
+			}
+			split.images.push(toMediaItem(file, counts.images + split.images.length));
+		} else if (mime.startsWith("video/")) {
+			if (counts.videos + split.videos.length >= MAX_POST_VIDEOS) {
+				split.errors.push(`${file.name}: limit ${MAX_POST_VIDEOS} wideo`);
+				continue;
+			}
+			split.videos.push({
+				key: `vid-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+				file,
+				title: file.name.replace(/\.[^.]+$/, "").trim(),
+				preview: URL.createObjectURL(file),
+			});
+		} else {
+			if (counts.files + split.files.length >= MAX_POST_FILES) {
+				split.errors.push(`${file.name}: limit ${MAX_POST_FILES} plików`);
+				continue;
+			}
+			if (file.size > MAX_POST_FILE_BYTES) {
+				split.errors.push(`${file.name}: przekracza limit ${MAX_FILE_SIZE_MB} MB`);
+				continue;
+			}
+			split.files.push(file);
+		}
+	}
+	return split;
+}
+
+function resolvePollDraft(draft: PollDraft | null): {
+	poll: { question: string; options: string[] } | null;
+	error: string | null;
+} {
+	if (!draft) return { poll: null, error: null };
+	const parsed = postPollSchemaSafeParse(draft);
+	if (!parsed.ok) {
+		return { poll: null, error: pollDraftError(draft) ?? "Uzupełnij ankietę przed publikacją" };
+	}
+	return { poll: parsed.poll, error: null };
+}
+
+function postPollSchemaSafeParse(
+	draft: PollDraft,
+): { ok: true; poll: { question: string; options: string[] } } | { ok: false } {
+	const parsed = postPollSchema.safeParse({ question: draft.question, options: draft.options });
+	if (!parsed.success) return { ok: false };
+	return { ok: true, poll: parsed.data };
+}
+
+/**
+ * Walidacja zapisanego szkicu lokalizacji schematem wysyłki (#242) — bez
+ * pinezki (0,0) to częste przeoczenie; komunikat każe wskazać miejsce albo
+ * usunąć lokalizację z posta.
+ */
+function resolveLocationDraft(draft: LocationDraft | null): {
+	location: { lat: number; lng: number; label?: string } | null;
+	error: string | null;
+} {
+	if (!draft) return { location: null, error: null };
+	if (draft.lat === 0 && draft.lng === 0) {
+		return { location: null, error: "Wskaż miejsce na mapie albo usuń lokalizację z posta" };
+	}
+	const draftError = locationDraftError(draft);
+	if (draftError) return { location: null, error: draftError };
+	const label = draft.label.trim();
+	return { location: { lat: draft.lat, lng: draft.lng, ...(label ? { label } : {}) }, error: null };
 }
 
 /**
@@ -210,11 +208,53 @@ function ComposerHeader({ onBack }: { onBack?: () => void }) {
 	);
 }
 
+/**
+ * Przycisk paska dodawania: ikona + napis, trzy w jednej linii (mobile też).
+ * Na mobile krótkie napisy: Załączniki / Ankieta / Położenie (reviza usera);
+ * desktop pełne: Dodaj załączniki / Dodaj ankietę / Dodaj położenie.
+ */
+function ToolbarAction({
+	label,
+	labelMobile,
+	icon: Icon,
+	onClick,
+	pressed,
+	hasPopup,
+	disabled,
+}: {
+	label: string;
+	labelMobile: string;
+	icon: typeof IconPaperclip;
+	onClick: () => void;
+	pressed?: boolean;
+	hasPopup?: boolean;
+	disabled?: boolean;
+}) {
+	return (
+		<button
+			type="button"
+			aria-label={label}
+			aria-pressed={hasPopup ? undefined : pressed}
+			aria-haspopup={hasPopup ? "dialog" : undefined}
+			title={label}
+			onClick={onClick}
+			disabled={disabled}
+			className={cn(
+				"flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-md border bg-background px-2 py-2.5 text-xs font-medium text-foreground transition-colors hover:bg-accent sm:py-2 sm:text-sm",
+				pressed ? "border-primary bg-accent text-accent-foreground" : "border-input",
+			)}
+		>
+			<Icon className="size-4 shrink-0" aria-hidden="true" />
+			<span className="truncate sm:hidden">{labelMobile}</span>
+			<span className="hidden truncate sm:inline">{label}</span>
+		</button>
+	);
+}
+
 export function NewPostForm({
 	onSubmit,
 	isSubmitting,
 	uploadProgress = null,
-	videoNotConnected = false,
 	initialDescription,
 	isSlowUpload = false,
 	imageProgress = null,
@@ -223,17 +263,19 @@ export function NewPostForm({
 	const [description, setDescription] = useState(initialDescription ?? "");
 	const [mentions, setMentions] = useState<Mention[]>([]);
 	const [media, setMedia] = useState<MediaItem[]>([]);
-	const [pendingVideos, setPendingVideos] = useState<PendingVideo[]>([]);
+	const [pendingVideos, setPendingVideos] = useState<VideoDraft[]>([]);
+	/** Wybrane pliki (#243) — upload dopiero przy publikacji. */
+	const [postFiles, setPostFiles] = useState<File[]>([]);
+	/** Zapisane szkice (kafelki w siatce); edycja przez dialogi. */
+	const [pollDraft, setPollDraft] = useState<PollDraft | null>(null);
+	const [locationDraft, setLocationDraft] = useState<LocationDraft | null>(null);
 	const [error, setError] = useState<string | null>(null);
-	const [overId, setOverId] = useState<string | null>(null);
 	const [oversizedId, setOversizedId] = useState<string | null>(null);
+	const [pollDialogOpen, setPollDialogOpen] = useState(false);
+	const [locationDialogOpen, setLocationDialogOpen] = useState(false);
 	const imageInputRef = useRef<HTMLInputElement>(null);
 
 	// Poczekalnia plików (#220): odbiór raz przy montażu (szczegóły: applyPendingFiles).
-	// F3 (#222): przed odbiorem zasilamy poczekalnię z mostka Androida. Share wchodzi
-	// jako pełne ładowanie strony (SSR + hydratacja), a loader trasy nie odpala się
-	// wtedy po stronie klienta — stąd mostek obsługujemy tu, przed takePendingFiles.
-	// Poza apką (zwykła przeglądarka/PWA) to no-op.
 	useEffect(() => {
 		let cancelled = false;
 		void (async () => {
@@ -245,132 +287,118 @@ export function NewPostForm({
 		};
 	}, []);
 
-	const images = useMemo(() => media, [media]);
-
-	const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
-
-	const sortableIds = useMemo(() => media.map((m) => m.id), [media]);
-
-	/** Plik otwarty w dialogu „za duże zdjęcie" (issue #200). */
 	const oversizedItem = media.find((m) => m.id === oversizedId) ?? null;
 
-	const handleDragStart = useCallback((_event: DragStartEvent) => {
-		setOverId(null);
-	}, []);
-
-	const handleDragOver = useCallback((event: DragOverEvent) => {
-		setOverId(event.over ? String(event.over.id) : null);
-	}, []);
-
-	const handleDragEnd = useCallback(
-		(event: DragEndEvent) => {
-			setOverId(null);
-			const { active, over } = event;
-			if (!over || active.id === over.id) return;
-
-			const activeIndex = media.findIndex((m) => m.id === active.id);
-			const overIndex = media.findIndex((m) => m.id === over.id);
-
-			setMedia((prev) => reorder(prev, activeIndex, overIndex));
-		},
-		[media],
-	);
-
-	const handleImageFileChange = useCallback(
-		(e: ChangeEvent<HTMLInputElement>) => {
-			const incoming = Array.from(e.target.files ?? []);
-			if (incoming.length === 0) return;
-
-			setError(null);
-
-			if (images.length + incoming.length > MAX_IMAGES) {
-				setError(`Maksymalnie ${MAX_IMAGES} zdjęć na post`);
-				return;
-			}
-
-			// Za duże pliki NIE są odrzucane (issue #200): trafiają na listę jako
-			// oflagowane (czerwony mini z wykrzyknikiem), dialog na klik je naprawia.
-			const newItems: MediaItem[] = incoming.map(toMediaItem);
-
-			setMedia((prev) => [...prev, ...newItems]);
-
-			if (imageInputRef.current) imageInputRef.current.value = "";
-		},
-		[images.length],
-	);
-
-	const removeMedia = useCallback((id: string) => {
-		setMedia((prev) => {
-			const item = prev.find((m) => m.id === id);
-			if (item?.preview) {
-				URL.revokeObjectURL(item.preview);
-			}
-			const filtered = prev.filter((m) => m.id !== id);
-			if (filtered.length === 0) {
-				if (imageInputRef.current) imageInputRef.current.value = "";
-			}
-			return filtered;
-		});
-	}, []);
-
 	/** Podmiana pliku po zmniejszeniu (issue #200): nowy podgląd, flaga zdjęta. */
-	const replaceMediaFile = useCallback((id: string, nextFile: File) => {
-		setMedia((prev) =>
-			prev.map((item) => {
+	const replaceMediaFile = (id: string, nextFile: File) => {
+		setMedia(
+			media.map((item) => {
 				if (item.id !== id) return item;
-				if (item.preview) {
-					URL.revokeObjectURL(item.preview);
-				}
+				if (item.preview) URL.revokeObjectURL(item.preview);
 				return {
 					...item,
 					file: nextFile,
 					preview: URL.createObjectURL(nextFile),
-					isOversized: nextFile.size > MAX_FILE_SIZE_BYTES,
+					isOversized: nextFile.size > MAX_IMAGE_BYTES,
 				};
 			}),
 		);
-	}, []);
+	};
 
-	const handleSubmit = useCallback(
-		(e: FormEvent) => {
-			e.preventDefault();
-			if (images.length === 0 && pendingVideos.length === 0 && !description.trim()) {
-				setError("Dodaj tekst, zdjęcie lub wideo");
-				return;
-			}
-			const oversizedItem = images.find((i) => i.isOversized && i.file);
-			if (oversizedItem?.file) {
-				setError(
-					`Zdjęcie „${oversizedItem.file.name}" jest za duże — kliknij jego podgląd i zmniejsz je, albo usuń je przed publikacją.`,
-				);
-				// otwieramy od razu dialog problematycznego zdjęcia — skrócona ścieżka naprawy
-				setOversizedId(oversizedItem.id);
-				return;
-			}
-			if (description.length > MAX_DESCRIPTION_LENGTH) {
-				setError(
-					`Tekst posta jest za długi — limit to ${MAX_DESCRIPTION_LENGTH} znaków (wpisowanych: ${description.length})`,
-				);
-				return;
-			}
-			const files = images.map((i) => i.file!).filter(Boolean);
-			const validMentions = mentions.filter((m) => description.includes(`@${m.name}`));
-			onSubmit({
-				description,
-				files,
-				pendingVideos: pendingVideos.map(({ file, title }) => ({ file, title })),
-				mentions: validMentions,
-			});
-		},
-		[description, images, onSubmit, mentions.filter, pendingVideos],
+	/**
+	 * "Dodaj załączniki" otwiera od razu wybierarkę plików (reviza usera — bez
+	 * osobnych okien). Wybór dzieli się po MIME na kafelki: zdjęcia, wideo
+	 * (tytuł z nazwy pliku, upload do YouTube przy publikacji) i pliki (R2).
+	 */
+	const handlePickAttachments = () => {
+		imageInputRef.current?.click();
+	};
+
+	const handleAttachmentsFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+		const incoming = Array.from(e.target.files ?? []);
+		if (incoming.length === 0) return;
+		e.target.value = "";
+
+		const split = splitAttachmentFiles(incoming, {
+			images: media.length,
+			videos: pendingVideos.length,
+			files: postFiles.length,
+		});
+		if (split.images.length > 0) setMedia([...media, ...split.images]);
+		if (split.videos.length > 0) setPendingVideos([...pendingVideos, ...split.videos]);
+		if (split.files.length > 0) setPostFiles([...postFiles, ...split.files]);
+		setError(split.errors.length > 0 ? split.errors.join(", ") : null);
+	};
+
+	const handleSubmit = (e: FormEvent) => {
+		e.preventDefault();
+		const files = media.map((i) => i.file).filter((f): f is File => Boolean(f));
+		const oversized = media.find((i) => i.isOversized && i.file);
+		if (oversized?.file) {
+			setError(
+				`Zdjęcie "${oversized.file.name}" jest za duże. Kliknij jego podgląd i zmniejsz je, albo usuń je przed publikacją.`,
+			);
+			setOversizedId(oversized.id);
+			return;
+		}
+		if (description.length > MAX_DESCRIPTION_LENGTH) {
+			setError(
+				`Tekst posta jest za długi. Limit to ${MAX_DESCRIPTION_LENGTH} znaków, wpisanych: ${description.length}`,
+			);
+			return;
+		}
+		// Szkice są walidowane przy zapisie w dialogu — tu tylko ostatnia linia obrony.
+		const resolvedPoll = resolvePollDraft(pollDraft);
+		const resolvedLocation = resolveLocationDraft(locationDraft);
+		const draftError = resolvedPoll.error ?? resolvedLocation.error;
+		if (draftError) {
+			setError(draftError);
+			return;
+		}
+		const { poll } = resolvedPoll;
+		const { location } = resolvedLocation;
+		if (
+			media.length === 0 &&
+			pendingVideos.length === 0 &&
+			!description.trim() &&
+			!poll &&
+			!location &&
+			postFiles.length === 0
+		) {
+			setError("Dodaj tekst, załączniki, ankietę albo położenie");
+			return;
+		}
+		const validMentions = mentions.filter((m) => description.includes(`@${m.name}`));
+		onSubmit({
+			description,
+			files,
+			pendingVideos: pendingVideos.map(({ file, title }) => ({ file, title })),
+			mentions: validMentions,
+			poll,
+			location,
+			postFiles,
+		});
+	};
+
+	const canSubmit = useMemo(
+		() =>
+			(media.length > 0 ||
+				pendingVideos.length > 0 ||
+				description.trim().length > 0 ||
+				pollDraft !== null ||
+				locationDraft !== null ||
+				postFiles.length > 0) &&
+			!isSubmitting,
+		[
+			media.length,
+			description,
+			isSubmitting,
+			pendingVideos.length,
+			pollDraft,
+			locationDraft,
+			postFiles.length,
+		],
 	);
-
-	const canSubmit = useMemo(() => {
-		return (
-			(images.length > 0 || pendingVideos.length > 0 || description.trim().length > 0) &&
-			!isSubmitting
-		);
-	}, [images.length, description, isSubmitting, pendingVideos.length]);
 
 	return (
 		<form onSubmit={handleSubmit} className="space-y-4">
@@ -390,73 +418,88 @@ export function NewPostForm({
 				/>
 			</div>
 
-			<div>
+			{/* Pasek dodawania: 3 przyciski z napisami w jednej linii (mobile też,
+			    krótkie napisy na małych ekranach — reviza usera). */}
+			<div role="toolbar" aria-label="Dodaj do posta" className="flex items-stretch gap-1.5">
+				{/* Bez `accept`: wybierarka pokazuje WSZYSTKIE pliki (.apk, .md itd. —
+				    reviza usera); podział i odrzucenia (wideo na YouTube, reszta do R2,
+				    limity rozmiaru/liczby) robi splitAttachmentFiles. */}
 				<input
 					ref={imageInputRef}
 					type="file"
-					accept={ACCEPTED_IMAGE_TYPES}
 					multiple
-					onChange={handleImageFileChange}
+					onChange={handleAttachmentsFileChange}
 					className="hidden"
 				/>
-				{/* Zdjęcia pod przyciskiem zdjęć, wideo pod przyciskiem wideo (reviza usera):
-				    na mobile jedna kolumna, na desktopie dwie równe kolumny. */}
-				<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-start">
-					<div className="space-y-2">
-						<Button
-							type="button"
-							variant="outline"
-							className="h-11 w-full sm:h-9"
-							onClick={() => imageInputRef.current?.click()}
-							disabled={images.length >= MAX_IMAGES}
-							title={images.length > 0 ? `${images.length}/${MAX_IMAGES}` : "Dodaj zdjęcia"}
-						>
-							<IconPhotoPlus className="h-4 w-4" aria-hidden="true" />
-							<span className="ml-2">
-								{images.length > 0 ? `${images.length}/${MAX_IMAGES}` : "Dodaj zdjęcia"}
-							</span>
-						</Button>
-
-						{media.length > 0 && (
-							<DndContext
-								sensors={sensors}
-								onDragStart={handleDragStart}
-								onDragOver={handleDragOver}
-								onDragEnd={handleDragEnd}
-							>
-								<SortableContext items={sortableIds} strategy={rectSortingStrategy}>
-									<div role="listbox" className="grid grid-cols-3 gap-2">
-										{media.map((item, index) => (
-											<SortablePreview
-												key={item.id}
-												id={item.id}
-												url={item.preview ?? ""}
-												index={index}
-												isOver={overId === item.id}
-												isOversized={item.isOversized ?? false}
-												fileName={item.file?.name ?? ""}
-												onRemove={() => removeMedia(item.id)}
-												onOpenDetails={setOversizedId}
-											/>
-										))}
-									</div>
-								</SortableContext>
-							</DndContext>
-						)}
-					</div>
-
-					<div className="space-y-2">
-						<ComposerVideoPicker
-							videos={pendingVideos}
-							onChange={setPendingVideos}
-							disabled={isSubmitting}
-							notConnected={videoNotConnected}
-						/>
-					</div>
-				</div>
+				<ToolbarAction
+					label="Dodaj załączniki"
+					labelMobile="Załączniki"
+					icon={IconPaperclip}
+					onClick={handlePickAttachments}
+					disabled={isSubmitting}
+				/>
+				<ToolbarAction
+					label="Dodaj ankietę"
+					labelMobile="Ankieta"
+					icon={IconChartBar}
+					onClick={() => setPollDialogOpen(true)}
+					hasPopup
+					disabled={isSubmitting}
+				/>
+				<ToolbarAction
+					label="Dodaj położenie"
+					labelMobile="Położenie"
+					icon={IconMapPin}
+					onClick={() => setLocationDialogOpen(true)}
+					hasPopup
+					disabled={isSubmitting}
+				/>
 			</div>
 
-			{/* Dialog „za duże zdjęcie" (issue #200): błąd + akcja zmniejszenia. */}
+			{/* Jednolita siatka kafelków (reviza usera): zdjęcia, wideo, pliki,
+			    ankieta i położenie — wszystko kwadraty z X; ankieta/położenie
+			    z dużą własną ikoną, klik otwiera dialog do edycji. */}
+			{(media.length > 0 ||
+				pendingVideos.length > 0 ||
+				postFiles.length > 0 ||
+				pollDraft ||
+				locationDraft) && (
+				<ComposerAttachmentsGrid
+					images={media}
+					onImagesChange={setMedia}
+					onOpenDetails={setOversizedId}
+					videos={pendingVideos}
+					onRemoveVideo={(key) => {
+						const video = pendingVideos.find((v) => v.key === key);
+						if (video) URL.revokeObjectURL(video.preview);
+						setPendingVideos(pendingVideos.filter((v) => v.key !== key));
+					}}
+					files={postFiles}
+					onRemoveFile={(index) => setPostFiles(postFiles.filter((_, i) => i !== index))}
+					poll={pollDraft}
+					onEditPoll={() => setPollDialogOpen(true)}
+					onRemovePoll={() => setPollDraft(null)}
+					location={locationDraft}
+					onEditLocation={() => setLocationDialogOpen(true)}
+					onRemoveLocation={() => setLocationDraft(null)}
+				/>
+			)}
+
+			{/* Dialogi ankiety i położenia (#241, #242 — reviza usera). */}
+			<ComposerPollDialog
+				open={pollDialogOpen}
+				onOpenChange={setPollDialogOpen}
+				value={pollDraft}
+				onSave={setPollDraft}
+			/>
+			<ComposerLocationDialog
+				open={locationDialogOpen}
+				onOpenChange={setLocationDialogOpen}
+				value={locationDraft}
+				onSave={setLocationDraft}
+			/>
+
+			{/* Dialog "za duże zdjęcie" (issue #200): błąd + akcja zmniejszenia. */}
 			<OversizedImageDialog
 				file={oversizedItem?.file ?? null}
 				limitMb={MAX_FILE_SIZE_MB}
@@ -472,40 +515,64 @@ export function NewPostForm({
 
 			{isSubmitting && isSlowUpload ? (
 				<output className="block text-sm text-muted-foreground">
-					Masz wolne połączenie internetowe — przesyłanie zdjęć może potrwać dłużej…
+					Masz wolne połączenie internetowe. Przesyłanie zdjęć może potrwać dłużej.
 				</output>
 			) : null}
 
-			<Button
-				type="submit"
-				className={cn(
-					"relative h-11 w-full overflow-hidden sm:h-9",
-					// W trakcie publikacji przycisk na niebiesko (Secondary #0c275f),
-					// żeby biały Loader nie zlewał się z zielonym tłem (reviza usera).
-					isSubmitting && "bg-[#0c275f] text-white hover:bg-[#0c275f]/90",
-				)}
-				disabled={!canSubmit}
-			>
-				{isSubmitting ? (
-					<>
-						<span
-							aria-hidden
-							className="absolute inset-0 origin-left animate-[publish-indeterminate_7s_ease-out_forwards] bg-primary-foreground/20"
-						/>
-						{/* „Opatentowany" Loader — biały (inline style wygrywa z loader.css). */}
-						<Loader loading size={4} color="#FFFFFF" className="relative mr-2" />
-					</>
-				) : null}
-				<span className="relative">
-					{isSubmitting
-						? imageProgress
-							? `Zdjęcie ${imageProgress.fileIndex + 1}/${imageProgress.total} — ${imageProgress.percent}%`
-							: uploadProgress
-								? `Wgrywanie wideo ${uploadProgress.videoIndex + 1}/${uploadProgress.total}…`
-								: "Publikowanie..."
-						: "Opublikuj"}
-				</span>
-			</Button>
+			<PublishButton
+				isSubmitting={isSubmitting}
+				canSubmit={canSubmit}
+				uploadProgress={uploadProgress}
+				imageProgress={imageProgress}
+			/>
 		</form>
+	);
+}
+
+interface PublishButtonProps {
+	isSubmitting: boolean;
+	canSubmit: boolean;
+	uploadProgress: { videoIndex: number; total: number; percent: number } | null;
+	imageProgress: ImageUploadProgress | null;
+}
+
+/** Przycisk publikacji: pasek postępu, Loader i label wg fazy (zdjęcia/wideo). */
+function PublishButton({
+	isSubmitting,
+	canSubmit,
+	uploadProgress,
+	imageProgress,
+}: PublishButtonProps) {
+	return (
+		<Button
+			type="submit"
+			className={cn(
+				"relative h-11 w-full overflow-hidden sm:h-9",
+				// W trakcie publikacji przycisk na niebiesko (Secondary #0c275f),
+				// żeby biały Loader nie zlewał się z zielonym tłem (reviza usera).
+				isSubmitting && "bg-[#0c275f] text-white hover:bg-[#0c275f]/90",
+			)}
+			disabled={!canSubmit}
+		>
+			{isSubmitting ? (
+				<>
+					<span
+						aria-hidden
+						className="absolute inset-0 origin-left animate-[publish-indeterminate_7s_ease-out_forwards] bg-primary-foreground/20"
+					/>
+					{/* "Opatentowany" Loader — biały (inline style wygrywa z loader.css). */}
+					<Loader loading size={4} color="#FFFFFF" className="relative mr-2" />
+				</>
+			) : null}
+			<span className="relative">
+				{isSubmitting
+					? imageProgress
+						? `Zdjęcie ${imageProgress.fileIndex + 1}/${imageProgress.total} — ${imageProgress.percent}%`
+						: uploadProgress
+							? `Wgrywanie wideo ${uploadProgress.videoIndex + 1}/${uploadProgress.total}…`
+							: "Publikowanie..."
+					: "Opublikuj"}
+			</span>
+		</Button>
 	);
 }

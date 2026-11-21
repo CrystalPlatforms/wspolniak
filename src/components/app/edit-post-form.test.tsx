@@ -225,3 +225,45 @@ describe("EditPostForm — za duże zdjęcie (issue #200)", () => {
 		expect(screen.getByRole("button", { name: /za duże: duze\.jpg/i })).toBeDefined();
 	});
 });
+
+// #241: ankieta w edycji istniejącego posta jest TYLKO DO CZYTANIA — głosy muszą
+// zostać wiarygodne, więc formularz nie może oferować edycji pytania ani opcji.
+describe("EditPostForm — ankieta read-only (#241)", () => {
+	it("pokazuje ankietę jako listę bez inputów i bez przycisku głosowania", async () => {
+		const { container } = render(
+			<EditPostForm
+				postId="post-1"
+				description="Opis"
+				existingImages={[]}
+				imageAccountHash="hash"
+				initialPoll={{ question: "Gdzie na wakacje?", options: ["Morze", "Góry"] }}
+				onSubmit={vi.fn()}
+				isSubmitting={false}
+			/>,
+		);
+
+		expect(screen.getByText("Gdzie na wakacje?")).toBeDefined();
+		expect(screen.getByText("Morze")).toBeDefined();
+		expect(screen.getByText("Góry")).toBeDefined();
+		// brak inputów ankiety (pytanie/opcje) i brak wierszy z aria-pressed (głosowanie)
+		expect(screen.queryByLabelText(/pytanie/i)).toBeNull();
+		expect(screen.queryByRole("button", { name: /głosuj na/i })).toBeNull();
+		expect(screen.getByText(/nie można edytować po publikacji/i)).toBeDefined();
+		// reszta formularza edytowalna normalnie
+		expect(container.querySelector("input[type='file']")).not.toBeNull();
+	});
+
+	it("bez ankiety sekcja read-only nie renderuje się", () => {
+		render(
+			<EditPostForm
+				postId="post-1"
+				description="Opis"
+				existingImages={[]}
+				imageAccountHash="hash"
+				onSubmit={vi.fn()}
+				isSubmitting={false}
+			/>,
+		);
+		expect(screen.queryByText(/nie można edytować po publikacji/i)).toBeNull();
+	});
+});

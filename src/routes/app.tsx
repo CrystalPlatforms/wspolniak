@@ -8,7 +8,7 @@ import {
 	shouldShowMaintenanceOverlay,
 } from "@/components/maintenance/maintenance-overlay";
 import { PwaShell } from "@/components/pwa/pwa-shell";
-import { Loader } from "@/components/ui/loader";
+import { ScreenSkeleton } from "@/components/ui/skeleton";
 import { loadAppBootstrap, useAppBootstrap } from "@/core/app-bootstrap";
 import { BootSplash } from "@/core/boot-splash";
 
@@ -34,11 +34,7 @@ function AppLayout() {
 	}, [isPending, session, navigate]);
 
 	if (isPending || !session || !maintenance || !featureFlags) {
-		return (
-			<div className="flex min-h-dvh items-center justify-center bg-background">
-				<Loader size={10} />
-			</div>
-		);
+		return <ScreenSkeleton />;
 	}
 
 	if (shouldShowMaintenanceOverlay(maintenance, session.role)) {

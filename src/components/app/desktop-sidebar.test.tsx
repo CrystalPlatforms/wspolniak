@@ -258,7 +258,7 @@ describe("DesktopSidebar — Albumy nav link (#170)", () => {
 		expect(link.getAttribute("href")).toBe("/app/albums");
 	});
 
-	it("highlights the Albumy link but leaves the icon unfilled when active (#170 reviza)", () => {
+	it("highlights the Albumy link with the filled icon when active (nowa reviza: wszystkie wypełnione)", () => {
 		setPathname("/app/albums");
 		render(
 			<DesktopSidebar
@@ -273,8 +273,8 @@ describe("DesktopSidebar — Albumy nav link (#170)", () => {
 
 		const link = screen.getByRole("link", { name: /^albumy$/i });
 		expect(link.getAttribute("class")).toContain("font-bold");
-		// Ikona zdjęć wypełniona wygląda źle — zostaje konturowa (reviza usera).
-		expect(link.querySelector("svg")?.getAttribute("fill")).toBe("none");
+		// Nowa reviza usera: aktywna pozycja ma wariant Filled (PhotoFilled).
+		expect(link.querySelector("svg")?.getAttribute("fill")).toBe("currentColor");
 	});
 
 	it("leaves the Albumy icon unfilled when not active", () => {

@@ -72,6 +72,8 @@ const stubPost = {
 	author: { id: "u-other", name: "Kasia" },
 	images: [],
 	videos: [],
+	poll: null,
+	location: null,
 };
 
 describe("POST /api/app/posts/:id/pin", () => {

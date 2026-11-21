@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader } from "@/components/ui/loader";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface VerifyResponse {
 	members?: { id: string; name: string }[];
@@ -88,8 +89,12 @@ export function SharePage({ initialCode = "" }: SharePageProps = {}) {
 
 	if (step === "redirecting") {
 		return (
-			<div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-6">
-				<Loader size={6} />
+			<div
+				className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-6"
+				aria-busy="true"
+			>
+				<Skeleton className="h-10 w-64 rounded-full" />
+				<Skeleton className="h-3 w-40" />
 				<p className="text-muted-foreground">Logowanie...</p>
 			</div>
 		);

@@ -8,10 +8,12 @@ import { EditPostForm } from "@/components/app/edit-post-form";
 import type { Mention } from "@/components/app/mention-input";
 import { UploadErrorAlert } from "@/components/app/upload-error-alert";
 import {
+	uploadPostFilesForCreate,
 	uploadVideoPlan,
 	VideoNotConnectedError,
 	type VideoPlanEntry,
 } from "@/components/app/use-publish-post";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { PostVideoEntry } from "@/db/posts/schema";
 import { uploadImages } from "@/images/upload";
 
@@ -28,6 +30,12 @@ interface PostData {
 	images: PostImage[];
 	/** Video v2 (#194): wideo osadzone w poście (JSONB). */
 	videos: PostVideoEntry[];
+	/** Ankieta posta (#241) — w edycji tylko do czytania. */
+	poll?: { question: string; options: string[] } | null;
+	/** Lokalizacja posta (#242). */
+	location?: { lat: number; lng: number; label?: string } | null;
+	/** Załączniki posta (#243) — z kluczami do re-attachu przy edycji. */
+	files?: { id: string; key: string; name: string; size: number; mimeType: string }[];
 }
 
 interface PostResponse {
@@ -60,6 +68,28 @@ interface EditSubmitInput {
 	imageOrder: string[];
 	videoPlan: VideoPlanEntry[];
 	mentions: Mention[];
+	/** Lokalizacja (#242): obiekt = ustaw, null = usuń, undefined = bez zmian. */
+	location?: { lat: number; lng: number; label?: string } | null;
+	/** Pliki (#243): metadane zostawionych istniejących + nowe pliki do uploadu. */
+	keptFiles: { key: string; name: string; size: number; mimeType: string }[];
+	newPostFiles: File[];
+	/** Ktoś ruszył listę plików — wtedy PATCH wysyła pełną listę `files`. */
+	filesDirty: boolean;
+}
+
+/** Helper PATCH-a z JSON-em — jeden kształt błędu dla wszystkich kroków zapisu. */
+async function patchPost(
+	id: string,
+	body: Record<string, unknown>,
+	errorMessage: string,
+): Promise<void> {
+	const res = await fetch(`/api/app/posts/${id}`, {
+		method: "PATCH",
+		headers: { "Content-Type": "application/json" },
+		body: JSON.stringify(body),
+	});
+	if (res.status === 403) throw new Error("Brak uprawnień do edycji tego posta");
+	if (!res.ok) throw new Error(errorMessage);
 }
 
 export const Route = createFileRoute("/app/post/$id_/edit")({
@@ -86,45 +116,40 @@ function EditPostPage() {
 				),
 			);
 
-			// Upload new files
+			// Upload new files (wspólny pipeline #135: kompresja, batch URL-i)
 			if (input.files.length > 0) {
-				// Wspólny pipeline uploadu (issue #135): batch URL-i, kompresja, twardy timeout,
-				// jasne błędy zamiast "Load failed".
 				const cfImageIds = await uploadImages(input.files);
-				const res = await fetch(`/api/app/posts/${id}`, {
-					method: "PATCH",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ cfImageIds }),
-				});
-				if (!res.ok) throw new Error("Nie udało się dodać zdjęć");
+				await patchPost(id, { cfImageIds }, "Nie udało się dodać zdjęć");
 			}
 
-			// Reorder images
 			if (input.imageOrder.length > 0) {
-				const res = await fetch(`/api/app/posts/${id}`, {
-					method: "PATCH",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ imageOrder: input.imageOrder }),
-				});
-				if (!res.ok) throw new Error("Nie udało się zmienić kolejności zdjęć");
+				await patchPost(
+					id,
+					{ imageOrder: input.imageOrder },
+					"Nie udało się zmienić kolejności zdjęć",
+				);
 			}
 
-			// Video v2 F3 (#197): najpierw wgrywa pending wideo z planu (sekwencyjnie,
-			// existing idą 1:1), dopiero potem zapisuje payload z finalną kolejnością.
+			// Pliki (#243): nowe idą do R2 (helper z publish flow), potem pełna
+			// lista metadanych (zostawione + nowe) leci w PATCH — sync po kluczach.
+			const uploadedNew = await uploadPostFilesForCreate(input.newPostFiles);
+			const fileMetas = [...input.keptFiles, ...uploadedNew];
+
+			// Video v2 F3 (#197): najpierw wgrywa pending wideo z planu, potem zapis
+			// payloadu z finalną kolejnością + lokalizacją i plikami (#242, #243).
 			const videos = await uploadVideoPlan(input.videoPlan, () => {});
-			const res = await fetch(`/api/app/posts/${id}`, {
-				method: "PATCH",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify({
+			await patchPost(
+				id,
+				{
 					description: input.description || null,
 					mentions: input.mentions,
 					videos,
-				}),
-			});
-			if (res.status === 403) throw new Error("Brak uprawnień do edycji tego posta");
-			if (!res.ok) throw new Error("Nie udało się edytować posta");
-
-			return res.json();
+					location: input.location,
+					...(input.filesDirty ? { files: fileMetas } : {}),
+				},
+				"Nie udało się edytować posta",
+			);
+			return null;
 		},
 		onSuccess: async () => {
 			await queryClient.invalidateQueries({ queryKey: ["posts"] });
@@ -147,8 +172,13 @@ function EditPostPage() {
 
 	if (isLoading) {
 		return (
-			<div className="flex min-h-screen items-center justify-center bg-background">
-				<p className="text-muted-foreground">Ładowanie...</p>
+			<div className="min-h-screen bg-background p-4" aria-busy="true">
+				<div className="mx-auto max-w-lg space-y-4 pt-6">
+					<Skeleton className="h-6 w-36" />
+					<Skeleton className="h-24 w-full rounded-lg" />
+					<Skeleton className="h-11 w-full rounded-md" />
+					<Skeleton className="h-11 w-full rounded-md" />
+				</div>
 			</div>
 		);
 	}
@@ -197,6 +227,9 @@ function EditPostPage() {
 				description={post.description}
 				existingImages={post.images.map((img) => ({ id: img.id, cfImageId: img.cfImageId }))}
 				imageAccountHash={response.meta.imageAccountHash}
+				initialPoll={post.poll ?? null}
+				initialLocation={post.location ?? null}
+				initialFiles={post.files ?? []}
 				initialVideos={post.videos}
 				onSubmit={handleSubmit}
 				onVideoDelete={handleVideoDelete}

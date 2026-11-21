@@ -14,12 +14,15 @@ import {
 	SkeletonMeta,
 } from "@/components/app/post-card-skeleton";
 import { PostCornerActions } from "@/components/app/post-corner-actions";
+import { PostRichContent } from "@/components/app/post-rich-content";
 import { PostWhoReacted } from "@/components/app/post-who-reacted";
 import {
 	VideoDialog,
 	type VideoDialogData,
 	VideoPosterButton,
 } from "@/components/app/video-player-dialog";
+import type { PostFileEntry } from "@/db/post-files/schema";
+import type { PostLocationPayload, PostPollData } from "@/db/posts/schema";
 import { getImageUrl } from "@/images/client";
 import { downloadImage, isAndroidWrapper, saveBlobViaBridge } from "@/lib/download-image";
 
@@ -59,6 +62,12 @@ interface PostData {
 	author: { id: string; name: string };
 	images: PostImage[];
 	videos?: PostVideo[];
+	/** Ankieta z zagregowanymi wynikami (#241) — dokleja enrichPosts. */
+	poll?: PostPollData | null;
+	/** Lokalizacja (#242) — kompaktowa karta z linkiem do map. */
+	location?: PostLocationPayload | null;
+	/** Załączniki (#243) — wiersze plików pod zdjęciami/wideo. */
+	files?: PostFileEntry[];
 	pinned?: boolean;
 }
 
@@ -161,6 +170,13 @@ export function PostView({
 					{post.description && (
 						<MarkdownText text={post.description} className="break-words text-foreground" />
 					)}
+
+					<PostRichContent
+						postId={post.id}
+						poll={post.poll}
+						location={post.location}
+						files={post.files}
+					/>
 				</>
 			) : (
 				<>

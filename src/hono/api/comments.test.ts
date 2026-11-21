@@ -83,6 +83,8 @@ const samplePost = {
 	author: { id: "u1", name: "Tomek" },
 	images: [],
 	videos: [],
+	poll: null,
+	location: null,
 };
 
 const sampleComment = {

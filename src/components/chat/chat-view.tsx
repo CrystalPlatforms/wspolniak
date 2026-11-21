@@ -36,7 +36,7 @@ import { ChatPendingBubble, type PendingMessage } from "@/components/chat/chat-p
 import { chatPostPreviewKey, fetchChatPostPreview } from "@/components/chat/chat-post-share";
 import { useBubbleMenu } from "@/components/chat/use-bubble-menu";
 import { Button } from "@/components/ui/button";
-import { Loader } from "@/components/ui/loader";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useOnlineStatus } from "@/pwa/use-online-status";
 import { isNearBottom, scrollToBottom } from "./chat-scroll";
 import { TypingIndicator } from "./typing-indicator";
@@ -472,10 +472,10 @@ export function ChatView({
 					onScroll={(event) => setNearBottom(isNearBottom(event.currentTarget))}
 				>
 					{hasMany ? (
-						// Starsze wiadomości z 24h istnieją, ale są ukryte — loader + notice u góry.
-						// (Loader sam niesie rolę status — <output aria-label="Ładowanie">.)
+						// Starsze wiadomości z 24h istnieją, ale są ukryte — notice u góry
+						// z pulsującą linią zamiast spinnera (reviza usera: skeletony).
 						<div className="mb-2 flex flex-col items-center gap-1">
-							<Loader size={2} />
+							<Skeleton className="h-2 w-16 rounded-full" />
 							<p className="text-xs text-muted-foreground">
 								Starsze wiadomości z ostatniej doby są ukryte — znikają po 24 godzinach
 							</p>

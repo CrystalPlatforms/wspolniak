@@ -15,6 +15,9 @@ vi.mock("@/db/posts/queries", () => ({
 	listPostsByIds: vi.fn(),
 }));
 
+vi.mock("@/db/post-files/queries", () => ({
+	listPostFilesByPostIds: vi.fn(),
+}));
 vi.mock("@/db/comments", () => ({
 	countCommentsByPosts: vi.fn(),
 }));
@@ -33,6 +36,7 @@ import { createBookmark, deleteBookmark, listBookmarksForUser } from "@/db/bookm
 import { countCommentsByPosts } from "@/db/comments";
 import { findActiveUserById } from "@/db/identity/queries";
 import { verifySessionCookie } from "@/db/identity/session";
+import { listPostFilesByPostIds } from "@/db/post-files/queries";
 import { getPostById, listPostsByIds } from "@/db/posts/queries";
 import bookmarksEndpoint from "./bookmarks";
 
@@ -44,6 +48,7 @@ const mockCreateBookmark = vi.mocked(createBookmark);
 const mockDeleteBookmark = vi.mocked(deleteBookmark);
 const mockListBookmarks = vi.mocked(listBookmarksForUser);
 const mockCountComments = vi.mocked(countCommentsByPosts);
+const mockListFiles = vi.mocked(listPostFilesByPostIds);
 
 function createApi() {
 	const api = new Hono<{
@@ -72,6 +77,8 @@ const samplePost = {
 	author: { id: "u1", name: "Tomek" },
 	images: [],
 	videos: [],
+	poll: null,
+	location: null,
 };
 
 function authedUser() {
@@ -92,6 +99,7 @@ describe("POST /api/app/bookmarks", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		authedUser();
+		mockListFiles.mockResolvedValue(new Map());
 	});
 
 	it("creates a bookmark for the logged-in user and returns 201", async () => {
@@ -190,6 +198,7 @@ describe("DELETE /api/app/bookmarks/:postId", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		authedUser();
+		mockListFiles.mockResolvedValue(new Map());
 	});
 
 	it("deletes the user's bookmark and returns 200", async () => {
@@ -237,6 +246,7 @@ describe("GET /api/app/bookmarks", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		authedUser();
+		mockListFiles.mockResolvedValue(new Map());
 	});
 
 	it("returns the logged-in user's saved posts enriched with commentCount", async () => {
@@ -291,6 +301,7 @@ describe("Authorization — own bookmarks only (#132)", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		authedUser();
+		mockListFiles.mockResolvedValue(new Map());
 	});
 
 	it("GET derives userId from the session, never from the request", async () => {

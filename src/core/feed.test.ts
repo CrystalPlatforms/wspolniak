@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 vi.mock("@/db/posts", () => ({
+	getPostPollResults: vi.fn(),
 	listPaginatedPosts: vi.fn(),
 	listPostsByIds: vi.fn(),
 }));
@@ -9,16 +10,27 @@ vi.mock("@/db/pinned-posts", () => ({
 vi.mock("@/db/comments", () => ({
 	countCommentsByPosts: vi.fn(),
 }));
+vi.mock("@/db/post-files/queries", () => ({
+	listPostFilesByPostIds: vi.fn(),
+}));
 
 import { countCommentsByPosts } from "@/db/comments";
 import { listPinnedPostIds } from "@/db/pinned-posts";
-import { listPaginatedPosts, listPostsByIds, type PostWithAuthorAndImages } from "@/db/posts";
+import { listPostFilesByPostIds } from "@/db/post-files/queries";
+import {
+	getPostPollResults,
+	listPaginatedPosts,
+	listPostsByIds,
+	type PostWithAuthorAndImages,
+} from "@/db/posts";
 import { assembleFeedPage, type FeedPageData } from "./feed";
 
 const mockedPaginated = vi.mocked(listPaginatedPosts);
 const mockedByIds = vi.mocked(listPostsByIds);
 const mockedPinnedIds = vi.mocked(listPinnedPostIds);
 const mockedCommentCounts = vi.mocked(countCommentsByPosts);
+const mockedPollResults = vi.mocked(getPostPollResults);
+const mockedFiles = vi.mocked(listPostFilesByPostIds);
 
 function makePost(
 	id: string,
@@ -30,6 +42,8 @@ function makePost(
 		authorId: "user-1",
 		description: `post ${id}`,
 		videos,
+		poll: null,
+		location: null,
 		createdAt,
 		updatedAt: createdAt,
 		author: { id: "user-1", name: "Ania" },
@@ -42,6 +56,8 @@ const NOW = new Date("2026-07-01T10:00:00.000Z");
 beforeEach(() => {
 	vi.clearAllMocks();
 	mockedPinnedIds.mockResolvedValue([]);
+	mockedPollResults.mockResolvedValue(new Map());
+	mockedFiles.mockResolvedValue(new Map());
 });
 
 describe("assembleFeedPage", () => {

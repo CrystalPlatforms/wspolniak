@@ -4,11 +4,7 @@ import { useRef } from "react";
 import { calendarProposalTemplate } from "@/components/app/calendar-proposal";
 import { NewPostForm } from "@/components/app/new-post-form";
 import { UploadErrorAlert } from "@/components/app/upload-error-alert";
-import {
-	type PublishPostInput,
-	usePublishPost,
-	VideoNotConnectedError,
-} from "@/components/app/use-publish-post";
+import { type PublishPostInput, usePublishPost } from "@/components/app/use-publish-post";
 import { maybeIngestSharedFiles } from "@/lib/android-bridge";
 
 /** ?calendar=1 — wejście z przycisku „Zaproponuj datę" (Kalendarz v2, #163). */
@@ -73,13 +69,15 @@ function NewPostPage() {
 						files: data.files,
 						pendingVideos: data.pendingVideos,
 						mentions: data.mentions,
+						poll: data.poll ?? null,
+						location: data.location ?? null,
+						postFiles: data.postFiles ?? [],
 					})
 				}
 				isSubmitting={isPending}
 				uploadProgress={uploadProgress}
 				imageProgress={imageProgress}
 				isSlowUpload={isSlowUpload}
-				videoNotConnected={error instanceof VideoNotConnectedError}
 			/>
 		</div>
 	);

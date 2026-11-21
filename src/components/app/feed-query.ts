@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import type { PostFileEntry } from "@/db/post-files/schema";
+import type { PostLocationPayload, PostPollData } from "@/db/posts/schema";
 
 export interface FeedImage {
 	id: string;
@@ -16,6 +18,12 @@ export interface FeedPost {
 	updatedAt: string;
 	author: { id: string; name: string };
 	images: FeedImage[];
+	/** Ankieta z zagregowanymi wynikami (#241) — dokleja enrichPosts w odpowiedzi feedu. */
+	poll?: PostPollData | null;
+	/** Lokalizacja (#242) — kompaktowa karta z linkiem do map. */
+	location?: PostLocationPayload | null;
+	/** Załączniki (#243) — wiersze plików pod zdjęciami/wideo. */
+	files?: PostFileEntry[];
 	commentCount?: number;
 	pinned?: boolean;
 }

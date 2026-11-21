@@ -3,7 +3,7 @@ import type { InferSelectModel } from "drizzle-orm";
 import { and, asc, count, desc, eq, gte, inArray, isNull, lt, not, or } from "drizzle-orm";
 import { users } from "@/db/identity/table";
 import { getDb } from "@/db/setup";
-import type { PostVideoEntry } from "./schema";
+import type { PostLocationPayload, PostPollPayload, PostVideoEntry } from "./schema";
 import { postImages, posts } from "./table";
 
 export type Post = InferSelectModel<typeof posts>;
@@ -14,16 +14,27 @@ interface CreatePostInput {
 	description: string | null;
 	cfImageIds?: string[];
 	videos?: PostVideoEntry[];
+	/** Ankieta ustawialna TYLKO przy tworzeniu (#241) — update pole ignoruje. */
+	poll?: PostPollPayload | null;
+	/** Lokalizacja (#242) — opcjonalna, edytowalna przy edycji. */
+	location?: PostLocationPayload | null;
 }
 
 export async function createPost(input: CreatePostInput) {
-	const { authorId, description, cfImageIds = [], videos = [] } = input;
+	const {
+		authorId,
+		description,
+		cfImageIds = [],
+		videos = [],
+		poll = null,
+		location = null,
+	} = input;
 	const db = getDb();
 
 	const postId = crypto.randomUUID();
 	const postRows = await db
 		.insert(posts)
-		.values({ id: postId, authorId, description, videos })
+		.values({ id: postId, authorId, description, videos, poll, location })
 		.returning();
 	const post = postRows[0];
 	if (!post) throw new Error("createPost: insert returned no rows");
@@ -52,6 +63,10 @@ export interface PostWithAuthorAndImages {
 	description: string | null;
 	/** Wideo osadzone w poście — z kolumny JSONB, kolejność = odtwarzanie (#194). */
 	videos: PostVideoEntry[];
+	/** Ankieta posta (#241) — payload {question, options}; wyniki dokleja enrichPosts. */
+	poll: PostPollPayload | null;
+	/** Lokalizacja posta (#242) — payload {lat, lng, label?} albo null. */
+	location: PostLocationPayload | null;
 	createdAt: Date;
 	updatedAt: Date;
 	author: { id: string; name: string };
@@ -77,6 +92,8 @@ function aggregatePostRows(rows: PostJoinRow[]): PostWithAuthorAndImages[] {
 				authorId: row.post.authorId,
 				description: row.post.description,
 				videos: row.post.videos,
+				poll: row.post.poll,
+				location: row.post.location,
 				createdAt: row.post.createdAt,
 				updatedAt: row.post.updatedAt,
 				author: { id: row.author?.id ?? "", name: row.author?.name ?? "" },
@@ -196,6 +213,8 @@ export async function getPostById(id: string): Promise<PostWithAuthorAndImages |
 		authorId: first.post.authorId,
 		description: first.post.description,
 		videos: first.post.videos,
+		poll: first.post.poll,
+		location: first.post.location,
 		createdAt: first.post.createdAt,
 		updatedAt: first.post.updatedAt,
 		author: { id: first.author?.id ?? "", name: first.author?.name ?? "" },
@@ -207,14 +226,24 @@ export interface UpdatePostInput {
 	description?: string | null;
 	/** Obecne tylko gdy klient przysłał pole `videos` (PATCH nie nadpisuje inaczej). */
 	videos?: PostVideoEntry[];
+	/**
+	 * Lokalizacja (#242): obiekt = ustaw/zmień, null = usuń, undefined = bez zmian.
+	 */
+	location?: PostLocationPayload | null;
 }
 
 export async function updatePost(id: string, input: UpdatePostInput): Promise<Post | null> {
-	const set: { description?: string | null; videos?: PostVideoEntry[]; updatedAt: Date } = {
+	const set: {
+		description?: string | null;
+		videos?: PostVideoEntry[];
+		location?: PostLocationPayload | null;
+		updatedAt: Date;
+	} = {
 		updatedAt: new Date(),
 	};
 	if (input.description !== undefined) set.description = input.description;
 	if (input.videos !== undefined) set.videos = input.videos;
+	if (input.location !== undefined) set.location = input.location;
 
 	const rows = await getDb()
 		.update(posts)

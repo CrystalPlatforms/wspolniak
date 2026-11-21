@@ -7,6 +7,7 @@ import { type ReactNode, useState } from "react";
 import { AlbumActionsMenu } from "@/components/app/album-actions-menu";
 import { AlbumItemMenu } from "@/components/app/album-item-menu";
 import { ImageLightbox } from "@/components/app/image-lightbox";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getImageUrl } from "@/images/client";
 
 interface AlbumVideoMetaDto {
@@ -105,7 +106,7 @@ export function AlbumView({ albumId, currentUserId, currentUserRole, backButton 
 		return (
 			<div className="grid grid-cols-3 gap-2" aria-busy="true">
 				{[0, 1, 2].map((i) => (
-					<div key={i} className="aspect-square animate-pulse rounded-lg bg-muted" />
+					<Skeleton key={i} className="aspect-square rounded-lg" />
 				))}
 			</div>
 		);

@@ -2,6 +2,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { MarkdownText } from "@/components/app/markdown-text";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface PostImage {
 	id: string;
@@ -46,8 +47,16 @@ function SharedPostPage() {
 
 	if (isLoading) {
 		return (
-			<div className="flex min-h-screen items-center justify-center bg-background">
-				<p className="text-muted-foreground">Ładowanie...</p>
+			<div className="min-h-screen bg-background p-6" aria-busy="true">
+				<div className="mx-auto max-w-2xl space-y-4">
+					<div className="flex items-center gap-2">
+						<Skeleton className="size-10 rounded-full" />
+						<Skeleton className="h-4 w-32" />
+					</div>
+					<Skeleton className="h-4 w-full" />
+					<Skeleton className="h-4 w-2/3" />
+					<Skeleton className="aspect-video w-full rounded-lg" />
+				</div>
 			</div>
 		);
 	}

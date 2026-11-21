@@ -4,6 +4,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { CommentSection, commentsQueryOptions } from "@/components/app/comment-section";
 import { POST_VIEW_STAGES, PostView } from "@/components/app/post-view";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useBootSequence } from "@/core/boot-sequence";
 
 function useIsDesktop() {
@@ -65,8 +66,19 @@ function PostPage() {
 
 	if (isLoading) {
 		return (
-			<div className="flex min-h-screen items-center justify-center bg-background">
-				<p className="text-muted-foreground">Ładowanie...</p>
+			<div className="min-h-screen bg-background p-4" aria-busy="true">
+				<div className="mx-auto max-w-2xl space-y-4 pt-4">
+					<Skeleton className="h-4 w-40" />
+					<div className="space-y-3 rounded-lg border border-border bg-card p-4">
+						<div className="flex items-center gap-2">
+							<Skeleton className="size-10 rounded-full" />
+							<Skeleton className="h-4 w-28" />
+						</div>
+						<Skeleton className="h-3 w-full" />
+						<Skeleton className="h-3 w-4/5" />
+						<Skeleton className="min-h-48 w-full rounded-lg" />
+					</div>
+				</div>
 			</div>
 		);
 	}

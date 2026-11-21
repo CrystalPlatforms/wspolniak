@@ -21,10 +21,16 @@
 	},
 	// Załączniki czatu (F4 #217): prywatny bucket, obiekty kasuje reguła lifecycle
 	// `--expire-days 1` (krok 0 HITL — zakłada właściciel; realne okno 24–48h).
+	// Pliki postów (#243): świeży bucket BEZ lifecycle rule — załączniki rodzinne
+	// są trwałe (archiwum).
 	"r2_buckets": [
 		{
 			"binding": "CHAT_ATTACHMENTS",
 			"bucket_name": "wspolniak-chat-attachments-dev"
+		},
+		{
+			"binding": "POST_FILES",
+			"bucket_name": "wspolniak-post-files-dev"
 		}
 	],
 	"migrations": [

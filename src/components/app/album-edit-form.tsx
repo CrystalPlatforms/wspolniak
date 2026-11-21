@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader } from "@/components/ui/loader";
+import { Skeleton } from "@/components/ui/skeleton";
 import { runVideoUpload, VideoUploadHttpError } from "@/components/video/use-video-upload";
 import { getImageUrl } from "@/images/client";
 import { uploadImages } from "@/images/upload";
@@ -246,7 +247,12 @@ export function AlbumEditForm({ albumId, onSaved, onDeleted, backButton }: Album
 				<div className="flex-1" />
 			</div>
 
-			{isPending && <p className="py-8 text-center text-sm text-muted-foreground">Ładowanie…</p>}
+			{isPending && (
+				<div className="space-y-2 py-8" aria-busy="true">
+					<Skeleton className="h-4 w-2/3" />
+					<Skeleton className="h-4 w-1/3" />
+				</div>
+			)}
 
 			<div className="space-y-2">
 				<Label htmlFor="album-edit-title">Tytuł</Label>

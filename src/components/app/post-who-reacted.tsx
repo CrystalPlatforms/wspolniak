@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { IconMoodSmile } from "@tabler/icons-react";
+import { IconMoodPuzzled } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import {
@@ -55,7 +55,7 @@ export function PostWhoReacted({ target }: PostWhoReactedProps) {
 				title="Kto zareagował"
 				className="grid size-12 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground sm:size-16"
 			>
-				<IconMoodSmile className="size-6 sm:size-8" aria-hidden="true" />
+				<IconMoodPuzzled className="size-6 sm:size-8" aria-hidden="true" />
 			</button>
 
 			<Dialog open={open} onOpenChange={setOpen}>

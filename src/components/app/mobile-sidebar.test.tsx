@@ -178,7 +178,7 @@ describe("MobileSidebar — Albumy nav link (#170)", () => {
 		expect(link.getAttribute("href")).toBe("/app/albums");
 	});
 
-	it("leaves the Albumy icon unfilled when /app/albums is active (#170 reviza)", async () => {
+	it("renders the filled Albumy icon when /app/albums is active (nowa reviza)", async () => {
 		setPathname("/app/albums");
 		render(
 			<MobileSidebar
@@ -193,7 +193,7 @@ describe("MobileSidebar — Albumy nav link (#170)", () => {
 		await openMenu();
 
 		const link = screen.getByRole("link", { name: /^albumy$/i });
-		expect(link.querySelector("svg")?.getAttribute("fill")).toBe("none");
+		expect(link.querySelector("svg")?.getAttribute("fill")).toBe("currentColor");
 	});
 });
 

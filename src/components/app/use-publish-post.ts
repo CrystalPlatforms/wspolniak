@@ -20,12 +20,18 @@ export interface PublishVideoInput {
 	title: string;
 }
 
-/** Wejście publikacji posta (tekst + pliki + wideo + wzmianki). */
+/** Wejście publikacji posta (tekst + pliki + wideo + wzmianki + ankieta #241). */
 export interface PublishPostInput {
 	description: string | null;
 	files: File[];
 	pendingVideos: PublishVideoInput[];
 	mentions: Mention[];
+	/** Ankieta walidowana schematem wysyłki; null/undefined = bez ankiety. */
+	poll?: { question: string; options: string[] } | null;
+	/** Lokalizacja (#242); null/undefined = bez lokalizacji. */
+	location?: { lat: number; lng: number; label?: string } | null;
+	/** Pliki (#243) — wgrane do R2 dopiero tutaj, przy publikacji. */
+	postFiles?: File[];
 }
 
 /** Postęp wgrywania wideo przy publikacji — label „Wideo 1/2 — 45%". */
@@ -61,6 +67,34 @@ export interface RunPublishFlowOptions {
 	createPostFn?: (input: PublishPostInput & { videos?: unknown }) => Promise<unknown>;
 	/** Granica uploadu wideo (session → chunks → confirm) — mockowana w testach. */
 	uploadVideoFn?: typeof runVideoUpload;
+}
+
+/**
+ * Upload plików posta (#243): po jednym multipart POST na plik do R2, kolejność
+ * zachowana (jak plan wideo). Zwraca metadane do pola `files` create/PATCH.
+ */
+export async function uploadPostFilesForCreate(
+	files: File[],
+): Promise<{ key: string; name: string; size: number; mimeType: string }[]> {
+	const metas: { key: string; name: string; size: number; mimeType: string }[] = [];
+	for (const file of files) {
+		const formData = new FormData();
+		formData.append("file", file, file.name);
+		const res = await fetch("/api/app/post-files", { method: "POST", body: formData });
+		if (!res.ok) {
+			throw new UploadFlowError(
+				"create-post",
+				"http",
+				"Nie udało się wysłać plików",
+				`HTTP ${res.status}`,
+			);
+		}
+		const json = (await res.json()) as {
+			data: { key: string; name: string; size: number; mimeType: string };
+		};
+		metas.push(json.data);
+	}
+	return metas;
 }
 
 /**
@@ -206,6 +240,9 @@ export async function createPost(
 				})
 			: [];
 
+	// Pliki (#243): upload do R2 przed create; metadane lecą w polu `files`.
+	const attachedFiles = await uploadPostFilesForCreate(input.postFiles ?? []);
+
 	const res = await uploadFetch(
 		"/api/app/posts",
 		{
@@ -216,6 +253,9 @@ export async function createPost(
 				cfImageIds,
 				videos: input.videos ?? [],
 				mentions: input.mentions,
+				poll: input.poll ?? null,
+				location: input.location ?? null,
+				files: attachedFiles.length > 0 ? attachedFiles : undefined,
 			}),
 		},
 		"create-post",

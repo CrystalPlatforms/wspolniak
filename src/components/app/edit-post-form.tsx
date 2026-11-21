@@ -12,10 +12,16 @@ import { SortableContext, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { IconAlertTriangle, IconPhotoPlus, IconX } from "@tabler/icons-react";
 import { type ChangeEvent, type FormEvent, useCallback, useMemo, useRef, useState } from "react";
+import { ComposerFilesSection } from "@/components/app/composer-files-section";
+import {
+	ComposerLocationDialog,
+	type LocationDraft,
+} from "@/components/app/composer-location-section";
 import { EditPostVideos, type VideoItem } from "@/components/app/edit-post-videos";
 import type { Mention } from "@/components/app/mention-input";
 import { OversizedImageDialog } from "@/components/app/oversized-image-dialog";
 import { PostDescriptionField } from "@/components/app/post-description-field";
+import { PostPollSummary } from "@/components/app/post-poll";
 import type { VideoPlanEntry } from "@/components/app/use-publish-post";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -52,6 +58,12 @@ interface EditPostFormProps {
 	description: string | null;
 	existingImages: ExistingImage[];
 	imageAccountHash: string;
+	/** Ankieta posta (#241) — po publikacji tylko do czytania. */
+	initialPoll?: { question: string; options: string[] } | null;
+	/** Lokalizacja posta (#242) — edytowalna: zmiana pinezki/etykiety albo usunięcie. */
+	initialLocation?: { lat: number; lng: number; label?: string } | null;
+	/** Załączniki posta (#243) — można usuwać istniejące i dokładać nowe. */
+	initialFiles?: { id: string; key: string; name: string; size: number; mimeType: string }[];
 	/** Wideo posta — wchodzą do unified listy (reorder + remove, Video v2 F3 #197). */
 	initialVideos?: PostVideoEntry[];
 	onSubmit: (data: {
@@ -62,6 +74,13 @@ interface EditPostFormProps {
 		/** Plan wideo wg kolejności listy: existing 1:1, pending wgrane przy zapisie. */
 		videoPlan: VideoPlanEntry[];
 		mentions: Mention[];
+		/** Lokalizacja (#242): obiekt = ustaw, null = usuń, undefined = bez zmian. */
+		location?: { lat: number; lng: number; label?: string } | null;
+		/** Pliki (#243): metadane zostawionych istniejących + nowe pliki do uploadu. */
+		keptFiles: { key: string; name: string; size: number; mimeType: string }[];
+		newPostFiles: File[];
+		/** Ktoś ruszył listę plików (usunięcie albo dokładka) — wtedy PATCH wysyła files. */
+		filesDirty: boolean;
 	}) => void;
 	/**
 	 * Usunięcie ISTNIEJĄCEGO wideo (po potwierdzeniu) — route wywołuje YouTube
@@ -149,11 +168,50 @@ function SortablePreview({
 	);
 }
 
+/**
+ * Plan zdjęć do zapisu: co usunięte, co nowe, jaka kolejność istniejących.
+ * Zwykła funkcja (nie hook) — handleSubmit nie potrzebuje stabilnej referencji.
+ */
+function computeImagePlan(
+	items: ImageItem[],
+	existingImages: ExistingImage[],
+	newFiles: File[],
+): { removedImageIds: string[]; files: File[]; imageOrder: string[] } {
+	const currentExistingIds = items.flatMap((item) => (item.existingId ? [item.existingId] : []));
+	const removedImageIds = existingImages
+		.filter((img) => !currentExistingIds.includes(img.id))
+		.map((img) => img.id);
+	const files = items
+		.filter((item) => item.fileIndex !== undefined)
+		.flatMap((item) => {
+			const file = item.fileIndex !== undefined ? newFiles[item.fileIndex] : undefined;
+			return file ? [file] : [];
+		});
+	return { removedImageIds, files, imageOrder: currentExistingIds };
+}
+
+/**
+ * Lokalizacja do PATCH (#242): bez dotknięcia = undefined (pole nie leci),
+ * dotknięta bez pinezki = null (usunięcie), z pinezką = nowy payload.
+ */
+function resolveEditLocation(
+	draft: LocationDraft | null,
+	touched: boolean,
+): { lat: number; lng: number; label?: string } | null | undefined {
+	if (!touched) return undefined;
+	if (!draft || (draft.lat === 0 && draft.lng === 0)) return null;
+	const label = draft.label.trim();
+	return { lat: draft.lat, lng: draft.lng, ...(label ? { label } : {}) };
+}
+
 export function EditPostForm({
 	postId: _postId,
 	description: initialDescription,
 	existingImages,
 	imageAccountHash,
+	initialPoll = null,
+	initialLocation = null,
+	initialFiles = [],
 	initialVideos = [],
 	onSubmit,
 	onVideoDelete,
@@ -167,6 +225,17 @@ export function EditPostForm({
 		})),
 	);
 	const [mentions, setMentions] = useState<Mention[]>([]);
+	/** Lokalizacja (#242): szkic + flaga dotknięcia — bez dotknięcia PATCH nie wysyła pola. */
+	const [locationDraft, setLocationDraft] = useState<LocationDraft | null>(
+		initialLocation
+			? { lat: initialLocation.lat, lng: initialLocation.lng, label: initialLocation.label ?? "" }
+			: null,
+	);
+	const [locationTouched, setLocationTouched] = useState(false);
+	const [locationDialogOpen, setLocationDialogOpen] = useState(false);
+	/** Pliki (#243): id istniejących zostawionych + nowe pliki z wybierarki. */
+	const [keptFileIds, setKeptFileIds] = useState<string[]>(initialFiles.map((f) => f.id));
+	const [newPostFiles, setNewPostFiles] = useState<File[]>([]);
 	const [error, setError] = useState<string | null>(null);
 	const [overId, setOverId] = useState<string | null>(null);
 	const fileInputRef = useRef<HTMLInputElement>(null);
@@ -279,68 +348,65 @@ export function EditPostForm({
 		);
 	}, []);
 
-	const handleSubmit = useCallback(
-		(e: FormEvent) => {
-			e.preventDefault();
-			if (description.trim() === "" && items.length === 0 && videoItems.length === 0) {
-				setError("Dodaj tekst, zdjęcie lub wideo");
-				return;
-			}
-			const oversizedItem = items.find((item) => item.isOversized && item.fileIndex !== undefined);
-			if (oversizedItem?.fileIndex !== undefined) {
-				const oversizedFile = newFiles[oversizedItem.fileIndex];
-				if (oversizedFile) {
-					setError(
-						`Zdjęcie „${oversizedFile.name}" jest za duże — kliknij jego podgląd i zmniejsz je, albo usuń je przed publikacją.`,
-					);
-					// otwieramy od razu dialog problematycznego zdjęcia — skrócona ścieżka naprawy
-					setOversizedKey(oversizedItem.key);
-					return;
-				}
-			}
-			if (description.length > MAX_DESCRIPTION_LENGTH) {
+	const handleSubmit = (e: FormEvent) => {
+		e.preventDefault();
+		if (description.trim() === "" && items.length === 0 && videoItems.length === 0) {
+			setError("Dodaj tekst, zdjęcie lub wideo");
+			return;
+		}
+		const oversizedItem = items.find((item) => item.isOversized && item.fileIndex !== undefined);
+		if (oversizedItem?.fileIndex !== undefined) {
+			const oversizedFile = newFiles[oversizedItem.fileIndex];
+			if (oversizedFile) {
 				setError(
-					`Tekst posta jest za długi — limit to ${MAX_DESCRIPTION_LENGTH} znaków (wpisanych: ${description.length})`,
+					`Zdjęcie „${oversizedFile.name}" jest za duże — kliknij jego podgląd i zmniejsz je, albo usuń je przed publikacją.`,
 				);
+				// otwieramy od razu dialog problematycznego zdjęcia — skrócona ścieżka naprawy
+				setOversizedKey(oversizedItem.key);
 				return;
 			}
-
-			// Figure out what changed
-			const currentExistingIds = items
-				.filter((item) => item.existingId)
-				.map((item) => item.existingId!);
-
-			const removedImageIds = existingImages
-				.filter((img) => !currentExistingIds.includes(img.id))
-				.map((img) => img.id);
-
-			const newFileItems = items.filter((item) => item.fileIndex !== undefined);
-			const files = newFileItems.map((item) => newFiles[item.fileIndex!]).filter(Boolean);
-
-			const imageOrder = currentExistingIds;
-
-			const videoPlan: VideoPlanEntry[] = videoItems.map((item) =>
-				item.existing
-					? { kind: "existing" as const, entry: item.existing }
-					: {
-							kind: "pending" as const,
-							file: item.pending?.file as File,
-							title: item.pending?.title as string,
-						},
+		}
+		if (description.length > MAX_DESCRIPTION_LENGTH) {
+			setError(
+				`Tekst posta jest za długi — limit to ${MAX_DESCRIPTION_LENGTH} znaków (wpisanych: ${description.length})`,
 			);
+			return;
+		}
 
-			const validMentions = mentions.filter((m) => description.includes(`@${m.name}`));
-			onSubmit({
-				description,
-				files,
-				removedImageIds,
-				imageOrder,
-				videoPlan,
-				mentions: validMentions,
-			});
-		},
-		[description, items, existingImages, newFiles, videoItems, onSubmit, mentions.filter],
-	);
+		const { removedImageIds, files, imageOrder } = computeImagePlan(
+			items,
+			existingImages,
+			newFiles,
+		);
+		const videoPlan: VideoPlanEntry[] = videoItems.map((item) =>
+			item.existing
+				? { kind: "existing" as const, entry: item.existing }
+				: {
+						kind: "pending" as const,
+						file: item.pending?.file as File,
+						title: item.pending?.title as string,
+					},
+		);
+		const validMentions = mentions.filter((m) => description.includes(`@${m.name}`));
+		const location = resolveEditLocation(locationDraft, locationTouched);
+		const keptFiles = initialFiles
+			.filter((f) => keptFileIds.includes(f.id))
+			.map(({ key, name, size, mimeType }) => ({ key, name, size, mimeType }));
+		const filesDirty = keptFileIds.length !== initialFiles.length || newPostFiles.length > 0;
+
+		onSubmit({
+			description,
+			files,
+			removedImageIds,
+			imageOrder,
+			videoPlan,
+			mentions: validMentions,
+			location,
+			keptFiles,
+			newPostFiles,
+			filesDirty,
+		});
+	};
 
 	const canSubmit = useMemo(
 		() =>
@@ -363,6 +429,8 @@ export function EditPostForm({
 					onMentionsChange={setMentions}
 				/>
 			</div>
+
+			{initialPoll && <PostPollSummary poll={initialPoll} />}
 
 			<div>
 				<input
@@ -428,6 +496,95 @@ export function EditPostForm({
 						onVideoDelete={onVideoDelete}
 					/>
 				</div>
+			</div>
+
+			{/* Lokalizacja (#242, reviza usera): chip + dialog zamiast rozwiniętej sekcji. */}
+			{locationDraft ? (
+				<div className="flex items-center gap-1.5">
+					<button
+						type="button"
+						onClick={() => setLocationDialogOpen(true)}
+						title="Kliknij, aby edytować"
+						className="flex min-w-0 max-w-56 items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-accent"
+					>
+						<span className="truncate">
+							{locationDraft.label.trim() ||
+								`${locationDraft.lat.toFixed(5)}, ${locationDraft.lng.toFixed(5)}`}
+						</span>
+					</button>
+					<button
+						type="button"
+						onClick={() => {
+							setLocationDraft(null);
+							setLocationTouched(true);
+						}}
+						aria-label="Usuń lokalizację"
+						className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+					>
+						<IconX className="size-4" aria-hidden="true" />
+					</button>
+				</div>
+			) : (
+				<Button
+					type="button"
+					variant="outline"
+					className="h-11 w-full sm:h-9"
+					onClick={() => setLocationDialogOpen(true)}
+				>
+					Dodaj położenie
+				</Button>
+			)}
+
+			<ComposerLocationDialog
+				open={locationDialogOpen}
+				onOpenChange={setLocationDialogOpen}
+				value={locationDraft}
+				onSave={(draft) => {
+					setLocationDraft(draft);
+					setLocationTouched(true);
+				}}
+			/>
+
+			{/* Pliki (#243): istniejące jako lista z usuwaniem, nowe przez wybierarkę. */}
+			<div className="space-y-2 rounded-md border border-border bg-card p-3">
+				<p className="text-sm font-medium text-foreground">
+					Pliki{" "}
+					<span className="text-xs text-muted-foreground">
+						{keptFileIds.length + newPostFiles.length}/5
+					</span>
+				</p>
+				{initialFiles.filter((f) => keptFileIds.includes(f.id)).length > 0 && (
+					<ul className="flex flex-col gap-1">
+						{initialFiles
+							.filter((f) => keptFileIds.includes(f.id))
+							.map((file) => (
+								<li
+									key={file.id}
+									className="flex items-center gap-2 rounded-md bg-background px-2 py-1.5"
+								>
+									<span
+										className="min-w-0 flex-1 truncate text-sm text-foreground"
+										title={file.name}
+									>
+										{file.name}
+									</span>
+									<button
+										type="button"
+										aria-label={`Usuń plik ${file.name}`}
+										onClick={() => setKeptFileIds(keptFileIds.filter((id) => id !== file.id))}
+										className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+									>
+										<IconX className="size-4" aria-hidden="true" />
+									</button>
+								</li>
+							))}
+					</ul>
+				)}
+				<ComposerFilesSection
+					files={newPostFiles}
+					onChange={setNewPostFiles}
+					existingCount={keptFileIds.length}
+				/>
 			</div>
 
 			{/* Dialog „za duże zdjęcie" (issue #200): błąd + akcja zmniejszenia. */}

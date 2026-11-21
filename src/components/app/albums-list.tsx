@@ -4,6 +4,7 @@ import { IconPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { getImageUrl } from "@/images/client";
 
 /** Współdzielony klucz zapytania o kafelki albumów (invalidacja po utworzeniu). */
@@ -46,7 +47,7 @@ export function AlbumsList() {
 		return (
 			<div className="grid grid-cols-2 gap-3" aria-busy="true">
 				{[0, 1, 2, 3].map((i) => (
-					<div key={i} className="aspect-square animate-pulse rounded-lg bg-muted" />
+					<Skeleton key={i} className="aspect-square rounded-lg" />
 				))}
 			</div>
 		);

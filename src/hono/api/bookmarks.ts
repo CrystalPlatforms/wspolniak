@@ -50,7 +50,7 @@ bookmarksEndpoint.get("/", async (c) => {
 	const user = c.get("user");
 	const userBookmarks = await listBookmarksForUser(user.userId);
 	const posts = await listPostsByIds(userBookmarks.map((b) => b.postId));
-	const enriched = await enrichPosts(posts);
+	const enriched = await enrichPosts(posts, user.userId);
 	return c.json({
 		data: enriched,
 		meta: { imageAccountHash: c.env.CLOUDFLARE_IMAGES_ACCOUNT_HASH },

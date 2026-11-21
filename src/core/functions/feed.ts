@@ -14,12 +14,16 @@ export const getFeedPage = createServerFn({ method: "GET" })
 		}),
 	)
 	.handler(async ({ data }) => {
-		const [{ env }, { assembleFeedPage }] = await Promise.all([
+		const [{ env }, { assembleFeedPage }, { getSessionUser }] = await Promise.all([
 			import("cloudflare:workers"),
 			import("@/core/feed"),
+			import("@/core/middleware/auth"),
 		]);
+		// Widz zasila „mój głos" w ankietach (#241) — bez sesji liczniki i tak widać.
+		const session = await getSessionUser(env.SESSION_SECRET);
 		return assembleFeedPage({
 			cursor: data.cursor,
 			imageAccountHash: env.CLOUDFLARE_IMAGES_ACCOUNT_HASH,
+			viewerId: session?.userId ?? null,
 		});
 	});

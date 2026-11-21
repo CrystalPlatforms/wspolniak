@@ -6,6 +6,33 @@ import type { ReactElement, ReactNode } from "react";
 
 import { putPendingFiles, takePendingFiles } from "@/lib/waiting-room";
 
+const { pickerOnChange } = vi.hoisted(() => ({
+	pickerOnChange: {
+		current: null as ((value: { lat: number; lng: number } | null) => void) | null,
+	},
+}));
+
+vi.mock("@/components/app/post-location-picker", () => ({
+	default: ({
+		value,
+		onChange,
+	}: {
+		value: { lat: number; lng: number } | null;
+		onChange: (value: { lat: number; lng: number } | null) => void;
+	}) => {
+		pickerOnChange.current = onChange;
+		return (
+			<button
+				type="button"
+				data-testid="location-picker-mock"
+				onClick={() => onChange?.({ lat: 50.5, lng: 20.25 })}
+			>
+				{value ? `${value.lat},${value.lng}` : "brak-pinezki"}
+			</button>
+		);
+	},
+}));
+
 import { NewPostForm } from "./new-post-form";
 
 function render(ui: ReactElement, options?: Parameters<typeof rtlRender>[1]) {
@@ -69,11 +96,13 @@ function makeFile(name: string) {
 }
 
 describe("NewPostForm", () => {
-	it("renders file picker and description input", async () => {
+	it("renders toolbar and description input", async () => {
 		render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
 
 		expect(await screen.findByLabelText(/opis posta/i)).toBeDefined();
-		expect(screen.getByRole("button", { name: /zdjęcia/i })).toBeDefined();
+		expect(screen.getByRole("button", { name: /dodaj załączniki/i })).toBeDefined();
+		expect(screen.getByRole("button", { name: /dodaj ankietę/i })).toBeDefined();
+		expect(screen.getByRole("button", { name: /dodaj położenie/i })).toBeDefined();
 		expect(screen.getByRole("button", { name: /opublikuj/i })).toBeDefined();
 	});
 
@@ -97,17 +126,105 @@ describe("NewPostForm", () => {
 		expect(screen.queryByRole("switch", { name: /formatowanie/i })).toBeNull();
 	});
 
-	it("renders the composer video picker button (F2 #194)", () => {
-		render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
+	it("pasek: 3 przyciski z napisami w jednej linii (reviza usera)", () => {
+		const { container } = render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
 
-		expect(screen.queryByRole("button", { name: /dodaj wideo/i })).not.toBeNull();
+		const toolbar = container.querySelector("[role='toolbar']");
+		expect(toolbar).not.toBeNull();
+		expect(screen.getByRole("button", { name: /dodaj załączniki/i })).toBeDefined();
+		expect(screen.getByRole("button", { name: /dodaj ankietę/i })).toBeDefined();
+		expect(screen.getByRole("button", { name: /dodaj położenie/i })).toBeDefined();
+		// Zwinięte: brak sekcji załączników i dialogów w DOM
+		expect(screen.queryByTestId("composer-attachments")).toBeNull();
 	});
 
-	it("renders the admin-panel message instead of the picker when YouTube is not connected", () => {
-		render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} videoNotConnected />);
+	it("Dodaj ankietę otwiera dialog; zapis tworzy kafelek z dużą ikoną", async () => {
+		const user = userEvent.setup();
+		render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
 
-		expect(screen.queryByRole("button", { name: /dodaj wideo/i })).toBeNull();
-		expect(screen.getByText(/podłącz youtube w panelu admina/i)).toBeDefined();
+		await user.click(screen.getByRole("button", { name: /dodaj ankietę/i }));
+		await user.type(await screen.findByLabelText("Pytanie"), "Gdzie na wakacje?");
+		await user.type(screen.getByLabelText("Opcja 1"), "Morze");
+		await user.type(screen.getByLabelText("Opcja 2"), "Góry");
+		await user.click(screen.getByRole("button", { name: /zapisz ankietę/i }));
+
+		// Kafelek ankiety w siatce; dialog zamknięty
+		expect(screen.getByRole("button", { name: "Edytuj ankietę: Gdzie na wakacje?" })).toBeDefined();
+		expect(screen.queryByLabelText("Pytanie")).toBeNull();
+		expect(screen.getByRole("button", { name: "Usuń Gdzie na wakacje?" })).toBeDefined();
+	});
+
+	it("pliki .apk i .md załączają się jak każdy inny plik (reviza usera)", async () => {
+		const { container } = render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
+		const input = container.querySelector("input[type='file']") as HTMLInputElement;
+		await userEvent
+			.setup()
+			.upload(input, [
+				new File(["PK"], "aplikacja.apk", { type: "application/vnd.android.package-archive" }),
+				new File(["# md"], "notatka.md", { type: "text/markdown" }),
+			]);
+
+		expect(screen.getByText("aplikacja.apk")).toBeDefined();
+		expect(screen.getByText("notatka.md")).toBeDefined();
+		expect(screen.getByRole("button", { name: "Usuń plik aplikacja.apk" })).toBeDefined();
+		expect(screen.getByRole("button", { name: "Usuń plik notatka.md" })).toBeDefined();
+	});
+
+	it("upload mieszany przez wybierarkę: zdjęcia, wideo i plik jako kafelki", async () => {
+		const { container } = render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
+		const input = container.querySelector("input[type='file']") as HTMLInputElement;
+		await userEvent
+			.setup()
+			.upload(input, [
+				new File(["x"], "fotka.jpg", { type: "image/jpeg" }),
+				new File(["v"], "kotek.mp4", { type: "video/mp4" }),
+				new File(["%PDF"], "dokument.pdf", { type: "application/pdf" }),
+			]);
+
+		// zdjęcie: podgląd img; wideo: kafelek z <video>; plik: kafelek z nazwą
+		expect(screen.getByAltText("Podgląd 1")).toBeDefined();
+		expect(container.querySelector("video")).not.toBeNull();
+		expect(screen.getByText("dokument.pdf")).toBeDefined();
+		expect(screen.getByRole("button", { name: "Usuń wideo kotek" })).toBeDefined();
+		expect(screen.getByRole("button", { name: "Usuń plik dokument.pdf" })).toBeDefined();
+	});
+
+	it("krzyżyk kafelka ankiety usuwa ją z posta", async () => {
+		const user = userEvent.setup();
+		render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
+
+		await user.click(screen.getByRole("button", { name: /dodaj ankietę/i }));
+		await user.type(await screen.findByLabelText("Pytanie"), "Gdzie?");
+		await user.type(screen.getByLabelText("Opcja 1"), "A");
+		await user.type(screen.getByLabelText("Opcja 2"), "B");
+		await user.click(screen.getByRole("button", { name: /zapisz ankietę/i }));
+		await user.click(screen.getByRole("button", { name: "Usuń Gdzie?" }));
+
+		expect(screen.queryByRole("button", { name: "Edytuj ankietę: Gdzie?" })).toBeNull();
+	});
+
+	it("Dodaj położenie otwiera dialog; zapis tworzy kafelek z etykietą", async () => {
+		const user = userEvent.setup();
+		render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
+
+		await user.click(screen.getByRole("button", { name: /dodaj położenie/i }));
+		// Pinezka przez mockowanego pickera: klik po otwarciu dialogu
+		await user.click(await screen.findByTestId("location-picker-mock"));
+		await user.type(await screen.findByLabelText(/opis \(opcjonalnie\)/i), "Domek babci");
+		await user.click(screen.getByRole("button", { name: /zapisz lokalizację/i }));
+
+		expect(screen.getByRole("button", { name: "Edytuj położenie: Domek babci" })).toBeDefined();
+		expect(screen.queryByLabelText(/opis \(opcjonalnie\)/i)).toBeNull();
+	});
+
+	it("Dodaj załączniki otwiera od razu wybierarkę plików (reviza usera)", async () => {
+		const { container } = render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
+
+		const input = container.querySelector("input[type='file']") as HTMLInputElement;
+		const clickSpy = vi.spyOn(input, "click");
+		await userEvent.setup().click(screen.getByRole("button", { name: /dodaj załączniki/i }));
+
+		expect(clickSpy).toHaveBeenCalled();
 	});
 
 	it("editor stays WYSIWYG regardless of feature flags (reviza #187)", async () => {
@@ -133,8 +250,9 @@ describe("NewPostForm", () => {
 
 		const fileInput = container.querySelector("input[type='file']") as HTMLInputElement;
 		expect(fileInput).toBeDefined();
-		expect(fileInput.accept).toContain("image/jpeg");
-		expect(fileInput.accept).toContain("image/heic");
+		// Bez filtra accept: wybierarka pokazuje wszystkie pliki (.apk, .md itd.);
+		// odrzucenia typu/limitów robi kod po wyborze (reviza usera).
+		expect(fileInput.accept).toBe("");
 		expect(fileInput.multiple).toBe(true);
 	});
 
@@ -464,7 +582,7 @@ describe("NewPostForm", () => {
 			render(<NewPostForm onSubmit={onSubmit} isSubmitting={false} />);
 
 			expect(screen.queryAllByRole("img")).toHaveLength(0);
-			expect(screen.getByRole("button", { name: /dodaj zdjęcia/i })).toBeDefined();
+			expect(screen.getByRole("button", { name: /dodaj załączniki/i })).toBeDefined();
 			const publish = screen.getByRole("button", { name: /opublikuj/i }) as HTMLButtonElement;
 			expect(publish.disabled).toBe(true);
 			expect(onSubmit).not.toHaveBeenCalled();
