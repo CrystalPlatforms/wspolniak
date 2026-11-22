@@ -97,7 +97,7 @@ export function ComposerLocationDialog({
 							htmlFor="composer-location-label"
 							className="text-xs font-medium text-muted-foreground"
 						>
-							Opis (opcjonalnie)
+							Nazwa
 						</label>
 						<input
 							id="composer-location-label"

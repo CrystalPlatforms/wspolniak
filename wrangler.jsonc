@@ -11,36 +11,16 @@
 		"enabled": true,
 		"head_sampling_rate": 1
 	},
-	"durable_objects": {
-		"bindings": [
-			{
-				"name": "CHAT_ROOM",
-				"class_name": "ChatRoom"
-			}
-		]
-	},
-	// Załączniki czatu (F4 #217): prywatny bucket, obiekty kasuje reguła lifecycle
-	// `--expire-days 1` (krok 0 HITL — zakłada właściciel; realne okno 24–48h).
-	// Pliki postów (#243): świeży bucket BEZ lifecycle rule — załączniki rodzinne
-	// są trwałe (archiwum).
+	// Pliki postów (#243): prywatny bucket BEZ lifecycle rule — załączniki
+	// rodzinne są trwałe (archiwum).
 	"r2_buckets": [
-		{
-			"binding": "CHAT_ATTACHMENTS",
-			"bucket_name": "wspolniak-chat-attachments-dev"
-		},
 		{
 			"binding": "POST_FILES",
 			"bucket_name": "wspolniak-post-files-dev"
 		}
 	],
-	"migrations": [
-		{
-			"tag": "v1-chat-room",
-			"new_sqlite_classes": ["ChatRoom"]
-		}
-	],
 	"triggers": {
-		"crons": ["0 6 * * *", "7 * * * *"]
+		"crons": ["0 6 * * *"]
 	}
 	// Deploy PRODUKCYJNY (wspolniak.com) używa osobnego pliku: wrangler.prod.jsonc.
 	// vite.config.ts wybiera go, gdy build:production ustawi DEPLOY_ENV=production,

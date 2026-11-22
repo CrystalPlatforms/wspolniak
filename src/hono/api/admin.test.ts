@@ -17,11 +17,9 @@ vi.mock("@/db/identity/queries", () => ({
 }));
 
 vi.mock("@/db/instance/queries", () => ({
-	getFeatureFlags: vi.fn(),
 	getMaintenanceConfig: vi.fn(),
 	getShareCode: vi.fn(),
 	setShareCode: vi.fn(),
-	updateFeatureFlags: vi.fn(),
 	updateMaintenance: vi.fn(),
 }));
 
@@ -39,11 +37,9 @@ import {
 } from "@/db/identity/queries";
 import { verifySessionCookie } from "@/db/identity/session";
 import {
-	getFeatureFlags,
 	getMaintenanceConfig,
 	getShareCode,
 	setShareCode,
-	updateFeatureFlags,
 	updateMaintenance,
 } from "@/db/instance/queries";
 import { getStatsSummary } from "@/db/stats";
@@ -58,8 +54,6 @@ const mockSoftDeleteMember = vi.mocked(softDeleteMember);
 const mockUpdateMemberName = vi.mocked(updateMemberName);
 const mockGetMaintenanceConfig = vi.mocked(getMaintenanceConfig);
 const mockUpdateMaintenance = vi.mocked(updateMaintenance);
-const mockGetFeatureFlags = vi.mocked(getFeatureFlags);
-const mockUpdateFeatureFlags = vi.mocked(updateFeatureFlags);
 const mockGetShareCode = vi.mocked(getShareCode);
 const mockSetShareCode = vi.mocked(setShareCode);
 const mockGetStatsSummary = vi.mocked(getStatsSummary);
@@ -623,166 +617,6 @@ describe("GET /api/admin/stats", () => {
 	});
 });
 
-describe("GET /api/admin/features", () => {
-	it("returns current feature flags", async () => {
-		mockGetFeatureFlags.mockResolvedValue({
-			markdown: false,
-			library: true,
-			chat: true,
-			albums: true,
-		});
-
-		const api = createApi();
-		const res = await api.request(
-			"/api/admin/features",
-			{ headers: adminHeaders() },
-			{ SESSION_SECRET: "secret" },
-		);
-
-		expect(res.status).toBe(200);
-		const body = (await res.json()) as {
-			data: { markdown: boolean; library: boolean };
-		};
-		expect(body.data).toEqual({
-			markdown: false,
-			library: true,
-			chat: true,
-			albums: true,
-		});
-	});
-});
-
-describe("PUT /api/admin/features", () => {
-	it("updates both flags and returns the new state", async () => {
-		mockGetFeatureFlags.mockResolvedValue({
-			markdown: false,
-			library: false,
-			chat: false,
-			albums: true,
-		});
-
-		const api = createApi();
-		const res = await api.request(
-			"/api/admin/features",
-			{
-				method: "PUT",
-				headers: { ...adminHeaders(), "Content-Type": "application/json" },
-				body: JSON.stringify({
-					markdown: false,
-					library: false,
-					chat: false,
-					albums: true,
-				}),
-			},
-			{ SESSION_SECRET: "secret" },
-		);
-
-		expect(res.status).toBe(200);
-		expect(mockUpdateFeatureFlags).toHaveBeenCalledWith({
-			markdown: false,
-			library: false,
-			chat: false,
-			albums: true,
-		});
-	});
-
-	it("forwards a partial update (only markdown)", async () => {
-		mockGetFeatureFlags.mockResolvedValue({
-			markdown: true,
-			library: true,
-			chat: true,
-			albums: true,
-		});
-
-		const api = createApi();
-		const res = await api.request(
-			"/api/admin/features",
-			{
-				method: "PUT",
-				headers: { ...adminHeaders(), "Content-Type": "application/json" },
-				body: JSON.stringify({ markdown: false }),
-			},
-			{ SESSION_SECRET: "secret" },
-		);
-
-		expect(res.status).toBe(200);
-		expect(mockUpdateFeatureFlags).toHaveBeenCalledWith({ markdown: false });
-	});
-
-	it("ignores the removed video flag (Video v2 #194 — always on)", async () => {
-		mockGetFeatureFlags.mockResolvedValue({
-			markdown: true,
-			library: true,
-			chat: true,
-			albums: true,
-		});
-
-		const api = createApi();
-		const res = await api.request(
-			"/api/admin/features",
-			{
-				method: "PUT",
-				headers: { ...adminHeaders(), "Content-Type": "application/json" },
-				body: JSON.stringify({ video: false, markdown: true }),
-			},
-			{ SESSION_SECRET: "secret" },
-		);
-
-		expect(res.status).toBe(200);
-		// Klucz `video` nie jest już flagą — PUT z nim działa, ale go ignoruje.
-		expect(mockUpdateFeatureFlags).toHaveBeenCalledWith({ markdown: true });
-	});
-
-	it("rejects non-boolean markdown", async () => {
-		const api = createApi();
-		const res = await api.request(
-			"/api/admin/features",
-			{
-				method: "PUT",
-				headers: { ...adminHeaders(), "Content-Type": "application/json" },
-				body: JSON.stringify({ markdown: 1 }),
-			},
-			{ SESSION_SECRET: "secret" },
-		);
-
-		expect(res.status).toBe(400);
-		expect(mockUpdateFeatureFlags).not.toHaveBeenCalled();
-	});
-
-	it("rejects non-boolean library", async () => {
-		const api = createApi();
-		const res = await api.request(
-			"/api/admin/features",
-			{
-				method: "PUT",
-				headers: { ...adminHeaders(), "Content-Type": "application/json" },
-				body: JSON.stringify({ library: "yes" }),
-			},
-			{ SESSION_SECRET: "secret" },
-		);
-
-		expect(res.status).toBe(400);
-		expect(mockUpdateFeatureFlags).not.toHaveBeenCalled();
-	});
-
-	// F8 #159: czwarta flaga — chat, ta sama walidacja co pozostałe.
-	it("rejects non-boolean chat", async () => {
-		const api = createApi();
-		const res = await api.request(
-			"/api/admin/features",
-			{
-				method: "PUT",
-				headers: { ...adminHeaders(), "Content-Type": "application/json" },
-				body: JSON.stringify({ chat: "yes" }),
-			},
-			{ SESSION_SECRET: "secret" },
-		);
-
-		expect(res.status).toBe(400);
-		expect(mockUpdateFeatureFlags).not.toHaveBeenCalled();
-	});
-});
-
 // #166 — kod dostępu /share: odczyt + zapis (admin-only, guardy globalne).
 // Walidacja entropii mieszka w setShareCode (queries.test.ts) — tutaj testujemy
 // mapowanie AppError→400 i wymóg niepustego kodu.
@@ -851,47 +685,5 @@ describe("share-code (#166)", () => {
 		expect(res.status).toBe(400);
 		const body = (await res.json()) as { error: string };
 		expect(body.error).toContain("8-20");
-	});
-});
-
-// F7 #176: flaga albums w GET/PUT /api/admin/features.
-describe("feature flags — albums (#176)", () => {
-	it("forwards an albums-only PUT to updateFeatureFlags", async () => {
-		mockGetFeatureFlags.mockResolvedValue({
-			markdown: true,
-			library: true,
-			chat: true,
-			albums: true,
-		});
-
-		const api = createApi();
-		const res = await api.request(
-			"/api/admin/features",
-			{
-				method: "PUT",
-				headers: { ...adminHeaders(), "Content-Type": "application/json" },
-				body: JSON.stringify({ albums: false }),
-			},
-			{ SESSION_SECRET: "secret" },
-		);
-
-		expect(res.status).toBe(200);
-		expect(mockUpdateFeatureFlags).toHaveBeenCalledWith({ albums: false });
-	});
-
-	it("rejects non-boolean albums", async () => {
-		const api = createApi();
-		const res = await api.request(
-			"/api/admin/features",
-			{
-				method: "PUT",
-				headers: { ...adminHeaders(), "Content-Type": "application/json" },
-				body: JSON.stringify({ albums: "yes" }),
-			},
-			{ SESSION_SECRET: "secret" },
-		);
-
-		expect(res.status).toBe(400);
-		expect(mockUpdateFeatureFlags).not.toHaveBeenCalled();
 	});
 });

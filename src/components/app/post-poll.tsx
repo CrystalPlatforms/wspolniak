@@ -136,10 +136,12 @@ export function PostPoll({ postId, poll }: PostPollProps) {
 							aria-label={`Głosuj na: ${option}`}
 							className="relative flex w-full items-center gap-2 overflow-hidden rounded-full border border-input bg-background px-3 py-1.5 text-left text-sm text-foreground transition-colors hover:bg-accent disabled:opacity-60"
 						>
-							{/* Pasek wyniku — skala przez transform (bez animowania width). */}
+							{/* Pasek wyniku — skala przez transform (bez animowania width).
+							    Kolor z --poll-result-bar: w dark motywie dużo jaśniejszy zielony
+							    (reviza #245 — ciemny primary na 10% ginął na ciemnym tle). */}
 							<span
 								aria-hidden="true"
-								className="absolute inset-y-0 left-0 w-full origin-left bg-primary/10 transition-transform duration-300"
+								className="absolute inset-y-0 left-0 w-full origin-left bg-(--poll-result-bar) transition-transform duration-300"
 								style={{ transform: `scaleX(${pct / 100})` }}
 							/>
 							{mine && (

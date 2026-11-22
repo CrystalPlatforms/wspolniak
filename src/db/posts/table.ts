@@ -29,7 +29,7 @@ export const posts = pgTable(
 	],
 );
 
-// Głosy w ankietach posta (#241, wzorzec chat_poll_votes) — JEDEN wiersz na
+// Głosy w ankietach posta (#241) — JEDEN wiersz na
 // (post_id, user_id): zmiana głosu to atomowy upsert (ON CONFLICT DO UPDATE po
 // tym indeksie), więc unikalność nigdy nie wycieka błędem. Głosowanie tajne —
 // tożsamość głosujących nie wychodzi do klientów (serwer agreguje do liczników).

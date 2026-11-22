@@ -3,16 +3,12 @@
 // Custom CF Workers entry: routes /api/* to Hono, /app/u/* to auth, rest to TanStack Start.
 // `scheduled` handler odpala cron kalendarza (D-0 posty od admina).
 /// <reference types="vite/client" />
-import { ChatRoom } from "@/chat/chat-room";
 import { initDatabase } from "@/db";
 import { resolveDocsRedirect } from "@/docs/host";
 import { apiHono } from "@/hono/api";
 import authRoute from "@/hono/api/auth";
 import { createHono } from "@/hono/factory";
 import { runScheduled } from "@/scheduled";
-
-// Klasa Durable Object pokoju czatu — wymagany eksport z entry Workera (F2 #153).
-export { ChatRoom };
 
 const authHono = createHono();
 authHono.route("/app/u", authRoute);
@@ -84,7 +80,7 @@ export default {
 			username: env.DATABASE_USERNAME,
 			password: env.DATABASE_PASSWORD,
 		});
-		// F7 #158: branching po cronie — "7 * * * *" czyści czat, "0 6 * * *" kalendarz.
+		// Codzienny cron kalendarza (D-0 posty od admina) — jedyny trigger workera.
 		await runScheduled(controller, env, ctx);
 	},
 };

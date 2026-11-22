@@ -3,7 +3,6 @@
 import { IconChevronRight, IconLogout } from "@tabler/icons-react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { ChatSettingsNote } from "@/components/app/chat-settings-note";
 import { ThemeToggle } from "@/components/theme";
 import { Button } from "@/components/ui/button";
 import { useDocsHref } from "@/docs/use-cross-host-href";
@@ -20,9 +19,8 @@ async function logout(): Promise<void> {
 }
 
 function SettingsPage() {
-	// F8 #159: notka o 24h tylko, gdy czat włączony (flaga z kontekstu /app).
 	// Rola z sesji steruje widocznością sekcji „Zarządzanie" (przebudowa 2026-09-01).
-	const { featureFlags, session } = Route.useRouteContext();
+	const { session } = Route.useRouteContext();
 	const [loggingOut, setLoggingOut] = useState(false);
 	// Dokumentacja żyje na subdomenie docs.* — pełny URL liczymy z originu karty
 	// (po mount, bez hydration mismatch); dev: docs.localhost:3000, prod: docs.wspolniak.com.
@@ -31,8 +29,6 @@ function SettingsPage() {
 	return (
 		<div className="max-w-2xl space-y-6 bg-background px-4 py-6 pb-28 sm:pb-6">
 			<h1 className="text-2xl font-bold text-foreground">Ustawienia</h1>
-
-			{featureFlags.chat && <ChatSettingsNote />}
 
 			<section className="rounded-lg border border-border bg-card p-4">
 				<h2 className="mb-3 text-lg font-semibold text-foreground">Wygląd</h2>

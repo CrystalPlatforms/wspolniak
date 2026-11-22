@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 // Założenia kontraktu ComposerLocationDialog (#242, reviza usera: dialog zamiast sekcji):
 // - Leaflet to granica systemowa — mockujemy moduł, test steruje pinezką przez
-//   przechwycony onChange pickera (wzorzec chat-location-form.test.tsx);
+//   przechwycony onChange pickera (wzorzec dialogu sekcji kompozytora);
 // - bez pinezki "Zapisz lokalizację" jest zablokowany;
 // - pinezka + etykieta -> onSave({lat, lng, label}); etykieta pusta -> bez klucza
 //   (etykieta zawsze w szkicy, payload buduje onSave/resolve);
@@ -73,7 +73,7 @@ describe("ComposerLocationDialog", () => {
 		const user = userEvent.setup();
 		const { onSave, onOpenChange } = renderOpen();
 		await placePin();
-		await user.type(await screen.findByLabelText(/opis \(opcjonalnie\)/i), "Domek babci");
+		await user.type(await screen.findByLabelText(/nazwa/i), "Domek babci");
 		await user.click(screen.getByRole("button", { name: /zapisz lokalizację/i }));
 
 		expect(onSave).toHaveBeenCalledWith({ lat: 50.5, lng: 20.25, label: "Domek babci" });
@@ -98,7 +98,7 @@ describe("ComposerLocationDialog", () => {
 
 	it("etykieta ma twardy limit 200 znaków", async () => {
 		renderOpen();
-		const label = (await screen.findByLabelText(/opis \(opcjonalnie\)/i)) as HTMLInputElement;
+		const label = (await screen.findByLabelText(/nazwa/i)) as HTMLInputElement;
 		expect(label.maxLength).toBe(200);
 	});
 });

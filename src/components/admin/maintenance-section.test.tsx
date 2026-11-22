@@ -1,4 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+// Założenia (reviza usera #245): ikona NIE jest wolnym polem tekstowym — admin
+// wybiera ją z siatki (radiogroup), więc nie da się zapisać nazwy, której
+// overlay nie obsłuży. Wybrana pozycja ma aria-checked=true.
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -17,10 +20,13 @@ describe("MaintenanceSection", () => {
 
 		expect(screen.getByDisplayValue("Wspólniak jest w trakcie naprawy")).toBeDefined();
 		expect(screen.getByDisplayValue("Wróć za chwilę")).toBeDefined();
-		expect(screen.getByDisplayValue("alert-triangle")).toBeDefined();
+		// Wybrana ikona: prawdziwy radio input z checked=true
+		expect((screen.getByRole("radio", { name: "Ostrzeżenie" }) as HTMLInputElement).checked).toBe(
+			true,
+		);
 	});
 
-	it("submits updated message, subtitle, icon and enabled toggle", async () => {
+	it("submits updated message, subtitle, icon pick and enabled toggle", async () => {
 		const user = userEvent.setup();
 		const onSave = vi.fn();
 		render(<MaintenanceSection config={initialConfig} isSaving={false} onSave={onSave} />);
@@ -30,8 +36,8 @@ describe("MaintenanceSection", () => {
 		await user.type(screen.getByLabelText(/napis/i), "Chwila przerwy");
 		await user.clear(screen.getByLabelText(/podtytuł/i));
 		await user.type(screen.getByLabelText(/podtytuł/i), "Wracamy");
-		await user.clear(screen.getByLabelText(/ikon/i));
-		await user.type(screen.getByLabelText(/ikon/i), "wrench");
+		// Wybór ikony z siatki (zamiast wpisywania nazwy)
+		await user.click(screen.getByRole("radio", { name: "Naprawa" }));
 		await user.click(screen.getByRole("button", { name: /zapisz/i }));
 
 		expect(onSave).toHaveBeenCalledWith({

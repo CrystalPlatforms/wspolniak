@@ -1,7 +1,10 @@
 /* TailChase loader — https://uiball.com/ldrs/ (issue #138) */
 .loader {
 	--uib-size: 40px;
-	--uib-color: #167c51;
+	/* Domyślnie dziedziczy kolor tekstu (reviza #245): w przyciskach primary/
+	   destructive tekst jest biały → loader biały i widoczny; na tle strony
+	   przyjmuje kolor tekstu kontekstu. Jawny `color` w props nadal wygrywa. */
+	--uib-color: currentColor;
 	--uib-speed: 1s;
 	--dot-size: calc(var(--uib-size) * 0.17);
 	position: relative;

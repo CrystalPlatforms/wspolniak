@@ -11,7 +11,6 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect, useSearch } from "@tanstack/react-router";
 import { useState } from "react";
-import { FeatureToggles } from "@/components/admin/feature-toggles";
 import { MaintenanceDialog } from "@/components/admin/maintenance-dialog";
 import { MemberRow } from "@/components/admin/member-row";
 import { ShareCodeDialog } from "@/components/admin/share-code-dialog";
@@ -177,47 +176,6 @@ function AdminPage() {
 		},
 		onSuccess: async () => {
 			await queryClient.invalidateQueries({ queryKey: ["admin", "youtube-connection"] });
-		},
-	});
-
-	const featuresQuery = useQuery({
-		queryKey: ["admin", "features"],
-		queryFn: async () => {
-			const res = await fetch("/api/admin/features");
-			if (!res.ok) throw new Error("Nie udało się pobrać ustawień funkcji");
-			const json = (await res.json()) as {
-				data: {
-					markdown: boolean;
-					library: boolean;
-					chat: boolean;
-					albums: boolean;
-					ai: boolean;
-				};
-			};
-			return json.data;
-		},
-	});
-
-	const featuresMutation = useMutation({
-		mutationFn: async (input: {
-			markdown?: boolean;
-			library?: boolean;
-			chat?: boolean;
-			albums?: boolean;
-			ai?: boolean;
-		}) => {
-			const res = await fetch("/api/admin/features", {
-				method: "PUT",
-				headers: { "Content-Type": "application/json" },
-				body: JSON.stringify(input),
-			});
-			if (!res.ok) {
-				const err = (await res.json()) as { error: string };
-				throw new Error(err.error);
-			}
-		},
-		onSuccess: async () => {
-			await queryClient.invalidateQueries({ queryKey: ["admin", "features"] });
 		},
 	});
 
@@ -396,17 +354,6 @@ function AdminPage() {
 					isDisconnecting={youtubeDisconnectMutation.isPending}
 					onDisconnect={() => youtubeDisconnectMutation.mutate()}
 					flash={youtubeFlash}
-				/>
-			</div>
-
-			<div className="mt-6">
-				<FeatureToggles
-					flags={featuresQuery.data}
-					isSaving={featuresMutation.isPending}
-					onChange={(input) => {
-						featuresMutation.reset();
-						featuresMutation.mutate(input);
-					}}
 				/>
 			</div>
 		</div>

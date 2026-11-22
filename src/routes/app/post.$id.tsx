@@ -38,7 +38,7 @@ export const Route = createFileRoute("/app/post/$id")({
 
 function PostPage() {
 	const { id } = Route.useParams();
-	const { session, featureFlags } = Route.useRouteContext();
+	const { session } = Route.useRouteContext();
 	const navigate = useNavigate();
 	const isDesktop = useIsDesktop();
 	const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -138,8 +138,6 @@ function PostPage() {
 								currentUserRole={session.role}
 								onDeleted={() => navigate({ to: "/app" })}
 								onLightboxChange={setLightboxOpen}
-								libraryEnabled={featureFlags.library}
-								chatEnabled={featureFlags.chat}
 								revealText={visible.text}
 								onFirstImageLoad={handleFirstImageLoad}
 							/>
@@ -158,8 +156,6 @@ function PostPage() {
 						currentUserRole={session.role}
 						onDeleted={() => navigate({ to: "/app" })}
 						onLightboxChange={setLightboxOpen}
-						libraryEnabled={featureFlags.library}
-						chatEnabled={featureFlags.chat}
 						revealText={visible.text}
 						onFirstImageLoad={handleFirstImageLoad}
 					/>

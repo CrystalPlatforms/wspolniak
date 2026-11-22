@@ -3,27 +3,29 @@
 import {
 	IconHome,
 	IconHomeFilled,
-	IconMessage,
-	IconMessageFilled,
+	IconPhoto,
+	IconPhotoFilled,
 	IconPlus,
 } from "@tabler/icons-react";
 import { Link, useLocation } from "@tanstack/react-router";
 import { MobileSidebar } from "@/components/app/mobile-sidebar";
 import { Button } from "@/components/ui/button";
 import { useBootReveal } from "@/core/boot-splash";
-import { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from "@/db/instance/feature-flags";
 import { cn } from "@/lib/utils";
 
 interface MobileNavProps {
 	role?: string;
-	featureFlags?: FeatureFlags;
 }
 
-export function MobileNav({ role, featureFlags = DEFAULT_FEATURE_FLAGS }: MobileNavProps) {
+/**
+ * Dolny pasek mobile (reviza #245): hamburger, Home, Dodaj i Albumy — Albumy
+ * zajęły miejsce po czacie. Aktywna pozycja ma wariant Filled (jak w sidebarze).
+ */
+export function MobileNav({ role }: MobileNavProps) {
 	const { pathname } = useLocation();
 	const bootRevealed = useBootReveal();
 	const isHomeActive = pathname === "/app";
-	const isChatActive = pathname.startsWith("/app/chat");
+	const isAlbumsActive = pathname.startsWith("/app/albums");
 
 	return (
 		<nav
@@ -33,7 +35,7 @@ export function MobileNav({ role, featureFlags = DEFAULT_FEATURE_FLAGS }: Mobile
 			)}
 		>
 			<div className="flex items-center justify-around px-2 py-3">
-				<MobileSidebar role={role} featureFlags={featureFlags} />
+				<MobileSidebar role={role} />
 
 				<Link
 					to="/app"
@@ -58,22 +60,20 @@ export function MobileNav({ role, featureFlags = DEFAULT_FEATURE_FLAGS }: Mobile
 					<span className="text-xs text-muted-foreground">Dodaj</span>
 				</Link>
 
-				{featureFlags.chat && (
-					<Link
-						to="/app/chat"
-						className={cn(
-							"flex flex-col items-center gap-1.5 rounded-md p-1.5",
-							isChatActive && "font-bold",
-						)}
-					>
-						{isChatActive ? (
-							<IconMessageFilled className="h-6 w-6 text-foreground" aria-hidden="true" />
-						) : (
-							<IconMessage className="h-6 w-6 text-foreground" aria-hidden="true" />
-						)}
-						<span className="text-xs text-muted-foreground">Chat</span>
-					</Link>
-				)}
+				<Link
+					to="/app/albums"
+					className={cn(
+						"flex flex-col items-center gap-1.5 rounded-md p-1.5",
+						isAlbumsActive && "font-bold",
+					)}
+				>
+					{isAlbumsActive ? (
+						<IconPhotoFilled className="h-6 w-6 text-foreground" aria-hidden="true" />
+					) : (
+						<IconPhoto className="h-6 w-6 text-foreground" aria-hidden="true" />
+					)}
+					<span className="text-xs text-muted-foreground">Albumy</span>
+				</Link>
 			</div>
 		</nav>
 	);

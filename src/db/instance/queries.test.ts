@@ -3,17 +3,14 @@ import { eq } from "drizzle-orm";
 import {
 	clearYoutubeConnection,
 	completeSetup,
-	getFeatureFlags,
 	getMaintenanceConfig,
 	getShareCode,
 	getYoutubeConnection,
 	getYoutubeRefreshToken,
-	invalidateFeatureFlagsCache,
 	invalidateMaintenanceCache,
 	isSetupCompleted,
 	setShareCode,
 	setYoutubeConnection,
-	updateFeatureFlags,
 	updateMaintenance,
 } from "./queries";
 import { instanceConfig } from "./table";
@@ -138,189 +135,6 @@ describe("maintenance config", () => {
 		await getMaintenanceConfig();
 
 		expect(select).toHaveBeenCalledTimes(2);
-	});
-});
-
-describe("feature flags", () => {
-	beforeEach(() => invalidateFeatureFlagsCache());
-
-	function mockSelectRow(row: Record<string, unknown>) {
-		const limit = vi.fn().mockResolvedValue([row]);
-		const from = vi.fn().mockReturnValue({ limit });
-		const select = vi.fn().mockReturnValue({ from });
-		mockGetDb.mockReturnValue({ select } as never);
-		return { select, from, limit };
-	}
-
-	it("returns both features enabled when columns are true", async () => {
-		mockSelectRow({
-			markdownEnabled: true,
-			libraryEnabled: true,
-			chatEnabled: true,
-			albumsEnabled: true,
-			aiEnabled: true,
-		});
-
-		const flags = await getFeatureFlags();
-
-		expect(flags).toEqual({
-			markdown: true,
-			library: true,
-			chat: true,
-			albums: true,
-		});
-	});
-
-	it("returns a disabled flag when its column is false", async () => {
-		mockSelectRow({
-			markdownEnabled: true,
-			libraryEnabled: true,
-			chatEnabled: true,
-			albumsEnabled: true,
-			aiEnabled: true,
-		});
-
-		const flags = await getFeatureFlags();
-
-		expect(flags).toEqual({
-			markdown: true,
-			library: true,
-			chat: true,
-			albums: true,
-		});
-	});
-
-	// F8 #159: flaga czatu — domyślnie true, kolumna chat_enabled.
-	it("returns a disabled chat flag when its column is false", async () => {
-		mockSelectRow({
-			markdownEnabled: true,
-			libraryEnabled: true,
-			chatEnabled: false,
-			albumsEnabled: true,
-		});
-
-		const flags = await getFeatureFlags();
-
-		expect(flags.chat).toBe(false);
-	});
-
-	it("defaults to enabled when columns are null (no opinion stored yet)", async () => {
-		mockSelectRow({
-			markdownEnabled: null,
-			libraryEnabled: null,
-			chatEnabled: null,
-			albumsEnabled: true,
-		});
-
-		const flags = await getFeatureFlags();
-
-		expect(flags).toEqual({
-			markdown: true,
-			library: true,
-			chat: true,
-			albums: true,
-		});
-	});
-
-	it("serves cached flags on second call without hitting DB again", async () => {
-		const { select } = mockSelectRow({
-			markdownEnabled: true,
-			libraryEnabled: true,
-		});
-
-		await getFeatureFlags();
-		await getFeatureFlags();
-
-		expect(select).toHaveBeenCalledTimes(1);
-	});
-
-	it("re-reads DB after the cache is invalidated", async () => {
-		const { select } = mockSelectRow({
-			markdownEnabled: true,
-			libraryEnabled: true,
-		});
-
-		await getFeatureFlags();
-		invalidateFeatureFlagsCache();
-		await getFeatureFlags();
-
-		expect(select).toHaveBeenCalledTimes(2);
-	});
-});
-
-describe("updateFeatureFlags", () => {
-	beforeEach(() => invalidateFeatureFlagsCache());
-
-	function mockUpdateById(rowId: string) {
-		const limit = vi.fn().mockResolvedValue([{ id: rowId }]);
-		const from = vi.fn().mockReturnValue({ limit });
-		const select = vi.fn().mockReturnValue({ from });
-		const where = vi.fn().mockResolvedValue([]);
-		const set = vi.fn().mockReturnValue({ where });
-		const update = vi.fn().mockReturnValue({ set });
-		mockGetDb.mockReturnValue({ select, update } as never);
-		return { select, update, set };
-	}
-
-	it("persists both flags when provided", async () => {
-		const { set } = mockUpdateById("inst-1");
-
-		await updateFeatureFlags({
-			markdown: false,
-			library: false,
-			chat: false,
-			albums: true,
-		});
-
-		expect(set).toHaveBeenCalledWith({
-			markdownEnabled: false,
-			libraryEnabled: false,
-			chatEnabled: false,
-			albumsEnabled: true,
-		});
-	});
-
-	it("persists only provided fields and ignores undefined", async () => {
-		const { set } = mockUpdateById("inst-1");
-
-		await updateFeatureFlags({ markdown: false });
-
-		expect(set).toHaveBeenCalledWith({ markdownEnabled: false });
-	});
-
-	it("throws when no instance_config row exists", async () => {
-		const limit = vi.fn().mockResolvedValue([]);
-		const from = vi.fn().mockReturnValue({ limit });
-		const select = vi.fn().mockReturnValue({ from });
-		mockGetDb.mockReturnValue({ select, update: vi.fn() } as never);
-
-		await expect(updateFeatureFlags({ markdown: false })).rejects.toThrow(
-			/no instance_config row/i,
-		);
-	});
-
-	it("invalidates the cache so the next read sees fresh values", async () => {
-		let dbRow: Record<string, unknown> = {
-			id: "inst-1",
-			markdownEnabled: true,
-			libraryEnabled: true,
-		};
-		const limit = vi.fn().mockImplementation(() => Promise.resolve([dbRow]));
-		const from = vi.fn().mockReturnValue({ limit });
-		const select = vi.fn().mockReturnValue({ from });
-		const where = vi.fn().mockResolvedValue([]);
-		const set = vi.fn().mockReturnValue({ where });
-		const update = vi.fn().mockReturnValue({ set });
-		mockGetDb.mockReturnValue({ select, update } as never);
-
-		const first = await getFeatureFlags();
-		expect(first.markdown).toBe(true);
-
-		dbRow = { id: "inst-1", markdownEnabled: false, libraryEnabled: true }; // persisted change
-		await updateFeatureFlags({ markdown: false }); // invalidates cache
-
-		const second = await getFeatureFlags();
-		expect(second.markdown).toBe(false);
 	});
 });
 
@@ -616,55 +430,5 @@ describe("share code", () => {
 
 			await expect(setShareCode("4827")).rejects.toThrow(/no instance_config row/i);
 		});
-	});
-});
-
-// F7 #176: flaga albums — piąty master switch obok wideo/markdown/biblioteki/czatu.
-describe("feature flags — albums (#176)", () => {
-	beforeEach(() => invalidateFeatureFlagsCache());
-
-	function mockSelectRow(row: Record<string, unknown>) {
-		const limit = vi.fn().mockResolvedValue([row]);
-		const from = vi.fn().mockReturnValue({ limit });
-		const select = vi.fn().mockReturnValue({ from });
-		mockGetDb.mockReturnValue({ select } as never);
-	}
-
-	it("albums defaults to enabled when the column is null (no opinion stored yet)", async () => {
-		mockSelectRow({
-			markdownEnabled: null,
-			libraryEnabled: null,
-			chatEnabled: null,
-			albumsEnabled: null,
-		});
-
-		const flags = await getFeatureFlags();
-		expect(flags.albums).toBe(true);
-	});
-
-	it("albums is disabled when its column is false", async () => {
-		mockSelectRow({
-			markdownEnabled: true,
-			libraryEnabled: true,
-			chatEnabled: true,
-			albumsEnabled: false,
-		});
-
-		const flags = await getFeatureFlags();
-		expect(flags.albums).toBe(false);
-	});
-
-	it("albums persists via updateFeatureFlags", async () => {
-		const limit = vi.fn().mockResolvedValue([{ id: "inst-1" }]);
-		const from = vi.fn().mockReturnValue({ limit });
-		const select = vi.fn().mockReturnValue({ from });
-		const where = vi.fn().mockResolvedValue([]);
-		const set = vi.fn().mockReturnValue({ where });
-		const update = vi.fn().mockReturnValue({ set });
-		mockGetDb.mockReturnValue({ select, update } as never);
-
-		await updateFeatureFlags({ albums: false });
-
-		expect(set).toHaveBeenCalledWith({ albumsEnabled: false });
 	});
 });

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { IconDots, IconMessages, IconPencil, IconPinned, IconTrash } from "@tabler/icons-react";
+import { IconDots, IconPencil, IconPinned, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useRef, useState } from "react";
@@ -28,8 +28,6 @@ interface PostActionsProps {
 	onDeleted?: () => void;
 	isAdmin?: boolean;
 	pinned?: boolean;
-	/** „Wspomnij na czacie" (F5 #218) — obecne tylko gdy czat włączony; brak = bez itemu. */
-	onShareToChat?: () => void;
 }
 
 async function deletePost(postId: string) {
@@ -45,7 +43,6 @@ export function PostActions({
 	onDeleted,
 	isAdmin,
 	pinned,
-	onShareToChat,
 }: PostActionsProps) {
 	const queryClient = useQueryClient();
 	const navigate = useNavigate();
@@ -87,15 +84,6 @@ export function PostActions({
 					</Button>
 				</DropdownMenuTrigger>
 				<DropdownMenuContent align="end" side="top" className="min-w-48">
-					{onShareToChat && (
-						<DropdownMenuItem
-							onSelect={onShareToChat}
-							className="py-3 sm:py-1.5 text-base sm:text-sm"
-						>
-							<IconMessages aria-hidden="true" />
-							Wspomnij na czacie
-						</DropdownMenuItem>
-					)}
 					<DropdownMenuItem
 						onSelect={() => navigate({ to: "/app/post/$id/edit", params: { id: postId } })}
 						className="py-3 sm:py-1.5 text-base sm:text-sm"

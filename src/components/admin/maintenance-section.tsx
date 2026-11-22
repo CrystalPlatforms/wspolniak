@@ -1,11 +1,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { useState } from "react";
+import {
+	MAINTENANCE_ICONS,
+	resolveMaintenanceIcon,
+} from "@/components/maintenance/maintenance-icons";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import type { MaintenanceConfig, MaintenanceUpdate } from "@/db/instance/queries";
+import { cn } from "@/lib/utils";
 
 export interface MaintenanceSectionProps {
 	config: MaintenanceConfig;
@@ -71,16 +76,43 @@ export function MaintenanceSection({
 						placeholder="Wróć za chwilę"
 					/>
 				</div>
-				<div className="space-y-1">
-					<Label htmlFor="maintenance-icon">Ikona</Label>
-					<Input
-						id="maintenance-icon"
-						value={icon}
-						onChange={(e) => setIcon(e.target.value)}
-						maxLength={50}
-						placeholder="alert-triangle"
-					/>
-				</div>
+				{/* Ikona: wybór z rejestru (reviza usera — wpisywanie nazwy z Tablera
+				    nie działało, bo overlay zna tylko skuratowany zestaw). Prawdziwe
+				    radio-inputy (sr-only) + ikona jako etykieta — dostępne bez ról ARIA. */}
+				<fieldset className="space-y-1 border-0 p-0">
+					<legend className="text-sm font-medium text-foreground">Ikona</legend>
+					<div className="grid grid-cols-4 gap-2 sm:grid-cols-8">
+						{MAINTENANCE_ICONS.map((choice) => {
+							const selected = choice.key === icon.toLowerCase();
+							return (
+								<label
+									key={choice.key}
+									title={choice.label}
+									className={cn(
+										"relative flex h-14 cursor-pointer items-center justify-center rounded-md border transition-colors",
+										selected
+											? "border-primary bg-accent text-accent-foreground"
+											: "border-input text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+									)}
+								>
+									<input
+										type="radio"
+										name="maintenance-icon"
+										value={choice.key}
+										checked={selected}
+										onChange={() => setIcon(choice.key)}
+										className="sr-only"
+										aria-label={choice.label}
+									/>
+									<choice.Icon className="size-6" aria-hidden="true" />
+								</label>
+							);
+						})}
+					</div>
+					<p className="text-xs text-muted-foreground">
+						Wybrana: {resolveMaintenanceIcon(icon).label}
+					</p>
+				</fieldset>
 				<Button type="submit" disabled={isSaving}>
 					{isSaving ? "Zapisuję..." : "Zapisz"}
 				</Button>

@@ -9,9 +9,6 @@ interface FeedProps {
 	imageAccountHash: string;
 	currentUserId: string;
 	currentUserRole: string;
-	libraryEnabled?: boolean;
-	/** Czat włączony (F5 #218) — steruje „Wspomnij na czacie" na kartach postów. */
-	chatEnabled?: boolean;
 	hasNextPage?: boolean;
 	isFetchingNextPage?: boolean;
 	onLoadMore?: () => void;
@@ -24,8 +21,6 @@ export function Feed({
 	imageAccountHash,
 	currentUserId,
 	currentUserRole,
-	libraryEnabled = true,
-	chatEnabled = true,
 	hasNextPage,
 	isFetchingNextPage,
 	onLoadMore,
@@ -59,8 +54,6 @@ export function Feed({
 					imageAccountHash={imageAccountHash}
 					currentUserId={currentUserId}
 					currentUserRole={currentUserRole}
-					libraryEnabled={libraryEnabled}
-					chatEnabled={chatEnabled}
 				/>
 			))}
 

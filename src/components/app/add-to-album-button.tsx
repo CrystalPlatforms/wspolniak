@@ -12,7 +12,6 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { Loader } from "@/components/ui/loader";
-import { useAppBootstrap } from "@/core/app-bootstrap";
 
 interface AddableAlbumDto {
 	id: string;
@@ -50,8 +49,6 @@ export function AddToAlbumButton({
 	const [open, setOpen] = useState(false);
 	// #176 — master switch „Albumy": przy fladze OFF przycisk (i jego dialog)
 	// znika ze wszystkich mount-pointów (lightbox, post-view, wideo).
-	const { featureFlags } = useAppBootstrap();
-	if (featureFlags && !featureFlags.albums) return null;
 
 	return (
 		<>

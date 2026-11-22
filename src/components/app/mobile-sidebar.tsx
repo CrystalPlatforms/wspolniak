@@ -10,8 +10,6 @@ import {
 	IconHome,
 	IconHomeFilled,
 	IconMenu2,
-	IconMessage,
-	IconMessageFilled,
 	IconPhoto,
 	IconPhotoFilled,
 	IconPhotoPlus,
@@ -25,7 +23,6 @@ import { useTheme } from "@/components/theme/theme-provider";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { useAlbumsNewDot } from "@/core/albums-seen";
-import { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from "@/db/instance/feature-flags";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -45,8 +42,6 @@ const NAV_ITEMS: NavItem[] = [
 	{ to: "/app/lib", icon: IconBookmark, iconActive: IconBookmarkFilled, label: "Biblioteka" },
 	// Albumy (#170): mirror desktop-sidebar; brak flagi w F1 — zawsze widoczna,
 	{ to: "/app/albums", icon: IconPhoto, iconActive: IconPhotoFilled, label: "Albumy" },
-	// F8 #159: nazwa usera „Chat" (nie „Czat"); wypełniona gdy aktywna.
-	{ to: "/app/chat", icon: IconMessage, iconActive: IconMessageFilled, label: "Chat" },
 	// Admin wyjęty z menu (przebudowa 2026-09-01) — wejście tylko z Ustawień.
 	{
 		to: "/app/calendar",
@@ -69,28 +64,21 @@ const NAV_ITEMS: NavItem[] = [
 
 interface MobileSidebarProps {
 	role?: string;
-	featureFlags?: FeatureFlags;
 }
 
-/** Widoczność pozycji menu: flagi funkcji + rola admina. */
-function isNavItemVisible(
-	item: NavItem,
-	{ role, featureFlags }: { role?: string; featureFlags: FeatureFlags },
-): boolean {
+/** Widoczność pozycji menu: rola admina (flagi On/Off usunięte — wszystko włączone). */
+function isNavItemVisible(item: NavItem, role: string | undefined): boolean {
 	if (item.adminOnly && role !== "admin") return false;
-	if (item.to === "/app/lib" && !featureFlags.library) return false;
-	if (item.to === "/app/chat" && !featureFlags.chat) return false;
-	if (item.to === "/app/albums" && !featureFlags.albums) return false;
 	return true;
 }
 
 // Hamburger (tylko mobile, sm:hidden) otwierający drawer animowany od lewej.
 // Zawiera wszystkie pozycje jak desktop-sidebar + Nowy post.
-export function MobileSidebar({ role, featureFlags = DEFAULT_FEATURE_FLAGS }: MobileSidebarProps) {
+export function MobileSidebar({ role }: MobileSidebarProps) {
 	const [open, setOpen] = useState(false);
 	const { pathname } = useLocation();
 	const { resolvedTheme } = useTheme();
-	const items = NAV_ITEMS.filter((item) => isNavItemVisible(item, { role, featureFlags }));
+	const items = NAV_ITEMS.filter((item) => isNavItemVisible(item, role));
 
 	// Kropka „new" przy „Albumy" (#176): najnowszy album vs timestamp widzianych.
 	const hasNewAlbums = useAlbumsNewDot();

@@ -24,7 +24,6 @@ import { PostDescriptionField } from "@/components/app/post-description-field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
-import type { FeatureFlags } from "@/db/instance";
 import { MAX_POST_FILE_BYTES, MAX_POST_FILES } from "@/db/post-files/schema";
 import { MAX_DESCRIPTION_LENGTH, MAX_POST_VIDEOS, postPollSchema } from "@/db/posts/schema";
 import type { ImageUploadProgress } from "@/images/upload";
@@ -52,7 +51,6 @@ interface NewPostFormProps {
 	isSubmitting: boolean;
 	/** Postęp uploadu wideo przy publikacji — label przycisku "Wideo 1/2 - 45%" (#194). */
 	uploadProgress?: { videoIndex: number; total: number; percent: number } | null;
-	featureFlags?: FeatureFlags;
 	/** Wstępnie wypełniony opis (np. szablon "Zaproponuj datę", #163). */
 	initialDescription?: string;
 	/**
@@ -274,6 +272,17 @@ export function NewPostForm({
 	const [pollDialogOpen, setPollDialogOpen] = useState(false);
 	const [locationDialogOpen, setLocationDialogOpen] = useState(false);
 	const imageInputRef = useRef<HTMLInputElement>(null);
+
+	// Prefill „Zaproponuj datę" (reviza #245): search/initialDescription może
+	// przyjść DO formularza (hydratacja SSR, preload trasy), a edytor WYSIWYG
+	// jest uncontrolled (initial markdown = useRef przy montażu) — późno
+	// przybyły szablon wstrzykujemy przez setDescription, a zmiana value
+	// wraca do edytora jego zewnętrznym synciem (setMarkdown).
+	useEffect(() => {
+		if (initialDescription) {
+			setDescription(initialDescription);
+		}
+	}, [initialDescription]);
 
 	// Poczekalnia plików (#220): odbiór raz przy montażu (szczegóły: applyPendingFiles).
 	useEffect(() => {

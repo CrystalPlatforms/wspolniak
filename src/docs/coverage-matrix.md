@@ -11,7 +11,6 @@ istnieć w registry — pilnuje tego test coverage.test.ts obok registry. -->
 | 3   | Reakcje emoji (posty i komentarze, „kto zareagował")        | product/reactions-comments               |
 | 4   | Komentarze (odpowiedzi, wzmianki, edycja)                   | product/reactions-comments               |
 | 5   | Przypinanie postów                                          | product/feed-and-posts                   |
-| 6   | Czat rodzinny 24 h (wzmianki, odpowiedzi, reakcje)          | product/family-chat                      |
 | 7   | Wideo YouTube (Wspólniak Wideo)                             | product/videos, product/uploading-photos |
 | 8   | Albumy (okładka, elementy, pobieranie ZIP)                  | product/albums                           |
 | 9   | Biblioteka (prywatne zakładki postów)                       | product/library                          |

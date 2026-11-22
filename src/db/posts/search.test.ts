@@ -20,28 +20,30 @@ import { searchPosts } from "./search";
 
 const mockGetDb = vi.mocked(getDb);
 
+/**
+ * Łańcuch select→from→leftJoin×2→where→orderBy→[limit]→rows. Gdy
+ * implementacja nie woła .limit (tryb keyword — pełne archiwum), łańcuch
+ * kończy się na orderBy (Promise z podpiętym .limit dla trybu daty).
+ * Wspólny helper obu describe — mock na granicy getDb (prawdziwy SQL nie
+ * jest testowany, patrz założenia na górze pliku).
+ */
+function mockSearchRows(rows: unknown[]) {
+	const mockLimit = vi.fn().mockResolvedValue(rows);
+	const mockOrderBy = vi
+		.fn()
+		.mockImplementation(() => Object.assign(Promise.resolve(rows), { limit: mockLimit }));
+	const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
+	const mockLeftJoin2 = vi.fn().mockReturnValue({ where: mockWhere });
+	const mockLeftJoin1 = vi.fn().mockReturnValue({ leftJoin: mockLeftJoin2 });
+	const mockFrom = vi.fn().mockReturnValue({ leftJoin: mockLeftJoin1 });
+	const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
+	mockGetDb.mockReturnValue({ select: mockSelect } as never);
+	return { mockLimit };
+}
+
 describe("searchPosts", () => {
 	const DAY = 86_400_000;
 	const BASE = new Date("2026-09-01T12:00:00Z");
-
-	/**
-	 * Łańcuch select→from→leftJoin×2→where→orderBy→[limit]→rows. Gdy
-	 * implementacja nie woła .limit (tryb keyword — pełne archiwum), łańcuch
-	 * kończy się na orderBy (Promise z podpiętym .limit dla trybu daty).
-	 */
-	function mockSearchRows(rows: unknown[]) {
-		const mockLimit = vi.fn().mockResolvedValue(rows);
-		const mockOrderBy = vi
-			.fn()
-			.mockImplementation(() => Object.assign(Promise.resolve(rows), { limit: mockLimit }));
-		const mockWhere = vi.fn().mockReturnValue({ orderBy: mockOrderBy });
-		const mockLeftJoin2 = vi.fn().mockReturnValue({ where: mockWhere });
-		const mockLeftJoin1 = vi.fn().mockReturnValue({ leftJoin: mockLeftJoin2 });
-		const mockFrom = vi.fn().mockReturnValue({ leftJoin: mockLeftJoin1 });
-		const mockSelect = vi.fn().mockReturnValue({ from: mockFrom });
-		mockGetDb.mockReturnValue({ select: mockSelect } as never);
-		return { mockLimit };
-	}
 
 	function row(id: string, description: string, authorName: string, createdAt: Date) {
 		return { id, description, authorName, createdAt, image: null };
@@ -94,5 +96,110 @@ describe("searchPosts", () => {
 		mockSearchRows([]);
 		const result = await searchPosts("!!! ...", 8);
 		expect(result).toEqual([]);
+	});
+});
+
+/**
+ * Indeks #244: search postów dopasowuje dodatkowo pytanie ankiety i etykietę
+ * lokalizacji (case-insensitive, ta sama tokenizacja co opis/autor). Opcje
+ * ankiety świadomie NIE są indeksowane (szum — decyzja PRD #240). Ranking
+ * liczy trafienia też w pytaniu/etykiecie, bo post dopasowany WYŁĄCZNIE
+ * pytaniem musiałby inaczej dostać score 0 i wypaść z wyników.
+ */
+describe("searchPosts — indeks ankiety i lokalizacji (#244)", () => {
+	const BASE = new Date("2026-09-01T12:00:00Z");
+
+	function rowWith(id: string, description: string, extra: { poll?: unknown; location?: unknown }) {
+		return { id, description, authorName: "Mama", createdAt: BASE, image: null, ...extra };
+	}
+
+	it("znajduje post po fragmencie pytania ankiety, gdy opis nie zawiera frazy", async () => {
+		mockSearchRows([
+			rowWith("p1", "Wieczór rodzinny", {
+				poll: { question: "Kto jedzie z nami nad morze?", options: ["Ja", "Nie ja"] },
+			}),
+		]);
+
+		const result = await searchPosts("morze", 8);
+
+		expect(result.map((post) => post.id)).toEqual(["p1"]);
+	});
+
+	it("znajduje post po fragmencie etykiety lokalizacji", async () => {
+		mockSearchRows([
+			rowWith("p2", "Wspólny wyjazd", {
+				location: { lat: 54.4, lng: 18.6, label: "Plaża Stogi" },
+			}),
+		]);
+
+		const result = await searchPosts("stogi", 8);
+
+		expect(result.map((post) => post.id)).toEqual(["p2"]);
+	});
+
+	it("rankuje trafienia w pytaniu i etykiecie na równi z opisem (remis → nowszy)", async () => {
+		mockSearchRows([
+			rowWith("p-old", "Spotkanie", {
+				poll: { question: "Dokąd pojedziemy?", options: ["Morze", "Góry"] },
+			}),
+			rowWith("p-new", "Spotkanie", {
+				location: { lat: 1, lng: 2, label: "Morze" },
+			}),
+		]);
+
+		const result = await searchPosts("morze spotkanie", 8);
+
+		// Oba posty mają po 2 trafienia („spotk" + „morze") — remis rozstrzyga data.
+		expect(result.map((post) => post.id)).toEqual(["p-new", "p-old"]);
+	});
+
+	it("NIE indeksuje opcji ankiety — trafienie tylko w opcję = post wypada", async () => {
+		// SQL zwraca kandydata (mock na granicy getDb), ale ranking liczy wyłącznie
+		// opis/autor/pytanie/etykietę — trafienie w samą opcję daje score 0.
+		mockSearchRows([
+			rowWith("p3", "Obiad", {
+				poll: { question: "Co jemy?", options: ["Pizza", "Rosół"] },
+			}),
+		]);
+
+		const result = await searchPosts("pizza", 8);
+
+		expect(result).toEqual([]);
+	});
+
+	it("post bez ankiety i lokalizacji nadal wygrywa po opisie (regresja)", async () => {
+		// Surowy wiersz jak przed #244 — bez poll/location.
+		mockSearchRows([
+			{
+				id: "p4",
+				description: "Wakacje nad morzem",
+				authorName: "Tata",
+				createdAt: BASE,
+				image: null,
+			},
+		]);
+
+		const result = await searchPosts("wakacje", 8);
+
+		expect(result.map((post) => post.id)).toEqual(["p4"]);
+	});
+
+	it("wynik zachowuje publiczny interfejs PostMatch — bez pól indeksu #244", async () => {
+		mockSearchRows([
+			rowWith("p5", "Opis", {
+				poll: { question: "Pytanie?", options: ["a", "b"] },
+				location: { lat: 0, lng: 0, label: "Etykieta" },
+			}),
+		]);
+
+		const [post] = await searchPosts("pytanie", 8);
+
+		expect(Object.keys(post ?? {}).sort()).toEqual([
+			"authorName",
+			"cfImageId",
+			"createdAt",
+			"description",
+			"id",
+		]);
 	});
 });

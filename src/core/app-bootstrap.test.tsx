@@ -2,29 +2,26 @@
 /**
  * Założenia zakodowane w testach (stan na RED):
  * - Wejście: `loadAppBootstrap({ queryClient })` — helper dla beforeLoad trasy /app.
- * - Wyjście: context trasy `{ session, maintenance, featureFlags }` albo throw redirect.
+ * - Wyjście: context trasy `{ session, maintenance }` albo throw redirect.
  * - Dane pochodzą z server fn (RPC = granica systemu → mockowane); QueryClient prawdziwy.
- * - staleTime 60 s zgrane z serwerowym cache flag instancji.
+ * - staleTime 60 s zgrane z serwerowym cache konfiguracji instancji.
  * - NIE testujemy tu: dehydratacji SSR, internals routera (pendingMs), PwaShell.
  */
 vi.mock("@/core/functions/session", () => ({ getSession: vi.fn() }));
 vi.mock("@/core/functions/maintenance", () => ({ getMaintenanceState: vi.fn() }));
-vi.mock("@/core/functions/feature-flags", () => ({ getFeatureFlagsState: vi.fn() }));
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { isRedirect } from "@tanstack/react-router";
 import { renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
-import { getFeatureFlagsState } from "@/core/functions/feature-flags";
 import { getMaintenanceState } from "@/core/functions/maintenance";
 import { getSession } from "@/core/functions/session";
 import type { SessionPayload } from "@/db/identity/session";
-import type { FeatureFlags, MaintenanceConfig } from "@/db/instance";
+import type { MaintenanceConfig } from "@/db/instance";
 import { appBootstrapKey, loadAppBootstrap, useAppBootstrap } from "./app-bootstrap";
 
 const mockedGetSession = vi.mocked(getSession);
 const mockedGetMaintenance = vi.mocked(getMaintenanceState);
-const mockedGetFlags = vi.mocked(getFeatureFlagsState);
 
 function makeSession(overrides: Partial<SessionPayload> = {}): SessionPayload {
 	return {
@@ -45,16 +42,6 @@ function makeMaintenance(overrides: Partial<MaintenanceConfig> = {}): Maintenanc
 	} as MaintenanceConfig;
 }
 
-function makeFlags(overrides: Partial<FeatureFlags> = {}): FeatureFlags {
-	return {
-		markdown: true,
-		library: true,
-		chat: true,
-		albums: true,
-		...overrides,
-	};
-}
-
 /** Wypełnia query cache danymi bootstrapu; `stale` cofa dataUpdatedAt poza staleTime. */
 function primeCache(queryClient: QueryClient, data: unknown, stale = true) {
 	queryClient.setQueryData(appBootstrapKey, data);
@@ -69,7 +56,6 @@ function primeCache(queryClient: QueryClient, data: unknown, stale = true) {
 function mockAllResolved() {
 	mockedGetSession.mockResolvedValue(makeSession());
 	mockedGetMaintenance.mockResolvedValue(makeMaintenance());
-	mockedGetFlags.mockResolvedValue(makeFlags());
 }
 
 beforeEach(() => {
@@ -78,7 +64,7 @@ beforeEach(() => {
 
 describe("app bootstrap", () => {
 	describe("loadAppBootstrap", () => {
-		it("pobiera sesję, maintenance i flagi przy pustym cache i zwraca context trasy", async () => {
+		it("pobiera sesję i maintenance przy pustym cache i zwraca context trasy", async () => {
 			mockAllResolved();
 			const queryClient = new QueryClient();
 
@@ -86,16 +72,13 @@ describe("app bootstrap", () => {
 
 			expect(context.session.userId).toBe("user-1");
 			expect(context.maintenance.enabled).toBe(false);
-			expect(context.featureFlags.chat).toBe(true);
 			expect(mockedGetSession).toHaveBeenCalledTimes(1);
 			expect(mockedGetMaintenance).toHaveBeenCalledTimes(1);
-			expect(mockedGetFlags).toHaveBeenCalledTimes(1);
 		});
 
 		it("redirectuje na / gdy sesji brak (auth safety)", async () => {
 			mockedGetSession.mockResolvedValue(null);
 			mockedGetMaintenance.mockResolvedValue(makeMaintenance());
-			mockedGetFlags.mockResolvedValue(makeFlags());
 			const queryClient = new QueryClient();
 
 			const error: unknown = await loadAppBootstrap({ queryClient }).catch(
@@ -111,41 +94,36 @@ describe("app bootstrap", () => {
 			primeCache(queryClient, {
 				session: makeSession({ name: "Staszek" }),
 				maintenance: makeMaintenance({ message: "stara" }),
-				featureFlags: makeFlags({ chat: false }),
 			});
 			// Sieć "wisi" — jeśli loadAppBootstrap by na niej czekał, test by timeoutował.
 			mockedGetSession.mockReturnValue(new Promise(() => {}));
 			mockedGetMaintenance.mockReturnValue(new Promise(() => {}));
-			mockedGetFlags.mockReturnValue(new Promise(() => {}));
 
 			const context = await loadAppBootstrap({ queryClient });
 
 			expect(context.session.name).toBe("Staszek");
 			expect(context.maintenance.message).toBe("stara");
-			expect(context.featureFlags.chat).toBe(false);
 		});
 
 		it("świeży przeterminowane dane w tle — cache dostaje nowe wartości po resolve", async () => {
 			const queryClient = new QueryClient();
 			primeCache(queryClient, {
 				session: makeSession({ name: "Staszek" }),
-				maintenance: makeMaintenance(),
-				featureFlags: makeFlags({ chat: false }),
+				maintenance: makeMaintenance({ message: "stara" }),
 			});
 			mockedGetSession.mockResolvedValue(makeSession({ name: "Nowa Ania" }));
-			mockedGetMaintenance.mockResolvedValue(makeMaintenance());
-			mockedGetFlags.mockResolvedValue(makeFlags({ chat: true }));
+			mockedGetMaintenance.mockResolvedValue(makeMaintenance({ message: "nowa" }));
 
 			const context = await loadAppBootstrap({ queryClient });
 			// Natychmiast: stare wartości (bez flasha pendingu).
 			expect(context.session.name).toBe("Staszek");
-			expect(context.featureFlags.chat).toBe(false);
+			expect(context.maintenance.message).toBe("stara");
 
 			// W tle revalidation podmienia dane w cache.
 			await waitFor(() =>
 				expect(queryClient.getQueryData(appBootstrapKey)).toMatchObject({
 					session: { name: "Nowa Ania" },
-					featureFlags: { chat: true },
+					maintenance: { message: "nowa" },
 				}),
 			);
 		});
@@ -161,7 +139,6 @@ describe("app bootstrap", () => {
 		it("cold: pusty cache → isPending, brak wartości", () => {
 			mockedGetSession.mockReturnValue(new Promise(() => {}));
 			mockedGetMaintenance.mockReturnValue(new Promise(() => {}));
-			mockedGetFlags.mockReturnValue(new Promise(() => {}));
 			const queryClient = new QueryClient();
 
 			const { result } = renderHook(() => useAppBootstrap(), {
@@ -170,19 +147,17 @@ describe("app bootstrap", () => {
 
 			expect(result.current.isPending).toBe(true);
 			expect(result.current.session).toBeUndefined();
-			expect(result.current.featureFlags).toBeUndefined();
+			expect(result.current.maintenance).toBeUndefined();
 		});
 
 		it("warm: stare dane od razu bez pendingu, refetch w tle podmienia wartości", async () => {
 			const queryClient = new QueryClient();
 			primeCache(queryClient, {
 				session: makeSession({ name: "Staszek" }),
-				maintenance: makeMaintenance(),
-				featureFlags: makeFlags({ chat: false }),
+				maintenance: makeMaintenance({ message: "stara" }),
 			});
 			mockedGetSession.mockResolvedValue(makeSession({ name: "Nowa Ania" }));
-			mockedGetMaintenance.mockResolvedValue(makeMaintenance());
-			mockedGetFlags.mockResolvedValue(makeFlags({ chat: true }));
+			mockedGetMaintenance.mockResolvedValue(makeMaintenance({ message: "nowa" }));
 
 			const { result } = renderHook(() => useAppBootstrap(), {
 				wrapper: createWrapper(queryClient),
@@ -191,12 +166,12 @@ describe("app bootstrap", () => {
 			// Natychmiast stare wartości — isPending nie rośnie (brak flasha).
 			expect(result.current.isPending).toBe(false);
 			expect(result.current.session?.name).toBe("Staszek");
-			expect(result.current.featureFlags?.chat).toBe(false);
+			expect(result.current.maintenance?.message).toBe("stara");
 
 			// Background refetch podmienia dane na żywo.
 			await waitFor(() => expect(result.current.session?.name).toBe("Nowa Ania"));
 			expect(result.current.isPending).toBe(false);
-			expect(result.current.featureFlags?.chat).toBe(true);
+			expect(result.current.maintenance?.message).toBe("nowa");
 		});
 	});
 });

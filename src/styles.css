@@ -37,6 +37,9 @@ code {
     oklch(0.7312 0.1553 159.7336);
   --primary-foreground:
     oklch(0.2781 0.0157 168.8969);
+  /* Pasek wyników ankiety posta (reviza #245): 10% primary — w jasnym motywie
+     to ten sam efekt co dotychczas. */
+  --poll-result-bar: oklch(0.7312 0.1553 159.7336 / 0.12);
   --secondary:
     oklch(0.6941 0.1647 252.9671);
   --secondary-foreground:
@@ -146,6 +149,9 @@ code {
     oklch(0.5201 0.1120 159.2158);
   --primary-foreground:
     oklch(1.0000 0 0);
+  /* Pasek ankiety w dark (reviza usera #245): dark primary (L≈0.52) na 10%
+     ginął na ciemnym tle — używamy JASNEGO odcienia brandu z wyższą alfą. */
+  --poll-result-bar: oklch(0.7312 0.1553 159.7336 / 0.32);
   --secondary:
     oklch(0.2914 0.1053 262.4901);
   --secondary-foreground:

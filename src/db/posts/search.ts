@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { and, asc, desc, eq, ilike, isNull, or } from "drizzle-orm";
+import { and, asc, desc, eq, ilike, isNull, or, type SQLWrapper, sql } from "drizzle-orm";
 import { users } from "@/db/identity/table";
 import { rankSearchResults, tokenizeSearchQuery } from "@/db/search";
 import { getDb } from "@/db/setup";
+import type { PostLocationPayload, PostPollPayload } from "./schema";
 import { postImages, posts } from "./table";
 
 export interface PostMatch {
@@ -36,11 +37,23 @@ interface SearchRow {
 	authorName: string | null;
 	createdAt: Date;
 	image: { cfImageId: string } | null;
+	poll: PostPollPayload | null;
+	location: PostLocationPayload | null;
 }
 
 /**
- * Kandydaci do rankingu: ILIKE po opisie LUB nazwie autora (trafienie w
- * autora czyni widzialnymi posty bez opisu, np. zapytania „posty Mamy").
+ * ILIKE na polu JSONB (#244): pytanie ankiety i etykieta lokalizacji szukane
+ * tym samym mechanizmem co opis. `->>` na NULL (post bez ankiety/lokalizacji)
+ * daje NULL — ILIKE z NULL nigdy nie pasuje, więc brak elementu = brak trafienia.
+ */
+function jsonbFieldMatches(column: SQLWrapper, field: string, token: string) {
+	return sql`(${column} ->> ${field}) ILIKE ${`%${token}%`}`;
+}
+
+/**
+ * Kandydaci do rankingu: ILIKE po opisie, nazwie autora, pytaniu ankiety albo
+ * etykiecie lokalizacji (trafienie w autora czyni widzialnymi posty bez opisu,
+ * np. zapytania „posty Mamy"; trafienie w pytanie/etykietę — posty #244).
  * `undefined` w where: przy intencji daty filtr słów odpada w całości.
  * Pula kandydatów: tryb keyword BEZ LIMITU (ILIKE już odfiltrował — szukamy
  * po całym archiwum); tryb daty 1000 postów — właściwy koniec historii
@@ -58,6 +71,8 @@ async function fetchSearchCandidates(
 			authorName: users.name,
 			createdAt: posts.createdAt,
 			image: postImages,
+			poll: posts.poll,
+			location: posts.location,
 		})
 		.from(posts)
 		.leftJoin(users, eq(posts.authorId, users.id))
@@ -69,7 +84,12 @@ async function fetchSearchCandidates(
 					? undefined
 					: or(
 							...tokens.map((token) =>
-								or(ilike(posts.description, `%${token}%`), ilike(users.name, `%${token}%`)),
+								or(
+									ilike(posts.description, `%${token}%`),
+									ilike(users.name, `%${token}%`),
+									jsonbFieldMatches(posts.poll, "question", token),
+									jsonbFieldMatches(posts.location, "label", token),
+								),
 							),
 						),
 			),
@@ -81,9 +101,19 @@ async function fetchSearchCandidates(
 	return cap === undefined ? query : query.limit(cap);
 }
 
-/** Wiersze SQL → jeden PostMatch na post (pierwsze zdjęcie wg displayOrder). */
-function aggregateSearchRows(rows: SearchRow[]): PostMatch[] {
-	const byId = new Map<string, PostMatch>();
+/**
+ * Kandydat rankingu z indeksem #244: pytanie ankiety i etykieta lokalizacji
+ * liczą się do trafień, ale NIE wychodzą w interfejsie (PostMatch bez zmian —
+ * deep module: rozszerzamy zawartość indeksu, nie kontrakt).
+ */
+interface SearchMatch extends PostMatch {
+	pollQuestion: string | null;
+	locationLabel: string | null;
+}
+
+/** Wiersze SQL → jeden SearchMatch na post (pierwsze zdjęcie wg displayOrder). */
+function aggregateSearchRows(rows: SearchRow[]): SearchMatch[] {
+	const byId = new Map<string, SearchMatch>();
 	for (const row of rows) {
 		const existing = byId.get(row.id);
 		if (existing) {
@@ -96,6 +126,8 @@ function aggregateSearchRows(rows: SearchRow[]): PostMatch[] {
 			authorName: row.authorName ?? "",
 			createdAt: row.createdAt,
 			cfImageId: row.image?.cfImageId ?? null,
+			pollQuestion: row.poll?.question ?? null,
+			locationLabel: row.location?.label ?? null,
 		});
 	}
 	return [...byId.values()];
@@ -103,19 +135,38 @@ function aggregateSearchRows(rows: SearchRow[]): PostMatch[] {
 
 /**
  * Ranking po wspólnych helperach (@/db/search): liczba unikalnych tokenów
- * trafionych w opis albo autora, remisy rozstrzyga nowsza data.
+ * trafionych w opis, autora, pytanie ankiety albo etykietę lokalizacji,
+ * remisy rozstrzyga nowsza data. Bez tego post dopasowany WYŁĄCZNIE pytaniem
+ * ankiety miałby score 0 i wypadł z wyników mimo ILIKE-a w SQL.
  */
-function rankPosts(posts: PostMatch[], tokens: string[], limit: number): PostMatch[] {
-	return rankSearchResults(posts, tokens, limit, (post) => [post.description, post.authorName]);
+function rankPosts(posts: SearchMatch[], tokens: string[], limit: number): SearchMatch[] {
+	return rankSearchResults(posts, tokens, limit, (post) => [
+		post.description,
+		post.authorName,
+		post.pollQuestion ?? "",
+		post.locationLabel ?? "",
+	]);
+}
+
+/** Rankingowy kandydat → publiczny PostMatch (indeks #244 zostaje w domenie). */
+function toPostMatch(match: SearchMatch): PostMatch {
+	return {
+		id: match.id,
+		description: match.description,
+		authorName: match.authorName,
+		createdAt: match.createdAt,
+		cfImageId: match.cfImageId,
+	};
 }
 
 /**
- * Keyword search po opisach i autorach postów. Zapytanie tnie na słowa
- * (≥3 znaki, max 12), SQL wyłapuje kandydatów przez ILIKE po opisie LUB
- * nazwie autora, JS liczy wynik = liczba unikalnych tokenów trafionych
- * w opisie/autorze (remisy: nowszy post wygrywa). Zwraca WYŁĄCZNIE metadane —
- * id, opis, autor, data, pierwsze zdjęcie. Rodzinna skala: pula kandydatów
- * przycięta do 1000 postów.
+ * Keyword search po opisach, autorach, pytaniach ankiet i etykietach
+ * lokalizacji postów (#244: indeksujemy pytanie, NIE opcje — opcje szum).
+ * Zapytanie tnie na słowa (≥3 znaki, max 12), SQL wyłapuje kandydatów przez
+ * ILIKE po którymś z tych pól, JS liczy wynik = liczba unikalnych tokenów
+ * trafionych w opis/autora/pytanie/etykietę (remisy: nowszy post wygrywa).
+ * Zwraca WYŁĄCZNIE metadane — id, opis, autor, data, pierwsze zdjęcie.
+ * Rodzinna skala: pula kandydatów przycięta do 1000 postów.
  *
  * Intencja chronologiczna („pokaż najstarszy/najnowszy post"): keyword search
  * nie rozumie superlatywów — ranking po trafieniach zwracał zły post, więc
@@ -138,8 +189,9 @@ export async function searchPosts(query: string, limit: number): Promise<PostMat
 		const sign = wantsOldest ? 1 : -1;
 		return candidates
 			.sort((a, b) => sign * (a.createdAt.getTime() - b.createdAt.getTime()))
-			.slice(0, limit);
+			.slice(0, limit)
+			.map(toPostMatch);
 	}
 
-	return rankPosts(candidates, tokens, limit);
+	return rankPosts(candidates, tokens, limit).map(toPostMatch);
 }

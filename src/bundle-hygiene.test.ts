@@ -25,13 +25,12 @@ const CLIENT_DIRS = [
 	"pwa",
 	"lib",
 	"images",
-	"chat",
 	"docs",
 	join("core", "functions"),
 ].map((dir) => join(SRC_ROOT, dir));
 
-/** Serwerowe pliki w katalogach klienta — Durable Object i worker dla sw.js. */
-const SERVER_FILE_EXCEPTIONS = [join(SRC_ROOT, "chat", "chat-room.ts")];
+/** Serwerowe pliki w katalogach klienta — worker dla sw.js (DO czatu usunięty, #245). */
+const SERVER_FILE_EXCEPTIONS: string[] = [];
 
 function walkFiles(dir: string): string[] {
 	const entries = readdirSync(dir);
@@ -174,15 +173,11 @@ describe("bundle hygiene", () => {
 		expect(offenders).toEqual([]);
 	});
 
-	test("leaflet ładuje się tylko dynamicznie — nikt nie importuje statycznie chat-location-form (#239)", () => {
+	test("leaflet ładuje się tylko w lazy chunku pickera lokalizacji — zero innych importów (#239, #242)", () => {
 		const offenders = CLIENT_DIRS.flatMap((dir) => walkFiles(dir))
-			.filter(
-				(file) =>
-					/\.(ts|tsx)$/.test(file) &&
-					!/\.test\.(ts|tsx)$/.test(file) &&
-					!file.endsWith(join("components", "chat", "chat-location-form.tsx")),
-			)
-			.filter((file) => /from ["'][^"']*chat-location-form["']/.test(readFileSync(file, "utf8")));
+			.filter((file) => /\.(ts|tsx)$/.test(file) && !/\.test\.(ts|tsx)$/.test(file))
+			.filter((file) => /from ["']leaflet/.test(readFileSync(file, "utf8")))
+			.filter((file) => !file.endsWith(join("components", "app", "post-location-picker.tsx")));
 		expect(offenders).toEqual([]);
 	});
 

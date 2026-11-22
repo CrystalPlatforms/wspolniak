@@ -9,7 +9,7 @@ export interface MemberOption {
 /**
  * Pobiera członków instancji pod aktywny query mentionów (ciąg po `@`).
  * null = brak aktywnego mentionu → pusta lista bez zapytania. Współdzielone
- * przez pole posta/komentarza (MentionInput) i pole czatu (ChatInput, #168).
+ * przez pola posta i komentarza (MentionInput).
  */
 export function useMentionUsers(query: string | null): MemberOption[] {
 	const [users, setUsers] = useState<MemberOption[]>([]);
@@ -47,8 +47,7 @@ export interface MentionDropdownProps {
 	activeIndex: number;
 	onHover: (index: number) => void;
 	onSelect: (user: MemberOption) => void;
-	/** Klasy pozycjonowania listy — MentionInput: min/max szerokość przy karecie
-	 *  (#162); ChatInput: nad polem, pełna szerokość (#168). */
+	/** Klasy pozycjonowania listy — MentionInput: min/max szerokość przy karecie (#162). */
 	positionClassName: string;
 	/** Pozycja w px względem pola — liczy caller (clampDropdownPosition, #162). */
 	style?: CSSProperties;

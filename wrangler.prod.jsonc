@@ -18,33 +18,14 @@
 		"enabled": true,
 		"head_sampling_rate": 1
 	},
-	"durable_objects": {
-		"bindings": [
-			{
-				"name": "CHAT_ROOM",
-				"class_name": "ChatRoom"
-			}
-		]
-	},
-	// Załączniki czatu (F4 #217): prywatny bucket produkcyjny (reguła lifecycle 1 dzień — krok 0 HITL).
-	// Pliki postów (#243): świeży bucket produkcyjny BEZ lifecycle rule — trwałe.
+	// Pliki postów (#243): prywatny bucket produkcyjny BEZ lifecycle rule — trwałe.
 	"r2_buckets": [
-		{
-			"binding": "CHAT_ATTACHMENTS",
-			"bucket_name": "wspolniak-chat-attachments"
-		},
 		{
 			"binding": "POST_FILES",
 			"bucket_name": "wspolniak-post-files"
 		}
 	],
-	"migrations": [
-		{
-			"tag": "v1-chat-room",
-			"new_sqlite_classes": ["ChatRoom"]
-		}
-	],
 	"triggers": {
-		"crons": ["0 6 * * *", "7 * * * *"]
+		"crons": ["0 6 * * *"]
 	}
 }

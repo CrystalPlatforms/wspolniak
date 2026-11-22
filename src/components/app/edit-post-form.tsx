@@ -26,7 +26,6 @@ import type { VideoPlanEntry } from "@/components/app/use-publish-post";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
-import type { FeatureFlags } from "@/db/instance";
 import type { PostVideoEntry } from "@/db/posts/schema";
 import { MAX_DESCRIPTION_LENGTH } from "@/db/posts/schema";
 import { getImageUrl } from "@/images/client";
@@ -88,7 +87,6 @@ interface EditPostFormProps {
 	 */
 	onVideoDelete?: (youtubeVideoId: string) => void;
 	isSubmitting: boolean;
-	featureFlags?: FeatureFlags;
 }
 
 function SortablePreview({

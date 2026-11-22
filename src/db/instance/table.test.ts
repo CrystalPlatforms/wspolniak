@@ -21,11 +21,6 @@ describe("instance_config table", () => {
 				"maintenanceMessage",
 				"maintenanceSubtitle",
 				"maintenanceIcon",
-				"chatEnabled",
-				"albumsEnabled",
-				"aiEnabled",
-				"markdownEnabled",
-				"libraryEnabled",
 				"youtubeChannelId",
 				"youtubeChannelTitle",
 				"youtubeRefreshToken",
@@ -82,30 +77,14 @@ describe("instance_config table", () => {
 		expect((columns as Record<string, unknown>).videoEnabled).toBeUndefined();
 	});
 
-	it("markdown_enabled is boolean not null with default true", () => {
-		expect(columns.markdownEnabled.dataType).toBe("boolean");
-		expect(columns.markdownEnabled.notNull).toBe(true);
-		expect(columns.markdownEnabled.hasDefault).toBe(true);
-	});
-
-	it("library_enabled is boolean not null with default true", () => {
-		expect(columns.libraryEnabled.dataType).toBe("boolean");
-		expect(columns.libraryEnabled.notNull).toBe(true);
-		expect(columns.libraryEnabled.hasDefault).toBe(true);
-	});
-
-	// F8 #159: master switch czatu — jak pozostałe flagi, domyślnie włączony.
-	it("chat_enabled is boolean not null with default true", () => {
-		expect(columns.chatEnabled.dataType).toBe("boolean");
-		expect(columns.chatEnabled.notNull).toBe(true);
-		expect(columns.chatEnabled.hasDefault).toBe(true);
-	});
-
-	// F7 #176: master switch albumów — jak pozostałe flagi, domyślnie włączony.
-	it("albums_enabled is boolean not null with default true", () => {
-		expect(columns.albumsEnabled.dataType).toBe("boolean");
-		expect(columns.albumsEnabled.notNull).toBe(true);
-		expect(columns.albumsEnabled.hasDefault).toBe(true);
+	// #245 reviza: cały system On/Off usunięty — funkcje są zawsze włączone.
+	it("has no feature-flag columns (On/Off system removed)", () => {
+		const record = columns as Record<string, unknown>;
+		expect(record.markdownEnabled).toBeUndefined();
+		expect(record.libraryEnabled).toBeUndefined();
+		expect(record.albumsEnabled).toBeUndefined();
+		expect(record.chatEnabled).toBeUndefined();
+		expect(record.aiEnabled).toBeUndefined();
 	});
 
 	it("created_at is timestamp not null with default", () => {

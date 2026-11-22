@@ -57,39 +57,57 @@ const mockShrink = vi.mocked(shrinkImageToLimit);
 
 // Reviza #187: edytor WYSIWYG zawsze włączony — mockujemy go jako input
 // (value = markdown, onChange = edycja), żeby testować flow formularza.
-vi.mock("@mdxeditor/editor", () => ({
-	MDXEditor: ({
-		markdown,
-		onChange,
-	}: {
-		markdown: string;
-		onChange?: (markdown: string) => void;
-	}) => (
-		<input
-			data-testid="mdx-editor"
-			data-markdown={markdown}
-			value={markdown}
-			aria-label="Opis posta"
-			onChange={(e) => onChange?.(e.target.value)}
-		/>
-	),
-	markdownShortcutPlugin: () => ({}),
-	headingsPlugin: () => ({}),
-	listsPlugin: () => ({}),
-	linkPlugin: () => ({}),
-	linkDialogPlugin: () => ({}),
-	quotePlugin: () => ({}),
-	tablePlugin: () => ({}),
-	toolbarPlugin: () => ({}),
-	UndoRedo: () => null,
-	BoldItalicUnderlineToggles: () => null,
-	StrikeThroughSupSubToggles: () => null,
-	BlockTypeSelect: () => null,
-	ListsToggle: () => null,
-	CreateLink: () => null,
-	InsertTable: () => null,
-	Separator: () => null,
-}));
+// Mock odtwarza kontrakt PRAWDZIWEGO edytora: uncontrolled treść + setMarkdown
+// przez ref (zewnętrzny sync, reviza #245) + getMarkdown.
+vi.mock("@mdxeditor/editor", async () => {
+	const { forwardRef, useImperativeHandle, useState } = await import("react");
+	return {
+		MDXEditor: forwardRef(function MDXEditorMock(
+			{
+				markdown,
+				onChange,
+			}: {
+				markdown: string;
+				onChange?: (markdown: string) => void;
+			},
+			ref: React.Ref<{ setMarkdown: (md: string) => void; getMarkdown: () => string }>,
+		) {
+			const [current, setCurrent] = useState(markdown);
+			useImperativeHandle(ref, () => ({
+				setMarkdown: (md: string) => setCurrent(md),
+				getMarkdown: () => current,
+			}));
+			return (
+				<input
+					data-testid="mdx-editor"
+					data-markdown={markdown}
+					aria-label="Opis posta"
+					value={current}
+					onChange={(e) => {
+						setCurrent(e.target.value);
+						onChange?.(e.target.value);
+					}}
+				/>
+			);
+		}),
+		markdownShortcutPlugin: () => ({}),
+		headingsPlugin: () => ({}),
+		listsPlugin: () => ({}),
+		linkPlugin: () => ({}),
+		linkDialogPlugin: () => ({}),
+		quotePlugin: () => ({}),
+		tablePlugin: () => ({}),
+		toolbarPlugin: () => ({}),
+		UndoRedo: () => null,
+		BoldItalicUnderlineToggles: () => null,
+		StrikeThroughSupSubToggles: () => null,
+		BlockTypeSelect: () => null,
+		ListsToggle: () => null,
+		CreateLink: () => null,
+		InsertTable: () => null,
+		Separator: () => null,
+	};
+});
 
 function makeFile(name: string) {
 	return new File(["x"], name, { type: "image/jpeg" });
@@ -117,6 +135,28 @@ describe("NewPostForm", () => {
 
 		const field = (await screen.findByLabelText(/opis posta/i)) as HTMLInputElement;
 		expect(field.value).toContain("Witam, tu Tomek");
+	});
+
+	it("wstrzykuje szablon, gdy initialDescription przychodzi PO montażu (reviza #245)", async () => {
+		// Scenariusz buga: search/hydracja dostarcza prefill po pierwszym renderze
+		// — forma (i uncontrolled edytor) muszą go przyjąć przez zewnętrzny sync.
+		const { rerender } = render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
+
+		expect(((await screen.findByLabelText(/opis posta/i)) as HTMLInputElement).value).toBe("");
+
+		rerender(
+			<NewPostForm
+				onSubmit={vi.fn()}
+				isSubmitting={false}
+				initialDescription="Witam, tu Tomek\n\n[data] - To [opis]"
+			/>,
+		);
+
+		await waitFor(() => {
+			expect((screen.getByLabelText(/opis posta/i) as HTMLInputElement).value).toContain(
+				"Witam, tu Tomek",
+			);
+		});
 	});
 
 	it("ed description is a WYSIWYG editor — switch is gone (reviza #187)", async () => {
@@ -210,11 +250,11 @@ describe("NewPostForm", () => {
 		await user.click(screen.getByRole("button", { name: /dodaj położenie/i }));
 		// Pinezka przez mockowanego pickera: klik po otwarciu dialogu
 		await user.click(await screen.findByTestId("location-picker-mock"));
-		await user.type(await screen.findByLabelText(/opis \(opcjonalnie\)/i), "Domek babci");
+		await user.type(await screen.findByLabelText(/nazwa/i), "Domek babci");
 		await user.click(screen.getByRole("button", { name: /zapisz lokalizację/i }));
 
 		expect(screen.getByRole("button", { name: "Edytuj położenie: Domek babci" })).toBeDefined();
-		expect(screen.queryByLabelText(/opis \(opcjonalnie\)/i)).toBeNull();
+		expect(screen.queryByLabelText(/nazwa/i)).toBeNull();
 	});
 
 	it("Dodaj załączniki otwiera od razu wybierarkę plików (reviza usera)", async () => {
@@ -225,24 +265,6 @@ describe("NewPostForm", () => {
 		await userEvent.setup().click(screen.getByRole("button", { name: /dodaj załączniki/i }));
 
 		expect(clickSpy).toHaveBeenCalled();
-	});
-
-	it("editor stays WYSIWYG regardless of feature flags (reviza #187)", async () => {
-		render(
-			<NewPostForm
-				onSubmit={vi.fn()}
-				isSubmitting={false}
-				featureFlags={{
-					markdown: false,
-					library: true,
-					chat: true,
-					albums: true,
-				}}
-			/>,
-		);
-
-		expect(screen.getByTestId("mdx-editor")).toBeDefined();
-		expect(screen.queryByRole("switch", { name: /formatowanie/i })).toBeNull();
 	});
 
 	it("shows file count validation error for >10 files", () => {
@@ -596,5 +618,79 @@ describe("NewPostForm", () => {
 			expect(screen.queryAllByRole("img")).toHaveLength(0);
 			expect(container.querySelector("video")).toBeNull();
 		});
+	});
+});
+
+/**
+ * Everything-composer (#244): kompozytor pokazuje wszystkie sekcje naraz
+ * (zdjęcia, wideo, pliki, ankieta, lokalizacja) i publikuje JEDNĄ wspólną
+ * wysyłkę z pełnym payloadem — bez wzajemnego wykluczania sekcji.
+ */
+describe("everything-composer (#244)", () => {
+	it("renderuje wszystkie sekcje naraz (załączniki + ankieta + położenie)", () => {
+		render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
+
+		expect(screen.getByRole("toolbar", { name: /dodaj do posta/i })).toBeDefined();
+		expect(screen.getByRole("button", { name: /dodaj załączniki/i })).toBeDefined();
+		expect(screen.getByRole("button", { name: /dodaj ankietę/i })).toBeDefined();
+		expect(screen.getByRole("button", { name: /dodaj położenie/i })).toBeDefined();
+	});
+
+	it("publikuje łączny payload: tekst + załączniki + ankieta + położenie naraz", async () => {
+		const user = userEvent.setup();
+		const onSubmit = vi.fn();
+		const { container } = render(<NewPostForm onSubmit={onSubmit} isSubmitting={false} />);
+
+		// Tekst
+		const editor = await screen.findByLabelText(/opis posta/i);
+		fireEvent.change(editor, { target: { value: "Wspólny wyjazd" } });
+
+		// Załączniki: zdjęcie + wideo + plik w jednej wybierarce
+		const input = container.querySelector("input[type='file']") as HTMLInputElement;
+		await user.upload(input, [
+			new File(["x"], "fotka.jpg", { type: "image/jpeg" }),
+			new File(["v"], "kotek.mp4", { type: "video/mp4" }),
+			new File(["%PDF"], "program.pdf", { type: "application/pdf" }),
+		]);
+
+		// Ankieta
+		await user.click(screen.getByRole("button", { name: /dodaj ankietę/i }));
+		await user.type(await screen.findByLabelText("Pytanie"), "Kto jedzie?");
+		await user.type(screen.getByLabelText("Opcja 1"), "Ja");
+		await user.type(screen.getByLabelText("Opcja 2"), "Nie ja");
+		await user.click(screen.getByRole("button", { name: /zapisz ankietę/i }));
+
+		// Położenie
+		await user.click(screen.getByRole("button", { name: /dodaj położenie/i }));
+		await user.click(await screen.findByTestId("location-picker-mock"));
+		await user.type(await screen.findByLabelText(/nazwa/i), "Plaża Stogi");
+		await user.click(screen.getByRole("button", { name: /zapisz lokalizację/i }));
+
+		// Wszystkie kafelki widoczne naraz
+		expect(screen.getByAltText("Podgląd 1")).toBeDefined();
+		expect(container.querySelector("video")).not.toBeNull();
+		expect(screen.getByText("program.pdf")).toBeDefined();
+		expect(screen.getByRole("button", { name: "Edytuj ankietę: Kto jedzie?" })).toBeDefined();
+		expect(screen.getByRole("button", { name: "Edytuj położenie: Plaża Stogi" })).toBeDefined();
+
+		// Publikacja: jeden wspólny payload z wszystkimi sekcjami
+		await user.click(screen.getByRole("button", { name: /opublikuj/i }));
+
+		expect(onSubmit).toHaveBeenCalledTimes(1);
+		expect(onSubmit).toHaveBeenCalledWith(
+			expect.objectContaining({
+				description: "Wspólny wyjazd",
+				poll: { question: "Kto jedzie?", options: ["Ja", "Nie ja"] },
+				location: { lat: 50.5, lng: 20.25, label: "Plaża Stogi" },
+			}),
+		);
+		const payload = onSubmit.mock.calls[0]?.[0] as {
+			files: unknown[];
+			pendingVideos: unknown[];
+			postFiles: unknown[];
+		};
+		expect(payload.files).toHaveLength(1); // zdjęcie
+		expect(payload.pendingVideos).toHaveLength(1); // wideo
+		expect(payload.postFiles).toHaveLength(1); // plik R2
 	});
 });

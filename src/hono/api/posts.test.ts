@@ -1795,3 +1795,167 @@ describe("DELETE /api/app/posts/:id — cleanup plików (#243)", () => {
 		expect(mockPurgePostFiles).toHaveBeenCalledWith(postEnv.POST_FILES, "post-1");
 	});
 });
+
+// Everything-post (#244): JEDEN request zawiera zdjęcia + wideo + pliki +
+// ankietę + lokalizację naraz. Get zwraca wszystkie sekcje; update edytuje
+// wszystko POZA ankietą (poll jest celowo poza updatePostSchema — reguła #241).
+describe("everything-post (#244)", () => {
+	const VIDEOS = [
+		{ youtubeVideoId: "yt-1", title: "Klip", thumbnailUrl: "https://i.ytimg.com/vi/yt-1/hq.jpg" },
+	];
+	const POLL = { question: "Kto jedzie?", options: ["Ja", "Nie ja"] };
+	const LOCATION = { lat: 54.4, lng: 18.6, label: "Plaża Stogi" };
+	const FILES = [
+		{
+			key: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+			name: "program.pdf",
+			size: 1234,
+			mimeType: "application/pdf",
+		},
+	];
+
+	beforeEach(() => {
+		vi.clearAllMocks();
+		mockCountToday.mockResolvedValue(0);
+		mockVerifyPostFileKeys.mockResolvedValue({ ok: true, data: undefined });
+		mockSyncPostFiles.mockResolvedValue({ ok: true, data: undefined });
+		mockVerify.mockResolvedValue({ userId: "u1", name: "Tomek", role: "member" });
+		mockFindUser.mockResolvedValue({
+			id: "u1",
+			name: "Tomek",
+			role: "member",
+			tokenHash: "hash",
+			deletedAt: null,
+			createdAt: new Date(),
+			aiOptIn: false,
+			aiBlocked: false,
+		});
+	});
+
+	it("create ze zdjęciami + wideo + plikami + ankietą + lokalizacją w JEDNYM requeście → 201", async () => {
+		const now = new Date();
+		mockCreatePost.mockResolvedValue({
+			post: {
+				id: "post-e1",
+				authorId: "u1",
+				description: "Everything",
+				deletedAt: null,
+				createdAt: now,
+				updatedAt: now,
+				videos: VIDEOS,
+				poll: POLL,
+				location: LOCATION,
+			},
+			images: [
+				{
+					id: "img-1",
+					postId: "post-e1",
+					cfImageId: "cf-aaa",
+					displayOrder: 0,
+					createdAt: now,
+				},
+			],
+		});
+
+		const api = createApi();
+		const postEnv = { ...env, POST_FILES: r2Stub() };
+		const res = await api.request(
+			"/api/app/posts",
+			authedRequest("/api/app/posts", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					description: "Everything",
+					cfImageIds: ["cf-aaa"],
+					videos: VIDEOS,
+					poll: POLL,
+					location: LOCATION,
+					files: FILES,
+				}),
+			}),
+			postEnv,
+		);
+
+		expect(res.status).toBe(201);
+		// Wszystkie elementy lecą w JEDNYM wywołaniu createPost.
+		expect(mockCreatePost).toHaveBeenCalledWith({
+			authorId: "u1",
+			description: "Everything",
+			cfImageIds: ["cf-aaa"],
+			videos: VIDEOS,
+			poll: POLL,
+			location: LOCATION,
+		});
+		// Pliki attachują się do świeżo utworzonego posta (R2 head ok).
+		expect(mockAttachPostFiles).toHaveBeenCalledWith("post-e1", FILES);
+	});
+
+	it("GET everything-posta zwraca wszystkie sekcje naraz", async () => {
+		mockGetPost.mockResolvedValue({
+			...samplePost,
+			id: "post-e1",
+			description: "Everything",
+			videos: VIDEOS,
+			poll: POLL,
+			location: LOCATION,
+			files: [{ id: "f1", key: FILES[0].key, name: FILES[0].name, mimeType: FILES[0].mimeType }],
+		} as never);
+		mockListPinnedIds.mockResolvedValue([]);
+		mockEnrichPosts.mockImplementation(async (posts) => posts as never);
+
+		const api = createApi();
+		const res = await api.request(
+			"/api/app/posts/post-e1",
+			authedRequest("/api/app/posts/post-e1"),
+			env,
+		);
+
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { data: Record<string, unknown> };
+		expect(body.data.videos).toEqual(VIDEOS);
+		expect(body.data.poll).toEqual(POLL);
+		expect(body.data.location).toEqual(LOCATION);
+		expect(body.data.files).toHaveLength(1);
+	});
+
+	it("update everything-posta edytuje opis/wideo/lokalizację/pliki, a wysłany poll jest ignorowany", async () => {
+		mockGetPost.mockResolvedValue({
+			...samplePost,
+			id: "post-e1",
+			videos: VIDEOS,
+			poll: POLL,
+		} as never);
+		mockUpdatePost.mockResolvedValue({ ...samplePost, id: "post-e1" } as never);
+
+		const api = createApi();
+		const postEnv = { ...env, POST_FILES: r2Stub() };
+		const res = await api.request(
+			"/api/app/posts/post-e1",
+			authedRequest("/api/app/posts/post-e1", {
+				method: "PATCH",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					description: "Nowy opis",
+					videos: VIDEOS,
+					location: null,
+					files: [],
+					poll: { question: "Próba podmiany", options: ["x", "y"] },
+				}),
+			}),
+			postEnv,
+		);
+
+		expect(res.status).toBe(200);
+		// Poll nie ma wejścia w updatePost — reguła „ankieta zamarza po publikacji".
+		expect(mockUpdatePost).toHaveBeenCalledWith(
+			"post-e1",
+			expect.objectContaining({
+				description: "Nowy opis",
+				videos: VIDEOS,
+				location: null,
+			}),
+		);
+		expect(mockSyncPostFiles).toHaveBeenCalledWith(postEnv.POST_FILES, "post-e1", []);
+		expect(mockUpdatePost.mock.calls[0]?.[1]).not.toHaveProperty("poll");
+	});
+});

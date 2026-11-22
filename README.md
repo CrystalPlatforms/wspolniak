@@ -4,7 +4,7 @@
 
 Wspólniak to prosta, otwarta alternatywa dla Facebooka, Google Photos i iCloud Shared Albums — zaprojektowana dla jednej rodziny, jednej instancji i jednego admina. Bez haseł, bez reklam, bez śledzenia. Babcia dostaje link, klika, instaluje PWA na telefonie i już jest w środku.
 
-> **Status:** aplikacja w aktywnej produkcji. Feed, posty, komentarze, reakcje i panel admina są wdrożone i używane. Kolejne funkcje (albumy, kalendarz, czat, wideo, threaded replies, @mentions, tryb awaryjny) mają gotowe PRD i czekają na fazowanie (`/carve`) — zobacz sekcję [Roadmapa](#roadmapa) oraz [`docs/002-prd.md`](docs/002-prd.md).
+> **Status:** aplikacja w aktywnej produkcji. Feed, posty, komentarze, reakcje i panel admina są wdrożone i używane. Kolejne funkcje (albumy, kalendarz, wideo, threaded replies, @mentions, tryb awaryjny) mają gotowe PRD i czekają na fazowanie (`/carve`) — zobacz sekcję [Roadmapa](#roadmapa) oraz [`docs/002-prd.md`](docs/002-prd.md).
 
 ---
 
@@ -91,14 +91,6 @@ Poniższe funkcje mają zakończoną fazę PRD i czekają na fazowanie implement
 - Brak komentarzy pod wydarzeniami; wszystkie wydarzenia widoczne dla całej rodziny
 - Wersja v1 w PRD: tylko admin dodaje wydarzenia w panelu, Cron Worker codziennie o 08:00 wystawia posty na Feedzie (D-7 i D-0), bez osobnej zakładki `/calendar` — pełna wersja opisana wyżej to kolejny etap
 - Otwarte pytanie: która biblioteka polskich świąt
-
-### Czat — [`plans/wspolniak-chat-prd.md`](plans/wspolniak-chat-prd.md)
-- Jeden globalny czat rodzinny (bez wątków 1:1 czy podgrup)
-- Tekst + reakcje emoji (ten sam zestaw co w feedzie) + reply/quote
-- Wiadomości wygasają po 24h (rolling per-message)
-- Real-time, wskaźniki pisania, powiadomienia push; brak potwierdzeń odczytu i licznika nieprzeczytanych
-- Mobile: wysuwana szuflada z lewej (hamburger, nagłówek "Witamy!"); desktop: dodany do sidebaru, trasa `/chat`
-- Otwarte pytania: transport real-time (Cloudflare Durable Objects + WebSocket vs. SSE vs. polling), próg "dużej liczby wiadomości" przy ładowaniu historii
 
 ### Wspólniak Video — [`plans/wspolniak-video-prd.md`](plans/wspolniak-video-prd.md)
 - Nowa zakładka `/video` do uploadu filmów rodzinnych

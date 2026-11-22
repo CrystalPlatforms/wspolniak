@@ -1,11 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { BookmarksList } from "@/components/app/bookmarks-list";
 
 export const Route = createFileRoute("/app/lib")({
-	beforeLoad: ({ context }) => {
-		if (!context.featureFlags.library) throw redirect({ to: "/app" });
-	},
 	component: BibliotekaPage,
 });
 

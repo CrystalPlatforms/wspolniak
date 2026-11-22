@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 /**
  * Host-based serving branch (F1 #204) — jednostkowe testy logiki entry Workera.
- * src/server.ts jest za ciężki do bezpośredniego testu (ciągnie Hono, DB, ChatRoom),
+ * src/server.ts jest za ciężki do bezpośredniego testu (ciągnie Hono, DB),
  * więc CAŁA decyzja hostowa żyje w czystych funkcjach tu testowanych, a server.ts
  * tylko je wywołuje (deep module).
  *

@@ -53,7 +53,7 @@ function authedRequest(init?: RequestInit) {
 }
 
 // Multipart ręcznie + File z undici — jsdomowy FormData/File nie przechodzi
-// brand-checku parsera (patrz chat-attachments.test.ts).
+// brand-checku parsera.
 beforeEach(() => {
 	vi.stubGlobal("File", UndiciFile);
 });

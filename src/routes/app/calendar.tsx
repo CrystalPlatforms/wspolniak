@@ -5,9 +5,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { CalendarGrid, formatEventDate } from "@/components/app/calendar-grid";
-import { calendarProposalTemplate } from "@/components/app/calendar-proposal";
-import { CalendarProposalButton } from "@/components/app/calendar-proposal-button";
-import { encodeChatDraft } from "@/components/chat/chat-draft";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -61,7 +58,7 @@ export const Route = createFileRoute("/app/calendar")({
 });
 
 function CalendarPage() {
-	const { session, featureFlags } = Route.useRouteContext();
+	const { session } = Route.useRouteContext();
 	const isAdmin = session.role === "admin";
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
@@ -157,35 +154,18 @@ function CalendarPage() {
 			<div className="mb-6 flex items-center gap-2">
 				<h1 className="text-2xl font-bold text-foreground">Kalendarz</h1>
 				<div className="flex-1" />
-				{featureFlags.chat ? (
-					// Dropdown „Zaproponuj datę" (F6 #219): [Jako post] = dotychczasowe
-					// zachowanie, [Na czat] = szablon w composerze czatu (draft z URL).
-					<CalendarProposalButton
-						onProposeAsPost={() => navigate({ to: "/app/new", search: { calendar: true } })}
-						onProposeToChat={() =>
-							navigate({
-								to: "/app/chat",
-								search: {
-									draft: encodeChatDraft({
-										type: "text",
-										text: calendarProposalTemplate(session.name),
-									}),
-								},
-							})
-						}
-					/>
-				) : (
-					// Czat wyłączony — stary przycisk bez dropdownu.
-					<Button
-						variant="ghost"
-						size="lg"
-						title="Zaproponuj datę"
-						onClick={() => navigate({ to: "/app/new", search: { calendar: true } })}
-					>
-						<IconMailQuestion className="h-4 w-4" aria-hidden="true" />
-						<span className="hidden sm:inline">Zaproponuj datę</span>
-					</Button>
-				)}
+				{/* „Zaproponuj datę" (#163, #245): czat zniknął — przycisk prowadzi
+				    bezpośrednio do formularza posta z szablonem propozycji (prefilled
+				    opis w /app/new?calendar=1). */}
+				<Button
+					variant="ghost"
+					size="lg"
+					title="Zaproponuj datę"
+					onClick={() => navigate({ to: "/app/new", search: { calendar: true } })}
+				>
+					<IconMailQuestion className="h-4 w-4" aria-hidden="true" />
+					<span className="hidden sm:inline">Zaproponuj datę</span>
+				</Button>
 				{isAdmin && (
 					<Button
 						variant="ghost"

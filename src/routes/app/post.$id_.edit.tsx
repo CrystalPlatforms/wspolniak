@@ -100,7 +100,6 @@ function EditPostPage() {
 	const { id } = Route.useParams();
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const { featureFlags } = Route.useRouteContext();
 
 	const { data: response, isLoading } = useQuery({
 		queryKey: ["posts", id],
@@ -234,7 +233,6 @@ function EditPostPage() {
 				onSubmit={handleSubmit}
 				onVideoDelete={handleVideoDelete}
 				isSubmitting={mutation.isPending}
-				featureFlags={featureFlags}
 			/>
 		</div>
 	);

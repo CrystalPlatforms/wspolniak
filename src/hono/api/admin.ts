@@ -10,11 +10,9 @@ import {
 	updateMemberName,
 } from "@/db/identity/queries";
 import {
-	getFeatureFlags,
 	getMaintenanceConfig,
 	getShareCode,
 	setShareCode,
-	updateFeatureFlags,
 	updateMaintenance,
 } from "@/db/instance/queries";
 import { getStatsSummary } from "@/db/stats";
@@ -152,32 +150,6 @@ adminEndpoint.put("/maintenance", async (c) => {
 	await updateMaintenance(update);
 	const config = await getMaintenanceConfig();
 	return c.json({ data: config });
-});
-
-adminEndpoint.get("/features", async (c) => {
-	const flags = await getFeatureFlags();
-	return c.json({ data: flags });
-});
-
-adminEndpoint.put("/features", async (c) => {
-	const body = await c.req.json<Record<string, unknown>>();
-
-	// Jedna pętla waliduje wszystkie flagi (boolean-check + komunikat 400 per
-	// nazwa pola). Wideo nie ma flagi od Video v2 (#194) — zawsze włączone.
-	const FLAG_KEYS = ["markdown", "library", "chat", "albums"] as const;
-	const update: Partial<Record<(typeof FLAG_KEYS)[number], boolean>> = {};
-	for (const key of FLAG_KEYS) {
-		const value = body[key];
-		if (value === undefined) continue;
-		if (typeof value !== "boolean") {
-			return c.json({ error: `${key} must be a boolean` }, 400);
-		}
-		update[key] = value;
-	}
-
-	await updateFeatureFlags(update);
-	const flags = await getFeatureFlags();
-	return c.json({ data: flags });
 });
 
 adminEndpoint.get("/stats", async (c) => {

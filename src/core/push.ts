@@ -2,9 +2,7 @@
 type PushPayloadInput =
 	| { type: "new_post"; authorName: string; postId: string }
 	| { type: "new_comment"; authorName: string; postId: string; snippet: string }
-	| { type: "mention"; actorName: string; postId: string }
-	// F7 #158: push czatu — generyczny tytuł bez treści wiadomości (PRD czatu).
-	| { type: "chat_message" };
+	| { type: "mention"; actorName: string; postId: string };
 
 export interface PushPayload {
 	title: string;
@@ -61,13 +59,6 @@ export function buildPushPayload(input: PushPayloadInput): PushPayload {
 				body: "",
 				icon: ICON,
 				url: `/app/post/${input.postId}`,
-			};
-		case "chat_message":
-			return {
-				title: "Nowa wiadomość ze Wspólniaka",
-				body: "",
-				icon: ICON,
-				url: "/app/chat",
 			};
 	}
 }

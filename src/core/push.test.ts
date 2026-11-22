@@ -47,19 +47,6 @@ describe("buildPushPayload", () => {
 			url: "/app/post/post-789",
 		});
 	});
-
-	// Założenia kontraktu (F7 #158): tytuł DOKŁADNIE "Nowa wiadomość ze
-	// Wspólniaka", bez treści wiadomości (body puste), deep link /app/chat.
-	it("builds the generic chat payload — exact title, no content, /app/chat link", () => {
-		const payload = buildPushPayload({ type: "chat_message" });
-
-		expect(payload).toEqual({
-			title: "Nowa wiadomość ze Wspólniaka",
-			body: "",
-			icon: "/logo192.png",
-			url: "/app/chat",
-		});
-	});
 });
 
 describe("fanOutPush", () => {
@@ -208,5 +195,25 @@ describe("fanOutPush", () => {
 		});
 
 		expect(sendPush).not.toHaveBeenCalled();
+	});
+});
+
+// Czat usunięty (#245): mapowanie payloadów zna tylko typy postów/komentarzy/
+// wspomnień — wariant czatowy nie istnieje (switch nie ma case → undefined).
+describe("buildPushPayload — czat usunięty (#245)", () => {
+	it("maps only post/comment/mention payloads — every url points at a post", () => {
+		const known: Parameters<typeof buildPushPayload>[0][] = [
+			{ type: "new_post", authorName: "Ania", postId: "p1" },
+			{ type: "new_comment", authorName: "Ania", postId: "p1", snippet: "hej" },
+			{ type: "mention", actorName: "Ania", postId: "p1" },
+		];
+
+		for (const input of known) {
+			expect(buildPushPayload(input).url.startsWith("/app/post/")).toBe(true);
+		}
+	});
+
+	it("has no chat_message case — an unknown type yields no payload", () => {
+		expect(buildPushPayload({ type: "chat_message" } as never)).toBeUndefined();
 	});
 });

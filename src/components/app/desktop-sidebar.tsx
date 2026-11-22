@@ -9,8 +9,6 @@ import {
 	IconChartPie3Filled,
 	IconHome,
 	IconHomeFilled,
-	IconMessage,
-	IconMessageFilled,
 	IconPhoto,
 	IconPhotoFilled,
 	IconPhotoPlus,
@@ -23,7 +21,6 @@ import { useTheme } from "@/components/theme/theme-provider";
 import { Button } from "@/components/ui/button";
 import { useAlbumsNewDot } from "@/core/albums-seen";
 import { useBootReveal } from "@/core/boot-splash";
-import { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from "@/db/instance/feature-flags";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
@@ -38,7 +35,6 @@ interface NavItem {
 
 interface DesktopSidebarProps {
 	role?: string;
-	featureFlags?: FeatureFlags;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -47,8 +43,6 @@ const NAV_ITEMS: NavItem[] = [
 	{ to: "/app/lib", icon: IconBookmark, iconActive: IconBookmarkFilled, label: "Biblioteka" },
 	// Albumy (#170): sekcja zbiorów rodzinnych; aktywna = wypełniona ramka zdjęcia.
 	{ to: "/app/albums", icon: IconPhoto, iconActive: IconPhotoFilled, label: "Albumy" },
-	// F8 #159: nazwa usera „Chat" (nie „Czat").
-	{ to: "/app/chat", icon: IconMessage, iconActive: IconMessageFilled, label: "Chat" },
 	{
 		to: "/app/calendar",
 		icon: IconCalendar,
@@ -69,19 +63,11 @@ const NAV_ITEMS: NavItem[] = [
 	// Ustawienia przeniesione do nagłówka feeda (ikona Cog obok „Witaj", reviza usera).
 ];
 
-export function DesktopSidebar({
-	role,
-	featureFlags = DEFAULT_FEATURE_FLAGS,
-}: DesktopSidebarProps) {
+export function DesktopSidebar({ role }: DesktopSidebarProps) {
 	const location = useLocation();
 	const { resolvedTheme } = useTheme();
 
-	const items = NAV_ITEMS.filter((item) => {
-		if (item.to === "/app/lib" && !featureFlags.library) return false;
-		if (item.to === "/app/chat" && !featureFlags.chat) return false;
-		if (item.to === "/app/albums" && !featureFlags.albums) return false;
-		return true;
-	});
+	const items = NAV_ITEMS;
 
 	// Kropka „new" przy „Albumy" (#176): najnowszy album vs timestamp widzianych.
 	const hasNewAlbums = useAlbumsNewDot();

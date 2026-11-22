@@ -67,9 +67,6 @@ interface PostCardProps {
 	imageAccountHash: string;
 	currentUserId: string;
 	currentUserRole: string;
-	libraryEnabled?: boolean;
-	/** Czat włączony (F5 #218) — steruje „Wspomnij na czacie" i ikoną w rogu cudzych postów. */
-	chatEnabled?: boolean;
 }
 
 /**
@@ -86,8 +83,6 @@ export function PostCard({
 	imageAccountHash,
 	currentUserId,
 	currentUserRole,
-	libraryEnabled = true,
-	chatEnabled = true,
 }: PostCardProps) {
 	const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 	const [loadedImages, setLoadedImages] = useState<ReadonlySet<string>>(() => new Set());
@@ -148,7 +143,7 @@ export function PostCard({
 							{formatRelativeTime(post.createdAt)}
 						</time>
 						<div className="ml-auto flex items-center gap-1">
-							{libraryEnabled && <BookmarkButton postId={post.id} />}
+							<BookmarkButton postId={post.id} />
 							<PostWhoReacted target={{ kind: "post", postId: post.id }} />
 							<PostCornerActions
 								postId={post.id}
@@ -156,7 +151,6 @@ export function PostCard({
 								isAdmin={currentUserRole === "admin"}
 								description={post.description}
 								pinned={post.pinned}
-								chatEnabled={chatEnabled}
 							/>
 						</div>
 					</div>

@@ -13,7 +13,7 @@ import { loadAppBootstrap, useAppBootstrap } from "@/core/app-bootstrap";
 import { BootSplash } from "@/core/boot-splash";
 
 export const Route = createFileRoute("/app")({
-	// Bootstrap (sesja/maintenance/flagi) get-or-fetch z query cache: sieć tylko
+	// Bootstrap (sesja/maintenance) get-or-fetch z query cache: sieć tylko
 	// przy pierwszym wejściu, każda kolejna nawigacja czyta cache (microtask).
 	beforeLoad: async ({ context }) => loadAppBootstrap(context),
 	// Layout /app nigdy nie jest zastępowany pendingem — ładowanie podstron
@@ -24,7 +24,7 @@ export const Route = createFileRoute("/app")({
 
 function AppLayout() {
 	const navigate = useNavigate();
-	const { session, maintenance, featureFlags, isPending } = useAppBootstrap();
+	const { session, maintenance, isPending } = useAppBootstrap();
 
 	// Live redirect: background refresh wykrył wygasłą sesję w trakcie sesji.
 	useEffect(() => {
@@ -33,7 +33,7 @@ function AppLayout() {
 		}
 	}, [isPending, session, navigate]);
 
-	if (isPending || !session || !maintenance || !featureFlags) {
+	if (isPending || !session || !maintenance) {
 		return <ScreenSkeleton />;
 	}
 
@@ -54,11 +54,11 @@ function AppLayout() {
 			    (SPLASH_MIN_MS = 0). Ekran Loadera niżej to ścieżka bez SSR-cache. */}
 			<BootSplash name={session.name} />
 			<PwaShell>
-				<DesktopSidebar role={session.role} featureFlags={featureFlags} />
+				<DesktopSidebar role={session.role} />
 				<main className="sm:ml-[240px]">
 					<Outlet />
 				</main>
-				<MobileNav role={session.role} featureFlags={featureFlags} />
+				<MobileNav role={session.role} />
 			</PwaShell>
 		</>
 	);

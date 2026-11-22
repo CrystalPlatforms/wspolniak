@@ -59,16 +59,11 @@ describe("POST /api/setup", () => {
 			maintenanceMessage: null,
 			maintenanceSubtitle: null,
 			maintenanceIcon: null,
-			markdownEnabled: true,
-			libraryEnabled: true,
-			chatEnabled: true,
-			albumsEnabled: true,
 			youtubeChannelId: null,
 			youtubeChannelTitle: null,
 			youtubeRefreshToken: null,
 			youtubeConnectedAt: null,
 			youtubeConnectedBy: null,
-			aiEnabled: false,
 		});
 		mockCreateUser.mockResolvedValue({
 			id: "user-1",

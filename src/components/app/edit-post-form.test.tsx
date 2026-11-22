@@ -36,14 +36,6 @@ afterEach(() => {
 	vi.clearAllMocks();
 });
 
-const baseFlags = {
-	markdown: true,
-	library: true,
-	chat: true,
-	albums: true,
-	ai: false,
-};
-
 function makeVideo(name: string): PostVideoEntry {
 	return {
 		youtubeVideoId: name,
@@ -61,7 +53,6 @@ describe("EditPostForm — Video v2 F3 (#197)", () => {
 				existingImages={[]}
 				imageAccountHash="hash"
 				initialVideos={[makeVideo("yt-1")]}
-				featureFlags={baseFlags}
 				onSubmit={vi.fn()}
 				isSubmitting={false}
 			/>,
@@ -84,7 +75,6 @@ describe("EditPostForm — Video v2 F3 (#197)", () => {
 				existingImages={[]}
 				imageAccountHash="hash"
 				initialVideos={[makeVideo("yt-1")]}
-				featureFlags={baseFlags}
 				onSubmit={onSubmit}
 				onVideoDelete={onVideoDelete}
 				isSubmitting={false}
@@ -115,7 +105,6 @@ describe("EditPostForm — Video v2 F3 (#197)", () => {
 				existingImages={[]}
 				imageAccountHash="hash"
 				initialVideos={[makeVideo("yt-2"), makeVideo("yt-1")]}
-				featureFlags={baseFlags}
 				onSubmit={onSubmit}
 				isSubmitting={false}
 			/>,
@@ -147,7 +136,6 @@ describe("EditPostForm — za duże zdjęcie (issue #200)", () => {
 				description="hello"
 				existingImages={[]}
 				imageAccountHash="hash"
-				featureFlags={baseFlags}
 				onSubmit={onSubmit}
 				isSubmitting={false}
 			/>,

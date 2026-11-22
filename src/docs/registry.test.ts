@@ -48,7 +48,6 @@ describe("docs registry", () => {
 			expect(slugs).toEqual([
 				"albums",
 				"calendar",
-				"family-chat",
 				"feed-and-posts",
 				"for-admins",
 				"library",
@@ -70,7 +69,6 @@ describe("docs registry", () => {
 				"photo-upload-pipeline",
 				"push-under-the-hood",
 				"pwa-offline",
-				"realtime-chat",
 				"security-and-privacy",
 				"stack",
 				"testing-strategy",
@@ -81,8 +79,6 @@ describe("docs registry", () => {
 		it("dział bugs ma pełny zestaw artykułów (F9 #213, big-photo z F4 #207)", () => {
 			expect(listDocs("bugs").map((doc) => doc.slug)).toEqual([
 				"big-photo",
-				"chat-messages-missing",
-				"feature-turned-off",
 				"magic-link-not-arriving",
 				"push-notifications-missing",
 				"slow-upload",

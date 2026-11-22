@@ -33,14 +33,15 @@ export const Route = createFileRoute("/app/")({
 	},
 	// ?videoPublished=1 — powrót po publikacji posta z wideo (Video v2 #194);
 	// feed pokazuje jednokrotnie toast o przetwarzaniu HD i czyści flagę.
-	validateSearch: (search: Record<string, unknown>): { videoPublished?: boolean } => ({
-		videoPublished: search.videoPublished === true || search.videoPublished === "1",
-	}),
+	// Klucz trafia do wyniku TYLKO gdy faktycznie true — inaczej TanStack
+	// dopisywałby do każdego URL-a feeda `?videoPublished=false` (reviza #245).
+	validateSearch: (search: Record<string, unknown>): { videoPublished?: boolean } =>
+		search.videoPublished === true || search.videoPublished === "1" ? { videoPublished: true } : {},
 	component: FeedScreen,
 });
 
 function FeedScreen() {
-	const { session, featureFlags } = Route.useRouteContext();
+	const { session } = Route.useRouteContext();
 	const { videoPublished } = Route.useSearch();
 	const { data, hasNextPage, isFetchingNextPage, fetchNextPage, refetch, isPending } =
 		useInfiniteQuery(feedOptions);
@@ -81,8 +82,6 @@ function FeedScreen() {
 					imageAccountHash={imageAccountHash}
 					currentUserId={session.userId}
 					currentUserRole={session.role}
-					libraryEnabled={featureFlags.library}
-					chatEnabled={featureFlags.chat}
 					hasNextPage={hasNextPage}
 					isFetchingNextPage={isFetchingNextPage}
 					onLoadMore={() => fetchNextPage()}

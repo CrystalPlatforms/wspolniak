@@ -78,9 +78,6 @@ interface PostViewProps {
 	currentUserRole?: string;
 	onDeleted?: () => void;
 	onLightboxChange?: (open: boolean) => void;
-	libraryEnabled?: boolean;
-	/** Czat włączony (F5 #218) — steruje „Wspomnij na czacie" i ikoną w rogu cudzych postów. */
-	chatEnabled?: boolean;
 	/**
 	 * Choreografia #147: czy etap `text` (autor, opis, reakcje) jest już
 	 * odsłonięty. `false` → lustra układu (szkielety). Default `true`
@@ -98,8 +95,6 @@ export function PostView({
 	currentUserRole,
 	onDeleted,
 	onLightboxChange,
-	libraryEnabled = true,
-	chatEnabled = true,
 	revealText = true,
 	onFirstImageLoad,
 }: PostViewProps) {
@@ -153,7 +148,7 @@ export function PostView({
 							})}
 						</time>
 						<div className="ml-auto flex items-center gap-1">
-							{libraryEnabled && <BookmarkButton postId={post.id} />}
+							<BookmarkButton postId={post.id} />
 							<PostWhoReacted target={{ kind: "post", postId: post.id }} />
 							<PostCornerActions
 								postId={post.id}
@@ -162,7 +157,6 @@ export function PostView({
 								description={post.description}
 								pinned={post.pinned}
 								onDeleted={onDeleted}
-								chatEnabled={chatEnabled}
 							/>
 						</div>
 					</div>

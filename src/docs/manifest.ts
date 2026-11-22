@@ -54,7 +54,7 @@ const MANIFESTS: Record<DocDepartment, GroupDef[]> = {
 		},
 		{
 			label: "Interakcje",
-			slugs: ["reactions-comments", "family-chat"],
+			slugs: ["reactions-comments"],
 			icon: IconHeart,
 		},
 		{
@@ -93,7 +93,7 @@ const MANIFESTS: Record<DocDepartment, GroupDef[]> = {
 		},
 		{
 			label: "Czas rzeczywisty",
-			slugs: ["realtime-chat", "push-under-the-hood", "pwa-offline"],
+			slugs: ["push-under-the-hood", "pwa-offline"],
 			icon: IconBolt,
 		},
 		{
@@ -114,13 +114,13 @@ const MANIFESTS: Record<DocDepartment, GroupDef[]> = {
 			icon: IconPhotoOff,
 		},
 		{
-			label: "Powiadomienia i czat",
-			slugs: ["push-notifications-missing", "chat-messages-missing"],
+			label: "Powiadomienia",
+			slugs: ["push-notifications-missing"],
 			icon: IconBellRinging,
 		},
 		{
 			label: "Aplikacja",
-			slugs: ["stale-content-cache", "feature-turned-off"],
+			slugs: ["stale-content-cache"],
 			icon: IconTool,
 		},
 	],

@@ -151,7 +151,7 @@ describe("DepartmentLayout (sidebar F5 #208)", () => {
 			"/bugs/big-photo",
 		);
 
-		await screen.findByText("Powiadomienia i czat");
+		await screen.findByText("Powiadomienia");
 		expect(screen.queryByRole("dialog", { name: "Nawigacja dokumentacji" })).toBeNull();
 
 		await userEvent.click(screen.getByRole("button", { name: "Otwórz nawigację dokumentacji" }));

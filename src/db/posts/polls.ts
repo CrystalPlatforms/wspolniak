@@ -14,7 +14,7 @@ export interface PostPollResults {
 }
 
 /**
- * Oddaje albo zmienia głos w ankiecie posta (#241, wzorzec voteChatPoll):
+ * Oddaje albo zmienia głos w ankiecie posta (#241):
  * atomowy upsert po UNIQUE(post_id, user_id), więc zmiana głosu to podmiana
  * indeksu — nigdy 2 wiersze i nigdy błąd unique. Klik w TĘ SAMĄ opcję jest
  * idempotentny (ankiety postów nie mają wycofywania głosu — decyzja PRD #240).

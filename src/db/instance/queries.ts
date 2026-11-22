@@ -2,7 +2,6 @@
 import { eq } from "drizzle-orm";
 import { AppError } from "@/core/errors";
 import { getDb } from "@/db/setup";
-import { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from "./feature-flags";
 import { instanceConfig } from "./table";
 
 // #166 — kod dostępu /share. Rewizja usera (2026-08-24): kody wyłącznie
@@ -118,68 +117,6 @@ export async function updateMaintenance(input: MaintenanceUpdate): Promise<void>
 		await getDb().update(instanceConfig).set(set).where(eq(instanceConfig.id, row.id));
 	}
 	invalidateMaintenanceCache();
-}
-
-// --- Feature flags (Wspólniak On/Off) ------------------------------------
-// Master switches for optional features (Edytor, Biblioteka). Default to
-// enabled so existing instances keep their current behaviour once columns are added.
-// Wideo nie ma flagi od Video v2 (#194) — wideo jest zawsze włączone.
-
-// Flagi żyją w lekkim pliku (bez drizzle) — klient importuje głęboką ścieżkę,
-// kod serwerowy i beczka @/db/instance re-eksportują stąd (issue #239).
-export { DEFAULT_FEATURE_FLAGS, type FeatureFlags } from "./feature-flags";
-
-const FEATURE_FLAGS_CACHE_TTL_MS = 60_000;
-let featureFlagsCache: { data: FeatureFlags; expiresAt: number } | null = null;
-
-export function invalidateFeatureFlagsCache(): void {
-	featureFlagsCache = null;
-}
-
-export async function getFeatureFlags(): Promise<FeatureFlags> {
-	if (featureFlagsCache && featureFlagsCache.expiresAt > Date.now()) {
-		return featureFlagsCache.data;
-	}
-	const rows = await getDb()
-		.select({
-			markdownEnabled: instanceConfig.markdownEnabled,
-			libraryEnabled: instanceConfig.libraryEnabled,
-			chatEnabled: instanceConfig.chatEnabled,
-			albumsEnabled: instanceConfig.albumsEnabled,
-		})
-		.from(instanceConfig)
-		.limit(1);
-	const row = rows[0];
-	const flags: FeatureFlags = {
-		markdown: row?.markdownEnabled ?? DEFAULT_FEATURE_FLAGS.markdown,
-		library: row?.libraryEnabled ?? DEFAULT_FEATURE_FLAGS.library,
-		chat: row?.chatEnabled ?? DEFAULT_FEATURE_FLAGS.chat,
-		albums: row?.albumsEnabled ?? DEFAULT_FEATURE_FLAGS.albums,
-	};
-	featureFlagsCache = { data: flags, expiresAt: Date.now() + FEATURE_FLAGS_CACHE_TTL_MS };
-	return flags;
-}
-
-export interface FeatureFlagsUpdate {
-	markdown?: boolean;
-	library?: boolean;
-	chat?: boolean;
-	albums?: boolean;
-}
-
-export async function updateFeatureFlags(input: FeatureFlagsUpdate): Promise<void> {
-	const id = await getInstanceConfigId();
-
-	const set: Record<string, unknown> = {};
-	if (input.markdown !== undefined) set.markdownEnabled = input.markdown;
-	if (input.library !== undefined) set.libraryEnabled = input.library;
-	if (input.chat !== undefined) set.chatEnabled = input.chat;
-	if (input.albums !== undefined) set.albumsEnabled = input.albums;
-
-	if (Object.keys(set).length > 0) {
-		await getDb().update(instanceConfig).set(set).where(eq(instanceConfig.id, id));
-	}
-	invalidateFeatureFlagsCache();
 }
 
 // --- YouTube connection (Wspólniak Wideo) ---------------------------------

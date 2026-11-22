@@ -28,7 +28,7 @@ export const Route = createFileRoute("/app/new")({
 });
 
 function NewPostPage() {
-	const { featureFlags, session } = Route.useRouteContext();
+	const { session } = Route.useRouteContext();
 	const { calendar } = Route.useSearch();
 	const { publish, isPending, uploadProgress, imageProgress, isSlowUpload, isError, error, reset } =
 		usePublishPost();
@@ -61,7 +61,6 @@ function NewPostPage() {
 			/>
 
 			<NewPostForm
-				featureFlags={featureFlags}
 				initialDescription={calendar ? calendarProposalTemplate(session.name) : undefined}
 				onSubmit={(data) =>
 					handlePublish({
