@@ -153,7 +153,7 @@ Wspólniak jest projektowany jako **self-hosted first**. Chcesz uruchomić włas
 
 ```bash
 # Klonuj repo
-git clone https://github.com/CrystalGamesStudio/wspolniak.git
+git clone https://github.com/CrystalPlatforms/wspolniak.git
 cd wspolniak
 
 # Zainstaluj zależności
@@ -225,7 +225,7 @@ Hostując Wspólniaka dla własnej rodziny, zazwyczaj mieścisz się w wyłącze
 > **Note:** "Deploy to Cloudflare" button wymaga publicznego repo i działającego `wrangler.jsonc` — będzie dodany w Phase 9 (Release Polish). Do tego czasu używaj manualnego quick startu powyżej.
 
 <!--
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/CrystalGamesStudio/wspolniak)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/CrystalPlatforms/wspolniak)
 -->
 
 Planowany flow dla self-hosterów:
@@ -244,7 +244,7 @@ Planowany flow dla self-hosterów:
 Wspólniak jest open-source i chętnie przyjmuje PR-y. Zanim zaczniesz pracę:
 
 1. Zajrzyj do [`plans/`](plans/) żeby zobaczyć aktualne PRD i plany fazowania
-2. Sprawdź [GitHub issues](https://github.com/CrystalGamesStudio/wspolniak/issues) — każda faza ma swoją issue z acceptance criteria
+2. Sprawdź [GitHub issues](https://github.com/CrystalPlatforms/wspolniak/issues) — każda faza ma swoją issue z acceptance criteria
 3. Przeczytaj [`.claude/CLAUDE.md`](.claude/CLAUDE.md) i [`.claude/rules/`](.claude/rules/) — projekt ma formalne konwencje (deep modules, error handling, atomic imports)
 4. Quality gates przed PR: `pnpm types && pnpm lint && pnpm test`
 
@@ -252,7 +252,7 @@ Wspólniak jest open-source i chętnie przyjmuje PR-y. Zanim zaczniesz pracę:
 
 ## License
 
-Copyright © 2026 Crystal Games Studio
+Copyright © 2026 CrystalPlatforms
 
 Wspólniak is free software: you can redistribute it and/or modify it under the terms of the **GNU Affero General Public License** as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
 
