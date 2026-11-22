@@ -1,3 +1,15 @@
+# [9.0.0](https://github.com/CrystalPlatforms/wspolniak/compare/v8.1.0...v9.0.0) (2026-11-22)
+
+
+* feat(posts)!: combine elements + extend search, remove chat and On/Off flags ([9a718d1](https://github.com/CrystalPlatforms/wspolniak/commit/9a718d1bba7e1e272372794d95ff1eae229b2bf6)), closes [#244](https://github.com/CrystalPlatforms/wspolniak/issues/244) [#245](https://github.com/CrystalPlatforms/wspolniak/issues/245) [#244](https://github.com/CrystalPlatforms/wspolniak/issues/244) [#245](https://github.com/CrystalPlatforms/wspolniak/issues/245)
+
+
+### BREAKING CHANGES
+
+* chat is removed and /app/chat redirects to /app. Feature flags
+are gone (everything is always on) and their instance_config columns are dropped
+by migration. Chat tables are dropped by migration without data export.
+
 # [8.1.0](https://github.com/CrystalPlatforms/wspolniak/compare/v8.0.1...v8.1.0) (2026-11-21)
 
 
