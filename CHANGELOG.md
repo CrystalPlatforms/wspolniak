@@ -1,3 +1,10 @@
+## [9.0.1](https://github.com/CrystalPlatforms/wspolniak/compare/v9.0.0...v9.0.1) (2026-11-23)
+
+
+### Bug Fixes
+
+* **deploy:** drop ChatRoom DO class via explicit wrangler migrations ([#245](https://github.com/CrystalPlatforms/wspolniak/issues/245)) ([700842b](https://github.com/CrystalPlatforms/wspolniak/commit/700842b1a3f7353b6cfde20ae55a96665cf756f8))
+
 # [9.0.0](https://github.com/CrystalPlatforms/wspolniak/compare/v8.1.0...v9.0.0) (2026-11-22)
 
 
