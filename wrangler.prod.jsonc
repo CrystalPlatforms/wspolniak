@@ -25,6 +25,19 @@
 			"bucket_name": "wspolniak-post-files"
 		}
 	],
+	// Usunięcie klasy DO czatu (#245): API wymaga explicite delete-class — bez
+	// tego nowa wersja workera bez ChatRoom odrzuca się z kodem 10064.
+	// Tag v1 zostaje w historii (już zaaplikowany na produkcji), v2 usuwa klasę.
+	"migrations": [
+		{
+			"tag": "v1-chat-room",
+			"new_sqlite_classes": ["ChatRoom"]
+		},
+		{
+			"tag": "v2-remove-chat-room",
+			"deleted_classes": ["ChatRoom"]
+		}
+	],
 	"triggers": {
 		"crons": ["0 6 * * *"]
 	}
