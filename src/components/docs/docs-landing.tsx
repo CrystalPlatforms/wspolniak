@@ -13,7 +13,7 @@ import { useAppHref } from "@/docs/use-cross-host-href";
 import { cn } from "@/lib/utils";
 
 function docsLogoFor(theme: "light" | "dark" | undefined): string {
-	return theme === "light" ? "/logos/wspolniak-docs-light.png" : "/logos/wspolniak-docs.png";
+	return theme === "light" ? "/logos/wspolniak-docs-light.webp" : "/logos/wspolniak-docs.webp";
 }
 
 function DepartmentCard({ department }: { department: DocDepartment }) {

@@ -4,6 +4,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { useState } from "react";
+import { FIELD_CLASS } from "@/components/ui/field-styles";
 import { clampDropdownPosition, type Mention, MentionInput } from "./mention-input";
 
 function createWrapper() {
@@ -241,5 +242,18 @@ describe("clampDropdownPosition (#162)", () => {
 
 	it("bez wymiarow (SSR-guard) zwraca dotychczasowa pozycje pod kareta", () => {
 		expect(clampDropdownPosition(caret, null, null)).toEqual({ top: 64, left: 10 });
+	});
+});
+
+// #249 + iteracja usera: pole komentarza to REFERENCJA template pól —
+// renderuje dokładnie FIELD_CLASS + rozmiar (px-3 py-2 text-sm), bez dodatków.
+describe("MentionInput — wspólny template pól (#249)", () => {
+	it("textarea renderuje wszystkie klasy FIELD_CLASS", () => {
+		render(<TestHost />, { wrapper: createWrapper() });
+
+		const textarea = screen.getByRole("textbox");
+		for (const cls of FIELD_CLASS.split(" ")) {
+			expect(textarea.className).toContain(cls);
+		}
 	});
 });

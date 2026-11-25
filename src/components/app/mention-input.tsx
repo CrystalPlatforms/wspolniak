@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import { type RefObject, useCallback, useRef, useState } from "react";
+import { FIELD_CLASS } from "@/components/ui/field-styles";
 import { type CaretCoordinates, getCaretCoordinates } from "./caret-position";
 import { type MemberOption, MentionDropdown, useMentionUsers } from "./mention-dropdown";
 import { detectMentionQuery, insertMention, type MentionDetection } from "./mentions-text";
@@ -195,7 +196,7 @@ export function MentionInput({
 			<textarea
 				ref={setNode}
 				id={id}
-				className={`flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${className ?? ""}`}
+				className={`${FIELD_CLASS} flex px-3 py-2 text-sm ${className ?? ""}`}
 				value={value}
 				onChange={handleChange}
 				onKeyDown={handleKeyDown}

@@ -100,3 +100,18 @@ describe("pollDraftError", () => {
 		expect(pollDraftError({ question: "Pytanie", options: ["A", ""] })).toMatch(/opcja 2/i);
 	});
 });
+
+// #249: pole pytan w dialogu ankiety musi miec styl aktywnego pola jak
+// w komentarzach (ring-2 ring-ring + offset tla), nie stary styl Shadcn.
+describe("ComposerPollDialog — styl aktywnego pola (#249)", () => {
+	it("pole pytania ma focus-visible:ring-2 ring-ring z offsetem tła", async () => {
+		renderOpen();
+
+		const question = (await screen.findByLabelText("Pytanie")) as HTMLInputElement;
+		expect(question.className).toContain("focus-visible:ring-2");
+		expect(question.className).toMatch(/focus-visible:ring-ring(?![/\w-])/);
+		expect(question.className).toContain("ring-offset-background");
+		expect(question.className).toContain("focus-visible:ring-offset-2");
+		expect(question.className).not.toContain("ring-[3px]");
+	});
+});

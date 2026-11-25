@@ -109,7 +109,7 @@ describe("DocsLanding", () => {
 		renderInRouter(<DocsLanding />);
 
 		const logo = await screen.findByAltText("Dokumentacja Wspólniaka");
-		expect(logo.getAttribute("src")).toBe("/logos/wspolniak-docs.png");
+		expect(logo.getAttribute("src")).toBe("/logos/wspolniak-docs.webp");
 		// Powrót prowadzi poza subdomenę docsów (cookie sesji nie jest współdzielony):
 		// useAppHref po mount liczy pełny URL z originu karty (jsdom: localhost:3000).
 		const backLink = await screen.findByRole("link", { name: /Powrót do Wspólniaka/ });
@@ -121,7 +121,7 @@ describe("DocsLanding", () => {
 		renderInRouter(<DocsLanding />);
 
 		expect((await screen.findByAltText("Dokumentacja Wspólniaka")).getAttribute("src")).toBe(
-			"/logos/wspolniak-docs-light.png",
+			"/logos/wspolniak-docs-light.webp",
 		);
 	});
 });

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { IconPlus, IconX } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { FIELD_CLASS } from "@/components/ui/field-styles";
 import { postPollSchema } from "@/db/posts/schema";
 
 /** Szkic ankiety w kompozytorze — walidowany schematem wysyłki przy zapisie. */
@@ -99,7 +101,7 @@ export function ComposerPollDialog({ open, onOpenChange, value, onSave }: Compos
 							onChange={(e) => setQuestion(e.target.value)}
 							maxLength={200}
 							placeholder="np. Dokąd jedziemy na wakacje…"
-							className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+							className={`${FIELD_CLASS} mt-1 px-2 py-1.5 text-sm`}
 						/>
 					</div>
 					<div className="flex flex-col gap-1.5">
@@ -115,7 +117,7 @@ export function ComposerPollDialog({ open, onOpenChange, value, onSave }: Compos
 									onChange={(e) => updateOption(index, e.target.value)}
 									maxLength={100}
 									placeholder={`Opcja ${index + 1}`}
-									className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+									className={`${FIELD_CLASS} px-2 py-1.5 text-sm`}
 								/>
 								{options.length > MIN_OPTIONS && (
 									<button

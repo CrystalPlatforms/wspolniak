@@ -36,7 +36,7 @@ import { cn } from "@/lib/utils";
 import BranchedMenu from "./branched-menu";
 
 function docsLogoFor(theme: "light" | "dark" | undefined): string {
-	return theme === "light" ? "/logos/wspolniak-docs-light.png" : "/logos/wspolniak-docs.png";
+	return theme === "light" ? "/logos/wspolniak-docs-light.webp" : "/logos/wspolniak-docs.webp";
 }
 
 /** Tryby sidebara: rozwiniety albo calkowicie ukryty (zwijanie usuniete wg ownera). */

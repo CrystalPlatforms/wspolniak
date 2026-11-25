@@ -4,7 +4,7 @@
 // Zalozenia zakodowane w testach:
 // - Tekst autorstwa jest dokladnie "Wspólniak został stworzony przez Crystal" (PRD,
 //   story 13) i jest naglowkiem h1 strony.
-// - Logo to /logos/CrystalLogo.png (jeden plik, bez wariantow motywu).
+// - Logo to /logos/CrystalLogo.webp (jeden plik, bez wariantow motywu).
 // - Powrot prowadzi na GLOWNY host apki (cookie sesji nie jest wspoldzielony z
 //   docs.*) — pelny URL po mount, jak w DocPage.
 // - Publicznosc (logged-out) to obserwacja HITL; tu sprawdzamy linki powrotu.
@@ -44,7 +44,7 @@ describe("CreditsPage", () => {
 			}),
 		).toBeTruthy();
 		const logo = screen.getByAltText("Crystal");
-		expect(logo.getAttribute("src")).toBe("/logos/CrystalLogo.png");
+		expect(logo.getAttribute("src")).toBe("/logos/CrystalLogo.webp");
 	});
 
 	it("ma oba powroty na gorze: do apki i do dokumentacji (bez dolnego linku)", async () => {

@@ -287,7 +287,8 @@ export function EditPostForm({
 			setError(null);
 
 			if (items.length + incoming.length > MAX_FILES) {
-				setError(`Maksymalnie ${MAX_FILES} zdjęć na post`);
+				// #250: prosty komunikat limitu mediów.
+				setError(`Maksymalnie ${MAX_FILES} mediów`);
 				return;
 			}
 
@@ -438,6 +439,10 @@ export function EditPostForm({
 					accept={ACCEPTED_TYPES}
 					multiple
 					onChange={handleFileChange}
+					// #250: hint limitu — czytany przez czytniki ekranu i pokazywany
+					// jako tooltip; w natywnym pickerze iOS/Android limit komunikuje
+					// Toast wrappera Androida (MainActivity.onShowFileChooser).
+					title="Wybierz do 10 zdjęć"
 					className="hidden"
 				/>
 				{/* Zdjęcia pod przyciskiem zdjęć, wideo pod swoim — mirror kompozytora (reviza usera). */}

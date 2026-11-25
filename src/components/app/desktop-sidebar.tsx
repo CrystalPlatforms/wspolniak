@@ -74,8 +74,8 @@ export function DesktopSidebar({ role }: DesktopSidebarProps) {
 
 	const logoSrc =
 		resolvedTheme === "dark"
-			? "/logos/WspolniakLogoTrans.png"
-			: "/logos/WspolniakLogoTransLIGHT.png";
+			? "/logos/WspolniakLogoTrans.webp"
+			: "/logos/WspolniakLogoTransLIGHT.webp";
 
 	const bootRevealed = useBootReveal();
 

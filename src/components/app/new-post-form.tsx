@@ -116,7 +116,8 @@ function splitAttachmentFiles(incoming: File[], counts: AttachmentCounts): Attac
 		const mime = file.type || "application/octet-stream";
 		if (mime.startsWith("image/")) {
 			if (counts.images + split.images.length >= MAX_IMAGES) {
-				split.errors.push(`${file.name}: limit ${MAX_IMAGES} zdjęć`);
+				// #250: prosty komunikat limitu — bez nazwy pliku, bez powtórzeń.
+				split.errors.push(`Maksymalnie ${MAX_IMAGES} mediów`);
 				continue;
 			}
 			split.images.push(toMediaItem(file, counts.images + split.images.length));
@@ -336,7 +337,8 @@ export function NewPostForm({
 		if (split.images.length > 0) setMedia([...media, ...split.images]);
 		if (split.videos.length > 0) setPendingVideos([...pendingVideos, ...split.videos]);
 		if (split.files.length > 0) setPostFiles([...postFiles, ...split.files]);
-		setError(split.errors.length > 0 ? split.errors.join(", ") : null);
+		// #250: ten sam komunikat (np. limit mediów) ma się pokazać raz, nie per odrzucony plik.
+		setError(split.errors.length > 0 ? [...new Set(split.errors)].join(", ") : null);
 	};
 
 	const handleSubmit = (e: FormEvent) => {
@@ -438,6 +440,10 @@ export function NewPostForm({
 					type="file"
 					multiple
 					onChange={handleAttachmentsFileChange}
+					// #250: hint limitu — czytany przez czytniki ekranu i pokazywany
+					// jako tooltip; w natywnym pickerze iOS/Android limit komunikuje
+					// Toast wrappera Androida (MainActivity.onShowFileChooser).
+					title="Wybierz do 10 zdjęć"
 					className="hidden"
 				/>
 				<ToolbarAction

@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { IconMapPin } from "@tabler/icons-react";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { FIELD_CLASS } from "@/components/ui/field-styles";
 import { postLocationSchema } from "@/db/posts/schema";
 
 /** Szkic lokalizacji (etykieta trzymana razem ze współrzędnymi). */
@@ -111,7 +113,7 @@ export function ComposerLocationDialog({
 							}
 							maxLength={200}
 							placeholder="np. Domek babci"
-							className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+							className={`${FIELD_CLASS} mt-1 px-2 py-1.5 text-sm`}
 						/>
 					</div>
 					{error ? (

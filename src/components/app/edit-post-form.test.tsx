@@ -216,6 +216,51 @@ describe("EditPostForm — za duże zdjęcie (issue #200)", () => {
 
 // #241: ankieta w edycji istniejącego posta jest TYLKO DO CZYTANIA — głosy muszą
 // zostać wiarygodne, więc formularz nie może oferować edycji pytania ani opcji.
+// #250: limit 10 zdjęć z prostym komunikatem „Maksymalnie 10 mediów” —
+// bez nazwy pliku. Nadmiarowe zdjęcia są ODRZUCANE (nic nie dochodzi do
+// listy), w przeciwieństwie do za dużych plików, które dochodzą oflagowane.
+describe("EditPostForm — limit mediów (#250)", () => {
+	function makePhoto(name: string): File {
+		return new File(["x"], name, { type: "image/jpeg" });
+	}
+
+	function renderForm() {
+		const onSubmit = vi.fn((_data: { files: File[] }) => {});
+		render(
+			<EditPostForm
+				postId="p1"
+				description="hello"
+				existingImages={[]}
+				imageAccountHash="hash"
+				onSubmit={onSubmit}
+				isSubmitting={false}
+			/>,
+		);
+	}
+
+	async function uploadFiles(files: File[]): Promise<void> {
+		const input = document.querySelector("input[type='file']") as HTMLInputElement;
+		await userEvent.upload(input, files);
+	}
+
+	it("odrzuca zdjęcia ponad 10 z komunikatem „Maksymalnie 10 mediów”", async () => {
+		renderForm();
+
+		await uploadFiles(Array.from({ length: 10 }, (_, i) => makePhoto(`foto-${i}.jpg`)));
+		await uploadFiles([makePhoto("nadmiar-1.jpg"), makePhoto("nadmiar-2.jpg")]);
+
+		expect(screen.getByRole("alert").textContent).toBe("Maksymalnie 10 mediów");
+		expect(screen.getAllByRole("img")).toHaveLength(10);
+	});
+
+	it("hint limitu w pickerze: ukryty input ma title „Wybierz do 10 zdjęć”", () => {
+		renderForm();
+
+		const input = document.querySelector("input[id='photos']") as HTMLInputElement;
+		expect(input.title).toBe("Wybierz do 10 zdjęć");
+	});
+});
+
 describe("EditPostForm — ankieta read-only (#241)", () => {
 	it("pokazuje ankietę jako listę bez inputów i bez przycisku głosowania", async () => {
 		const { container } = render(

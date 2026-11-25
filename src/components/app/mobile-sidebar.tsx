@@ -84,8 +84,8 @@ export function MobileSidebar({ role }: MobileSidebarProps) {
 	const hasNewAlbums = useAlbumsNewDot();
 	const logoSrc =
 		resolvedTheme === "dark"
-			? "/logos/WspolniakLogoTrans.png"
-			: "/logos/WspolniakLogoTransLIGHT.png";
+			? "/logos/WspolniakLogoTrans.webp"
+			: "/logos/WspolniakLogoTransLIGHT.webp";
 
 	return (
 		<Sheet open={open} onOpenChange={setOpen}>

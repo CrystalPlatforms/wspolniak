@@ -116,3 +116,18 @@ describe("locationDraftError", () => {
 		expect(locationDraftError({ lat: 50, lng: 20, label: "x".repeat(201) })).toMatch(/200/i);
 	});
 });
+
+// #249: pole nazwy w dialogu lokalizacji musi miec styl aktywnego pola jak
+// w komentarzach (ring-2 ring-ring + offset tla), nie stary styl Shadcn.
+describe("ComposerLocationDialog — styl aktywnego pola (#249)", () => {
+	it("pole nazwy ma focus-visible:ring-2 ring-ring z offsetem tła", async () => {
+		renderOpen();
+
+		const label = (await screen.findByLabelText("Nazwa")) as HTMLInputElement;
+		expect(label.className).toContain("focus-visible:ring-2");
+		expect(label.className).toMatch(/focus-visible:ring-ring(?![/\w-])/);
+		expect(label.className).toContain("ring-offset-background");
+		expect(label.className).toContain("focus-visible:ring-offset-2");
+		expect(label.className).not.toContain("ring-[3px]");
+	});
+});

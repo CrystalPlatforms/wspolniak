@@ -518,6 +518,48 @@ describe("NewPostForm", () => {
 	//   kompozytora (brak draft protection — decyzja PRD);
 	// - F3 (#222): odbiór idzie po await maybeIngestSharedFiles() (mostek Androida,
 	//   no-op poza apką) — to mikro-zadanie po renderze, stąd waitFor w asercjach.
+	// #250: limit 10 zdjęć z PROSTYM komunikatem — bez nazwy pliku i bez
+	// powtórzeń, gdy odrzuconych jest kilka naraz. Założenia: licznik liczy
+	// tylko zdjęcia (wideo 5 / pliki 5 mają osobne limity), komunikat renderuje
+	// się w role="alert" jako dokładnie jeden tekst.
+	describe("limit mediów (#250)", () => {
+		async function uploadFiles(container: HTMLElement, files: File[]): Promise<void> {
+			const input = container.querySelector("input[type='file']") as HTMLInputElement;
+			await userEvent.upload(input, files);
+		}
+
+		it("odrzuca zdjęcia ponad 10 z komunikatem „Maksymalnie 10 mediów” (bez nazwy pliku)", async () => {
+			const { container } = render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
+
+			await uploadFiles(
+				container,
+				Array.from({ length: 11 }, (_, i) => makeFile(`foto-${i}.jpg`)),
+			);
+
+			expect(screen.getByRole("alert").textContent).toBe("Maksymalnie 10 mediów");
+			expect(screen.getAllByRole("img")).toHaveLength(10);
+		});
+
+		it("pokazuje komunikat limitu raz, gdy odrzucono kilka zdjęć naraz", async () => {
+			const { container } = render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
+
+			await uploadFiles(
+				container,
+				Array.from({ length: 10 }, (_, i) => makeFile(`foto-${i}.jpg`)),
+			);
+			await uploadFiles(container, [makeFile("nadmiar-a.jpg"), makeFile("nadmiar-b.jpg")]);
+
+			expect(screen.getByRole("alert").textContent).toBe("Maksymalnie 10 mediów");
+			expect(screen.getAllByRole("img")).toHaveLength(10);
+		});
+		it("hint limitu w pickerze: ukryty input ma title „Wybierz do 10 zdjęć”", () => {
+			const { container } = render(<NewPostForm onSubmit={vi.fn()} isSubmitting={false} />);
+
+			const input = container.querySelector("input[type='file']") as HTMLInputElement;
+			expect(input.title).toBe("Wybierz do 10 zdjęć");
+		});
+	});
+
 	describe("poczekalnia plików (#220)", () => {
 		function videoFile(name: string): File {
 			return new File(["v"], name, { type: "video/mp4" });

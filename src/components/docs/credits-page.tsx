@@ -32,7 +32,7 @@ export function CreditsPage() {
 				</div>
 
 				<img
-					src="/logos/CrystalLogo.png"
+					src="/logos/CrystalLogo.webp"
 					alt="Crystal"
 					className="mt-16 w-40 rounded-2xl border border-border"
 				/>
