@@ -15,15 +15,12 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
-import android.webkit.ValueCallback;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Toast;
 
 import androidx.activity.ComponentActivity;
 import androidx.activity.OnBackPressedCallback;
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.webkit.WebViewAssetLoader;
 
 import java.util.ArrayList;
@@ -44,8 +41,6 @@ public class MainActivity extends ComponentActivity {
 
     private WebView webView;
     private WebViewAssetLoader assetLoader;
-    private ValueCallback<Uri[]> fileChooserCallback;
-    private ActivityResultLauncher<Intent> fileChooserLauncher;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -58,16 +53,6 @@ public class MainActivity extends ComponentActivity {
                         ViewGroup.LayoutParams.MATCH_PARENT,
                         ViewGroup.LayoutParams.MATCH_PARENT));
         setContentView(webView);
-
-        fileChooserLauncher = registerForActivityResult(
-                new ActivityResultContracts.StartActivityForResult(),
-                result -> {
-                    if (fileChooserCallback != null) {
-                        fileChooserCallback.onReceiveValue(WebChromeClient.FileChooserParams
-                                .parseResult(result.getResultCode(), result.getData()));
-                        fileChooserCallback = null;
-                    }
-                });
 
         configureWebView();
         configureBackNavigation();
@@ -252,33 +237,7 @@ public class MainActivity extends ComponentActivity {
                 return assetLoader.shouldInterceptRequest(request.getUrl());
             }
         });
-        // Wybierarka plików (#250): bez onShowFileChooser WebView w ogóle nie
-        // otwiera pickera — tu launchuje intent systemowy, a limit 10 zdjęć
-        // komunikuje Toast w momencie otwarcia (FileChooserPolicy.caption()).
-        webView.setWebChromeClient(new WebChromeClient() {
-            @Override
-            public boolean onShowFileChooser(
-                    WebView view,
-                    ValueCallback<Uri[]> callback,
-                    WebChromeClient.FileChooserParams params) {
-                if (fileChooserCallback != null) {
-                    fileChooserCallback.onReceiveValue(null);
-                }
-                fileChooserCallback = callback;
-                Toast.makeText(
-                                MainActivity.this,
-                                FileChooserPolicy.caption(),
-                                Toast.LENGTH_LONG)
-                        .show();
-                try {
-                    fileChooserLauncher.launch(params.createIntent());
-                } catch (ActivityNotFoundException e) {
-                    fileChooserCallback = null;
-                    return false;
-                }
-                return true;
-            }
-        });
+        webView.setWebChromeClient(new WebChromeClient());
 
         // Pobrania z WebView (#225): bez listenera WebView po cichu gubi odpowiedzi
         // z Content-Disposition: attachment (przycisk „pobierz" robiłby nic).
