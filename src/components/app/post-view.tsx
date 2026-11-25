@@ -16,15 +16,13 @@ import {
 import { PostCornerActions } from "@/components/app/post-corner-actions";
 import { PostRichContent } from "@/components/app/post-rich-content";
 import { PostWhoReacted } from "@/components/app/post-who-reacted";
-import {
-	VideoDialog,
-	type VideoDialogData,
-	VideoPosterButton,
-} from "@/components/app/video-player-dialog";
 import type { PostFileEntry } from "@/db/post-files/schema";
 import type { PostLocationPayload, PostPollData } from "@/db/posts/schema";
 import { getImageUrl } from "@/images/client";
 import { downloadImage, isAndroidWrapper, saveBlobViaBridge } from "@/lib/download-image";
+import { LazyVideoDialog } from "./lazy-video-dialog";
+import type { VideoDialogData } from "./video-player-dialog";
+import { VideoPosterButton } from "./video-poster-button";
 
 /**
  * Etapy choreografii widoku posta (#147) — kolejność ODWROTNA do feedu:
@@ -263,7 +261,7 @@ export function PostView({
 				canAddToAlbum={Boolean(currentUserId)}
 			/>
 
-			<VideoDialog video={dialogVideo} onClose={() => setDialogVideo(null)} />
+			<LazyVideoDialog video={dialogVideo} onClose={() => setDialogVideo(null)} />
 		</article>
 	);
 }

@@ -87,7 +87,7 @@ function RootComponent() {
 
 function RootDocument({ children }: { children: React.ReactNode }) {
 	return (
-		<html lang="pl">
+		<html lang="pl" suppressHydrationWarning>
 			<head>
 				<HeadContent />
 				{/* Motyw przed pierwszym malowaniem (reviza: splash i skeletony w ciemnym

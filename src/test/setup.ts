@@ -38,6 +38,44 @@ if (typeof globalThis.ResizeObserver === "undefined") {
 }
 
 /**
+ * jsdom nie implementuje IntersectionObserver (brak layoutu). Lazy mount treści
+ * (#247 — useInView) tworzy observera w efekcie — bez stuba rzuca ReferenceError.
+ * Stub AUTO-ODSŁANIA (observe → callback z isIntersecting: true), bo w testach
+ * komponent renderuje się „widoczny od razu" — inaczej treści bramkowane
+ * widocznością nigdy by nie powstały. Testy, którym potrzebna jest kontrola
+ * nad widocznością (lazy #247), nadpisują global na manualnym stubie
+ * z `@/test/intersection-observer-stub` (installIntersectionObserverStub()).
+ */
+if (typeof globalThis.IntersectionObserver === "undefined") {
+	class IntersectionObserverAutoReveal {
+		callback: IntersectionObserverCallback;
+		constructor(callback: IntersectionObserverCallback) {
+			this.callback = callback;
+		}
+		observe(element: Element): void {
+			this.callback(
+				[
+					{
+						target: element,
+						isIntersecting: true,
+						intersectionRatio: 1,
+						time: 0,
+						boundingClientRect: element.getBoundingClientRect(),
+						intersectionRect: element.getBoundingClientRect(),
+						rootBounds: null,
+					} as IntersectionObserverEntry,
+				],
+				this as unknown as IntersectionObserver,
+			);
+		}
+		unobserve() {}
+		disconnect() {}
+	}
+	globalThis.IntersectionObserver =
+		IntersectionObserverAutoReveal as unknown as typeof IntersectionObserver;
+}
+
+/**
  * jsdom nie implementuje globalnej klasy `PointerEvent`. `motion-dom` (gesty
  * whileTap) syntetyzuje PointerEvent przy zdarzeniach klawiatury na przyciskach
  * z gestami — bez stuba rzuca `ReferenceError: PointerEvent is not defined`

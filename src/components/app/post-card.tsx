@@ -16,11 +16,13 @@ import {
 import { PostCornerActions } from "@/components/app/post-corner-actions";
 import { PostRichContent } from "@/components/app/post-rich-content";
 import { PostWhoReacted } from "@/components/app/post-who-reacted";
-import { VideoDialog, VideoPosterButton } from "@/components/app/video-player-dialog";
 import { useBootSequence } from "@/core/boot-sequence";
 import type { PostFileEntry } from "@/db/post-files/schema";
 import type { PostLocationPayload, PostPollData } from "@/db/posts/schema";
 import { getImageUrl } from "@/images/client";
+import { useInView } from "@/lib/use-in-view";
+import { LazyVideoDialog } from "./lazy-video-dialog";
+import { VideoPosterButton } from "./video-poster-button";
 
 const MAX_FEED_IMAGES = 2;
 
@@ -89,6 +91,11 @@ export function PostCard({
 	/** Wideo otwarte w dialogu (Video v2 F4 #198) — null = zamknięty. */
 	const [dialogVideo, setDialogVideo] = useState<PostCardVideo | null>(null);
 
+	// Lazy loading #247: article obserwowany IntersectionObserverem — sekcje, które
+	// fetchują (EmojiReactions, BookmarkButton), montują się dopiero, gdy karta
+	// wejdzie w widok. Karty pod foldem nie wysyłają 2 zapytań sieciowych na kartę.
+	const { ref: cardRef, inView: cardInView } = useInView<HTMLElement>();
+
 	const canManage = post.authorId === currentUserId || currentUserRole === "admin";
 	const visibleImages = post.images.slice(0, MAX_FEED_IMAGES);
 	const remaining = post.images.length - MAX_FEED_IMAGES;
@@ -121,6 +128,7 @@ export function PostCard({
 
 	return (
 		<article
+			ref={cardRef}
 			className={`relative rounded-lg border bg-card p-4 ${
 				post.pinned ? "border-2 border-primary" : "border-border"
 			}`}
@@ -143,7 +151,7 @@ export function PostCard({
 							{formatRelativeTime(post.createdAt)}
 						</time>
 						<div className="ml-auto flex items-center gap-1">
-							<BookmarkButton postId={post.id} />
+							{cardInView && <BookmarkButton postId={post.id} />}
 							<PostWhoReacted target={{ kind: "post", postId: post.id }} />
 							<PostCornerActions
 								postId={post.id}
@@ -229,7 +237,7 @@ export function PostCard({
 							<IconMessageCircle className="size-6 sm:size-4" aria-hidden="true" />
 							{post.commentCount ?? 0}
 						</Link>
-						<EmojiReactions target={{ kind: "post", postId: post.id }} />
+						{cardInView && <EmojiReactions target={{ kind: "post", postId: post.id }} />}
 					</div>
 					<Link
 						to="/app/post/$id"
@@ -256,7 +264,7 @@ export function PostCard({
 			)}
 
 			{/* Video v2 F4 (#198): miniatura otwiera player w dialogu — bez inline playback na karcie. */}
-			<VideoDialog video={dialogVideo} onClose={() => setDialogVideo(null)} />
+			<LazyVideoDialog video={dialogVideo} onClose={() => setDialogVideo(null)} />
 		</article>
 	);
 }

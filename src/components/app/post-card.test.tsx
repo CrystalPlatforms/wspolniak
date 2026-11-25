@@ -11,9 +11,10 @@
  * - `useBootSettled` mockujemy jako granicę czasu; jego timery mają testy w boot-splash.
  */
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ComponentProps, ReactElement } from "react";
 import { useBootSettled } from "@/core/boot-splash";
+import { installIntersectionObserverStub, lastStub } from "@/test/intersection-observer-stub";
 import { PostCard, type PostCardPost } from "./post-card";
 
 vi.mock("@/core/boot-splash", () => ({
@@ -103,6 +104,33 @@ function skeletonCount(): number {
 describe("PostCard — choreografia odsłaniania (#145)", () => {
 	beforeEach(() => {
 		mockedSettled.mockReset();
+	});
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		vi.restoreAllMocks();
+	});
+
+	// Lazy loading #247: karta poza widokiem NIE montuje sekcji, które fetchują
+	// (EmojiReactions → „moja reakcja", BookmarkButton → „zapisane posty").
+	// IntersectionObserver = granica systemu — manualny stub bez triggera = poza widokiem.
+	// PostWhoReacted zostaje bez bramki (fetchuje dopiero po kliknięciu — enabled: open).
+	it("poza widokiem nie montuje reakcji ani zapisu; zero fetchów; po wejściu w widok montuje", () => {
+		const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("[]"));
+		installIntersectionObserverStub();
+		mockedSettled.mockReturnValue(true);
+		renderCard(makePost());
+
+		expect(document.querySelector('[data-slot="emoji-reactions"]')).toBeNull();
+		expect(fetchSpy).not.toHaveBeenCalled();
+
+		act(() => {
+			lastStub().trigger(true);
+		});
+
+		expect(document.querySelector('[data-slot="emoji-reactions"]')).toBeTruthy();
+		expect(fetchSpy).toHaveBeenCalled();
+		expect(screen.queryByTitle("Kto zareagował")).toBeTruthy(); // bez bramki — fetchuje po kliknięciu
 	});
 
 	it("warm (boot osiadł przed montażem): etapy treści natychmiast, zero szkieletów etapów", async () => {
