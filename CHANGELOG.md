@@ -1,3 +1,15 @@
+## [9.0.2](https://github.com/CrystalPlatforms/wspolniak/compare/v9.0.1...v9.0.2) (2026-11-25)
+
+
+### Bug Fixes
+
+* **ui:** WebP logos, shared field template, plain 10-media limit ([#248](https://github.com/CrystalPlatforms/wspolniak/issues/248), [#249](https://github.com/CrystalPlatforms/wspolniak/issues/249), [#250](https://github.com/CrystalPlatforms/wspolniak/issues/250)) ([cc822d2](https://github.com/CrystalPlatforms/wspolniak/commit/cc822d222040c9783a71d250b87302177088e0d5))
+
+
+### Reverts
+
+* **android:** drop file chooser additions — not actively developed for now ([5933a4a](https://github.com/CrystalPlatforms/wspolniak/commit/5933a4a5a94dbfc6209354ab67d5e599fae8cd73))
+
 ## [9.0.1](https://github.com/CrystalPlatforms/wspolniak/compare/v9.0.0...v9.0.1) (2026-11-23)
 
 

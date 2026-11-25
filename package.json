@@ -1,6 +1,6 @@
 {
 	"name": "tanstack-start-on-cloudflare",
-	"version": "9.0.1",
+	"version": "9.0.2",
 	"private": true,
 	"type": "module",
 	"packageManager": "pnpm@12.21.0",
