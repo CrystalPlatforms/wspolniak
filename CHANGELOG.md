@@ -1,3 +1,10 @@
+## [9.0.3](https://github.com/CrystalPlatforms/wspolniak/compare/v9.0.2...v9.0.3) (2026-11-25)
+
+
+### Performance Improvements
+
+* **ui:** lazy loading — self-hosted fonts, mount-on-open video dialog, visibility-gated fetches, fine-grained Shiki ([#247](https://github.com/CrystalPlatforms/wspolniak/issues/247)) ([b3e991f](https://github.com/CrystalPlatforms/wspolniak/commit/b3e991ff02278a8d99ae2210699bc69fdef60341))
+
 ## [9.0.2](https://github.com/CrystalPlatforms/wspolniak/compare/v9.0.1...v9.0.2) (2026-11-25)
 
 
