@@ -18,7 +18,24 @@ interface MobileNavProps {
 }
 
 /**
- * Dolny pasek mobile (reviza #245): hamburger, Home, Dodaj i Albumy — Albumy
+ * Etykieta pozycji paska: niewidoczna pogrubiona kopia tekstu rezerwuje
+ * szerokość, więc podświetlenie aktywnej pozycji (font-bold dziedziczone
+ * z Linka) nie zmienia szerokości etykiety i nie rozsuwa sąsiednich
+ * przycisków przy justify-around.
+ */
+function NavLabel({ label }: { label: string }) {
+	return (
+		<span className="grid justify-items-center text-xs text-muted-foreground">
+			<span aria-hidden="true" className="invisible col-start-1 row-start-1 font-bold">
+				{label}
+			</span>
+			<span className="col-start-1 row-start-1">{label}</span>
+		</span>
+	);
+}
+
+/**
+ * Dolny pasek mobile (reviza #245): hamburger, Feed, Dodaj i Albumy — Albumy
  * zajęły miejsce po czacie. Aktywna pozycja ma wariant Filled (jak w sidebarze).
  */
 export function MobileNav({ role }: MobileNavProps) {
@@ -49,7 +66,7 @@ export function MobileNav({ role }: MobileNavProps) {
 					) : (
 						<IconHome className="h-6 w-6 text-foreground" aria-hidden="true" />
 					)}
-					<span className="text-xs text-muted-foreground">Home</span>
+					<NavLabel label="Feed" />
 				</Link>
 
 				<Link to="/app/new" className="flex flex-col items-center gap-1.5">
@@ -57,7 +74,7 @@ export function MobileNav({ role }: MobileNavProps) {
 						{/* size-* omija nadpisanie [&_svg]:size-4 z Buttona (h-12 nie działało). */}
 						<IconPlus className="size-12" aria-hidden="true" />
 					</Button>
-					<span className="text-xs text-muted-foreground">Dodaj</span>
+					<NavLabel label="Dodaj" />
 				</Link>
 
 				<Link
@@ -72,7 +89,7 @@ export function MobileNav({ role }: MobileNavProps) {
 					) : (
 						<IconPhoto className="h-6 w-6 text-foreground" aria-hidden="true" />
 					)}
-					<span className="text-xs text-muted-foreground">Albumy</span>
+					<NavLabel label="Albumy" />
 				</Link>
 			</div>
 		</nav>

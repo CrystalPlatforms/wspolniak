@@ -30,12 +30,12 @@ function withQueryClient() {
 }
 
 describe("MobileNav", () => {
-	it("renderuje link Home prowadzacy do feedu /app", () => {
+	it("renderuje link Feed prowadzacy do feedu /app", () => {
 		setPathname("/app");
 		render(<MobileNav />, { wrapper: withQueryClient() });
 
-		const homeLink = screen.getByRole("link", { name: /home/i });
-		expect(homeLink.getAttribute("href")).toBe("/app");
+		const feedLink = screen.getByRole("link", { name: /feed/i });
+		expect(feedLink.getAttribute("href")).toBe("/app");
 	});
 
 	it("nie zawiera juz przycisku Feedback", () => {
@@ -45,20 +45,20 @@ describe("MobileNav", () => {
 		expect(screen.queryByText(/feedback/i)).toBeNull();
 	});
 
-	it("podswietla Home gdy uzytkownik jest na feedzie /app", () => {
+	it("podswietla Feed gdy uzytkownik jest na feedzie /app", () => {
 		setPathname("/app");
 		render(<MobileNav />, { wrapper: withQueryClient() });
 
-		const homeLink = screen.getByRole("link", { name: /home/i });
-		expect(homeLink.className).toMatch(/font-bold/);
+		const feedLink = screen.getByRole("link", { name: /feed/i });
+		expect(feedLink.className).toMatch(/font-bold/);
 	});
 
-	it("nie podswietla Home na podstronie feedu (exact match)", () => {
+	it("nie podswietla Feed na podstronie feedu (exact match)", () => {
 		setPathname("/app/new");
 		render(<MobileNav />, { wrapper: withQueryClient() });
 
-		const homeLink = screen.getByRole("link", { name: /home/i });
-		expect(homeLink.className).not.toMatch(/font-bold/);
+		const feedLink = screen.getByRole("link", { name: /feed/i });
+		expect(feedLink.className).not.toMatch(/font-bold/);
 	});
 
 	it("nie renderuje linku Chat — czat usuniety (#245)", () => {

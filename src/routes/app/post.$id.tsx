@@ -105,7 +105,7 @@ function PostPage() {
 	return (
 		<div className="bg-background">
 			{!lightboxOpen && (
-				<div className="sticky top-0 z-10 border-b border-border bg-background/95 px-4 py-3 backdrop-blur-sm">
+				<div className="sticky top-0 z-20 border-b border-border bg-background/95 px-4 py-3 backdrop-blur-sm">
 					<div className="mx-auto flex max-w-5xl items-center justify-between">
 						<Link
 							to="/app"
