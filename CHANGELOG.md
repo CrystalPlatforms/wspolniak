@@ -1,3 +1,10 @@
+# [9.2.0](https://github.com/CrystalPlatforms/wspolniak/compare/v9.1.1...v9.2.0) (2026-11-27)
+
+
+### Features
+
+* **ui:** edit post looks and behaves like the composer — toolbar, tile grid, submit button ([#251](https://github.com/CrystalPlatforms/wspolniak/issues/251)) ([e87e4c6](https://github.com/CrystalPlatforms/wspolniak/commit/e87e4c6b23ea3dcba7478cf4157c05a7ad95d299))
+
 ## [9.1.1](https://github.com/CrystalPlatforms/wspolniak/compare/v9.1.0...v9.1.1) (2026-11-27)
 
 
