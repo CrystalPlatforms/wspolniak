@@ -70,7 +70,11 @@ export function EmojiReactions({ target }: EmojiReactionsProps) {
 				queryClient.setQueryData(myKey, context.previous);
 			}
 		},
-		onSuccess: () => queryClient.invalidateQueries({ queryKey: myKey }),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: myKey });
+			// Chipsy liczników (ReactionChips) — odśwież po dodaniu/zdjęciu reakcji.
+			queryClient.invalidateQueries({ queryKey: [...targetKey(target), "counts"] });
+		},
 	});
 
 	const selected = myReaction?.reactionType;

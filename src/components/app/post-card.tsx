@@ -16,6 +16,7 @@ import {
 import { PostCornerActions } from "@/components/app/post-corner-actions";
 import { PostRichContent } from "@/components/app/post-rich-content";
 import { PostWhoReacted } from "@/components/app/post-who-reacted";
+import { ReactionChips } from "@/components/app/reaction-chips";
 import { useBootSequence } from "@/core/boot-sequence";
 import type { PostFileEntry } from "@/db/post-files/schema";
 import type { PostLocationPayload, PostPollData } from "@/db/posts/schema";
@@ -224,35 +225,7 @@ export function PostCard({
 				</div>
 			)}
 
-			{visible.reactions ? (
-				<div className="mt-3 flex items-center justify-between">
-					{/* gap-4: picker reakcji wyraźnie odstaje od przycisku komentarzy (reviza usera). */}
-					<div className="flex items-center gap-4">
-						<Link
-							to="/app/post/$id"
-							params={{ id: post.id }}
-							hash="comments"
-							className="flex items-center gap-1.5 rounded-md px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground sm:gap-1 sm:px-2 sm:py-1"
-						>
-							<IconMessageCircle className="size-6 sm:size-4" aria-hidden="true" />
-							{post.commentCount ?? 0}
-						</Link>
-						{cardInView && <EmojiReactions target={{ kind: "post", postId: post.id }} />}
-					</div>
-					<Link
-						to="/app/post/$id"
-						params={{ id: post.id }}
-						className="flex items-center gap-1.5 rounded-md px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground sm:gap-1 sm:px-2 sm:py-1"
-						aria-label="Otwórz pełny post"
-					>
-						<IconExternalLink className="size-6 sm:size-4" aria-hidden="true" />
-						<span className="sm:hidden">Otwórz</span>
-						<span className="hidden sm:inline">Otwórz pełny post</span>
-					</Link>
-				</div>
-			) : (
-				<SkeletonMeta />
-			)}
+			{visible.reactions ? <PostCardMeta post={post} cardInView={cardInView} /> : <SkeletonMeta />}
 
 			{lightboxImages.length > 0 && (
 				<ImageLightbox
@@ -283,4 +256,45 @@ function formatRelativeTime(isoDate: string): string {
 	if (diffDays < 7) return `${diffDays} dn. temu`;
 
 	return date.toLocaleDateString("pl-PL");
+}
+
+interface PostCardMetaProps {
+	post: PostCardPost;
+	cardInView: boolean;
+}
+
+/**
+ * Dolny rząd karty (etap reactions): licznik komentarzy, picker reakcji,
+ * chipsy liczników (top 3/2) i „Otwórz pełny post". Wydzielony, by PostCard
+ * nie puchł w złożoności; sekcje fetchujące montują się dopiero w widoku.
+ */
+function PostCardMeta({ post, cardInView }: PostCardMetaProps) {
+	return (
+		<div className="mt-3 flex items-center justify-between">
+			{/* gap-4: picker reakcji wyraźnie odstaje od przycisku komentarzy (reviza usera). */}
+			<div className="flex items-center gap-4">
+				<Link
+					to="/app/post/$id"
+					params={{ id: post.id }}
+					hash="comments"
+					className="flex items-center gap-1.5 rounded-md px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground sm:gap-1 sm:px-2 sm:py-1"
+				>
+					<IconMessageCircle className="size-6 sm:size-4" aria-hidden="true" />
+					{post.commentCount ?? 0}
+				</Link>
+				{cardInView && <EmojiReactions target={{ kind: "post", postId: post.id }} />}
+				{cardInView && <ReactionChips target={{ kind: "post", postId: post.id }} />}
+			</div>
+			<Link
+				to="/app/post/$id"
+				params={{ id: post.id }}
+				className="flex items-center gap-1.5 rounded-md px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground sm:gap-1 sm:px-2 sm:py-1"
+				aria-label="Otwórz pełny post"
+			>
+				<IconExternalLink className="size-6 sm:size-4" aria-hidden="true" />
+				<span className="sm:hidden">Otwórz</span>
+				<span className="hidden sm:inline">Otwórz pełny post</span>
+			</Link>
+		</div>
+	);
 }

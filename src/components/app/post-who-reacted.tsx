@@ -14,8 +14,10 @@ import type { ReactionTarget, ReactionWithUser } from "@/db/post-reactions/queri
 import { AppleEmoji } from "./apple-emoji";
 import { REACTION_ORDER, targetKey, targetUrls } from "./reaction-config";
 
-interface PostWhoReactedProps {
+interface ReactionsDialogProps {
 	target: ReactionTarget;
+	open: boolean;
+	onOpenChange: (open: boolean) => void;
 }
 
 async function fetchReactionUsers(url: string): Promise<ReactionWithUser[]> {
@@ -26,13 +28,12 @@ async function fetchReactionUsers(url: string): Promise<ReactionWithUser[]> {
 }
 
 /**
- * Przycisk „Kto zareagował" w nagłówku posta (rewizja HITL #161): obok
- * „Dodaj do Biblioteki", w wymiarach przycisku PostActions (3 kropki).
- * Klik otwiera dialog wszystkich reakcji pogrupowanych per typ (emoji + imiona);
- * lista pobierana dopiero przy otwarciu.
+ * Dialog wszystkich reakcji pogrupowanych per typ (emoji + imiona); lista
+ * pobierana dopiero przy otwarciu. Wspólny dla dwóch wejść: przycisk w
+ * nagłówku posta (PostWhoReacted) i chipsy liczników na karcie feedu
+ * (ReactionChips).
  */
-export function PostWhoReacted({ target }: PostWhoReactedProps) {
-	const [open, setOpen] = useState(false);
+export function ReactionsDialog({ target, open, onOpenChange }: ReactionsDialogProps) {
 	const usersKey = [...targetKey(target), "users"] as const;
 	const { data: reactions = [] } = useQuery({
 		queryKey: usersKey,
@@ -47,6 +48,56 @@ export function PostWhoReacted({ target }: PostWhoReactedProps) {
 	})).filter((section) => section.people.length > 0);
 
 	return (
+		<Dialog open={open} onOpenChange={onOpenChange}>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle className="text-center">Kto zareagował</DialogTitle>
+					<DialogDescription className="sr-only">
+						Lista użytkowników którzy zareagowali
+					</DialogDescription>
+				</DialogHeader>
+				<div>
+					{sections.length === 0 ? (
+						<p className="text-center text-muted-foreground">Brak reakcji</p>
+					) : (
+						<div className="space-y-3">
+							{sections.map((section) => (
+								<div
+									key={section.type}
+									className="flex flex-wrap items-center justify-center gap-2"
+								>
+									<AppleEmoji name={section.type} size={20} />
+									{section.people.map((reaction) => (
+										<span
+											key={reaction.id}
+											className="rounded-md bg-muted px-2 py-1 text-sm text-foreground"
+										>
+											{reaction.user?.name ?? "Nieznany"}
+										</span>
+									))}
+								</div>
+							))}
+						</div>
+					)}
+				</div>
+			</DialogContent>
+		</Dialog>
+	);
+}
+
+interface PostWhoReactedProps {
+	target: ReactionTarget;
+}
+
+/**
+ * Przycisk „Kto zareagował" w nagłówku posta (rewizja HITL #161): obok
+ * „Dodaj do Biblioteki", w wymiarach przycisku PostActions (3 kropki).
+ * Klik otwiera dialog wszystkich reakcji (ReactionsDialog).
+ */
+export function PostWhoReacted({ target }: PostWhoReactedProps) {
+	const [open, setOpen] = useState(false);
+
+	return (
 		<>
 			<button
 				type="button"
@@ -58,40 +109,7 @@ export function PostWhoReacted({ target }: PostWhoReactedProps) {
 				<IconMoodPuzzled className="size-6 sm:size-8" aria-hidden="true" />
 			</button>
 
-			<Dialog open={open} onOpenChange={setOpen}>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle className="text-center">Kto zareagował</DialogTitle>
-						<DialogDescription className="sr-only">
-							Lista użytkowników którzy zareagowali
-						</DialogDescription>
-					</DialogHeader>
-					<div>
-						{sections.length === 0 ? (
-							<p className="text-center text-muted-foreground">Brak reakcji</p>
-						) : (
-							<div className="space-y-3">
-								{sections.map((section) => (
-									<div
-										key={section.type}
-										className="flex flex-wrap items-center justify-center gap-2"
-									>
-										<AppleEmoji name={section.type} size={20} />
-										{section.people.map((reaction) => (
-											<span
-												key={reaction.id}
-												className="rounded-md bg-muted px-2 py-1 text-sm text-foreground"
-											>
-												{reaction.user?.name ?? "Nieznany"}
-											</span>
-										))}
-									</div>
-								))}
-							</div>
-						)}
-					</div>
-				</DialogContent>
-			</Dialog>
+			<ReactionsDialog target={target} open={open} onOpenChange={setOpen} />
 		</>
 	);
 }
