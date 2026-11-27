@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { IconArrowLeft, IconChartBar, IconMapPin, IconPaperclip } from "@tabler/icons-react";
-import { type ChangeEvent, type FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
+import {
+	ComposerHeader,
+	ComposerSubmitButton,
+	ComposerToolbar,
+} from "@/components/app/composer-chrome";
 import {
 	ComposerAttachmentsGrid,
 	MAX_IMAGE_BYTES,
@@ -18,22 +22,22 @@ import {
 	type PollDraft,
 	pollDraftError,
 } from "@/components/app/composer-poll-section";
+import {
+	descriptionTooLongMessage,
+	EMPTY_POST_MESSAGE,
+	hasComposerContent,
+	MAX_FILE_SIZE_MB,
+	oversizedImageMessage,
+	splitAttachmentFiles,
+} from "@/components/app/composer-rules";
 import type { Mention } from "@/components/app/mention-input";
 import { OversizedImageDialog } from "@/components/app/oversized-image-dialog";
 import { PostDescriptionField } from "@/components/app/post-description-field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Loader } from "@/components/ui/loader";
-import { MAX_POST_FILE_BYTES, MAX_POST_FILES } from "@/db/post-files/schema";
-import { MAX_DESCRIPTION_LENGTH, MAX_POST_VIDEOS, postPollSchema } from "@/db/posts/schema";
+import { MAX_DESCRIPTION_LENGTH, postPollSchema } from "@/db/posts/schema";
 import type { ImageUploadProgress } from "@/images/upload";
 import { maybeIngestSharedFiles } from "@/lib/android-bridge";
-import { cn } from "@/lib/utils";
 import { takePendingFiles } from "@/lib/waiting-room";
-
-const MAX_FILE_SIZE_MB = 19;
-/** Limit zdjęć kompozytora (jedno źródło prawdy dla walidacji i tytułu przycisku). */
-const MAX_IMAGES = 10;
 
 interface NewPostFormProps {
 	onSubmit: (data: {
@@ -94,59 +98,6 @@ function applyPendingFiles(
  * Walidacja zapisanego szkicu ankiety schematem wysyłki (#241) — ostatnia
  * linia obrony przed POST-em; dialog zapisuje już zwalidowany szkic.
  */
-/** Wynik podziału wyboru z wybierarki na kafelki (reviza usera). */
-interface AttachmentSplit {
-	images: MediaItem[];
-	videos: VideoDraft[];
-	files: File[];
-	errors: string[];
-}
-
-/** Aktualne zapełnienie kafelków — limity liczone per typ. */
-interface AttachmentCounts {
-	images: number;
-	videos: number;
-	files: number;
-}
-
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: liniowy klasyfikator MIME z limitami — split na helpery zaciemniłby kod
-function splitAttachmentFiles(incoming: File[], counts: AttachmentCounts): AttachmentSplit {
-	const split: AttachmentSplit = { images: [], videos: [], files: [], errors: [] };
-	for (const file of incoming) {
-		const mime = file.type || "application/octet-stream";
-		if (mime.startsWith("image/")) {
-			if (counts.images + split.images.length >= MAX_IMAGES) {
-				// #250: prosty komunikat limitu — bez nazwy pliku, bez powtórzeń.
-				split.errors.push(`Maksymalnie ${MAX_IMAGES} mediów`);
-				continue;
-			}
-			split.images.push(toMediaItem(file, counts.images + split.images.length));
-		} else if (mime.startsWith("video/")) {
-			if (counts.videos + split.videos.length >= MAX_POST_VIDEOS) {
-				split.errors.push(`${file.name}: limit ${MAX_POST_VIDEOS} wideo`);
-				continue;
-			}
-			split.videos.push({
-				key: `vid-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-				file,
-				title: file.name.replace(/\.[^.]+$/, "").trim(),
-				preview: URL.createObjectURL(file),
-			});
-		} else {
-			if (counts.files + split.files.length >= MAX_POST_FILES) {
-				split.errors.push(`${file.name}: limit ${MAX_POST_FILES} plików`);
-				continue;
-			}
-			if (file.size > MAX_POST_FILE_BYTES) {
-				split.errors.push(`${file.name}: przekracza limit ${MAX_FILE_SIZE_MB} MB`);
-				continue;
-			}
-			split.files.push(file);
-		}
-	}
-	return split;
-}
-
 function resolvePollDraft(draft: PollDraft | null): {
 	poll: { question: string; options: string[] } | null;
 	error: string | null;
@@ -186,70 +137,6 @@ function resolveLocationDraft(draft: LocationDraft | null): {
 	return { location: { lat: draft.lat, lng: draft.lng, ...(label ? { label } : {}) }, error: null };
 }
 
-/**
- * Reviza #187: nagłówek kompozytora — strzałka powrotu i tytuł.
- */
-function ComposerHeader({ onBack }: { onBack?: () => void }) {
-	return (
-		<div className="mb-2 flex items-center gap-4">
-			{onBack && (
-				<button
-					type="button"
-					onClick={onBack}
-					className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-					title="Wróć do feeda"
-				>
-					<IconArrowLeft className="h-5 w-5" aria-hidden="true" />
-				</button>
-			)}
-			<h1 className="text-2xl font-bold text-foreground">Nowy post</h1>
-		</div>
-	);
-}
-
-/**
- * Przycisk paska dodawania: ikona + napis, trzy w jednej linii (mobile też).
- * Na mobile krótkie napisy: Załączniki / Ankieta / Położenie (reviza usera);
- * desktop pełne: Dodaj załączniki / Dodaj ankietę / Dodaj położenie.
- */
-function ToolbarAction({
-	label,
-	labelMobile,
-	icon: Icon,
-	onClick,
-	pressed,
-	hasPopup,
-	disabled,
-}: {
-	label: string;
-	labelMobile: string;
-	icon: typeof IconPaperclip;
-	onClick: () => void;
-	pressed?: boolean;
-	hasPopup?: boolean;
-	disabled?: boolean;
-}) {
-	return (
-		<button
-			type="button"
-			aria-label={label}
-			aria-pressed={hasPopup ? undefined : pressed}
-			aria-haspopup={hasPopup ? "dialog" : undefined}
-			title={label}
-			onClick={onClick}
-			disabled={disabled}
-			className={cn(
-				"flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-md border bg-background px-2 py-2.5 text-xs font-medium text-foreground transition-colors hover:bg-accent sm:py-2 sm:text-sm",
-				pressed ? "border-primary bg-accent text-accent-foreground" : "border-input",
-			)}
-		>
-			<Icon className="size-4 shrink-0" aria-hidden="true" />
-			<span className="truncate sm:hidden">{labelMobile}</span>
-			<span className="hidden truncate sm:inline">{label}</span>
-		</button>
-	);
-}
-
 export function NewPostForm({
 	onSubmit,
 	isSubmitting,
@@ -272,7 +159,6 @@ export function NewPostForm({
 	const [oversizedId, setOversizedId] = useState<string | null>(null);
 	const [pollDialogOpen, setPollDialogOpen] = useState(false);
 	const [locationDialogOpen, setLocationDialogOpen] = useState(false);
-	const imageInputRef = useRef<HTMLInputElement>(null);
 
 	// Prefill „Zaproponuj datę" (reviza #245): search/initialDescription może
 	// przyjść DO formularza (hydratacja SSR, preload trasy), a edytor WYSIWYG
@@ -316,19 +202,10 @@ export function NewPostForm({
 	};
 
 	/**
-	 * "Dodaj załączniki" otwiera od razu wybierarkę plików (reviza usera — bez
-	 * osobnych okien). Wybór dzieli się po MIME na kafelki: zdjęcia, wideo
+	 * Wybór z „Dodaj załączniki" dzieli się po MIME na kafelki: zdjęcia, wideo
 	 * (tytuł z nazwy pliku, upload do YouTube przy publikacji) i pliki (R2).
 	 */
-	const handlePickAttachments = () => {
-		imageInputRef.current?.click();
-	};
-
-	const handleAttachmentsFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-		const incoming = Array.from(e.target.files ?? []);
-		if (incoming.length === 0) return;
-		e.target.value = "";
-
+	const handleAttachmentsPicked = (incoming: File[]) => {
 		const split = splitAttachmentFiles(incoming, {
 			images: media.length,
 			videos: pendingVideos.length,
@@ -346,16 +223,12 @@ export function NewPostForm({
 		const files = media.map((i) => i.file).filter((f): f is File => Boolean(f));
 		const oversized = media.find((i) => i.isOversized && i.file);
 		if (oversized?.file) {
-			setError(
-				`Zdjęcie "${oversized.file.name}" jest za duże. Kliknij jego podgląd i zmniejsz je, albo usuń je przed publikacją.`,
-			);
+			setError(oversizedImageMessage(oversized.file.name));
 			setOversizedId(oversized.id);
 			return;
 		}
 		if (description.length > MAX_DESCRIPTION_LENGTH) {
-			setError(
-				`Tekst posta jest za długi. Limit to ${MAX_DESCRIPTION_LENGTH} znaków, wpisanych: ${description.length}`,
-			);
+			setError(descriptionTooLongMessage(description.length));
 			return;
 		}
 		// Szkice są walidowane przy zapisie w dialogu — tu tylko ostatnia linia obrony.
@@ -369,14 +242,16 @@ export function NewPostForm({
 		const { poll } = resolvedPoll;
 		const { location } = resolvedLocation;
 		if (
-			media.length === 0 &&
-			pendingVideos.length === 0 &&
-			!description.trim() &&
-			!poll &&
-			!location &&
-			postFiles.length === 0
+			!hasComposerContent({
+				description,
+				images: media.length,
+				videos: pendingVideos.length,
+				files: postFiles.length,
+				hasPoll: poll !== null,
+				hasLocation: location !== null,
+			})
 		) {
-			setError("Dodaj tekst, załączniki, ankietę albo położenie");
+			setError(EMPTY_POST_MESSAGE);
 			return;
 		}
 		const validMentions = mentions.filter((m) => description.includes(`@${m.name}`));
@@ -393,13 +268,14 @@ export function NewPostForm({
 
 	const canSubmit = useMemo(
 		() =>
-			(media.length > 0 ||
-				pendingVideos.length > 0 ||
-				description.trim().length > 0 ||
-				pollDraft !== null ||
-				locationDraft !== null ||
-				postFiles.length > 0) &&
-			!isSubmitting,
+			hasComposerContent({
+				description,
+				images: media.length,
+				videos: pendingVideos.length,
+				files: postFiles.length,
+				hasPoll: pollDraft !== null,
+				hasLocation: locationDraft !== null,
+			}) && !isSubmitting,
 		[
 			media.length,
 			description,
@@ -413,7 +289,7 @@ export function NewPostForm({
 
 	return (
 		<form onSubmit={handleSubmit} className="space-y-4">
-			<ComposerHeader onBack={onBack} />
+			<ComposerHeader title="Nowy post" onBack={onBack} backLabel="Wróć do feeda" />
 
 			{error && (
 				<Alert variant="destructive">
@@ -431,45 +307,12 @@ export function NewPostForm({
 
 			{/* Pasek dodawania: 3 przyciski z napisami w jednej linii (mobile też,
 			    krótkie napisy na małych ekranach — reviza usera). */}
-			<div role="toolbar" aria-label="Dodaj do posta" className="flex items-stretch gap-1.5">
-				{/* Bez `accept`: wybierarka pokazuje WSZYSTKIE pliki (.apk, .md itd. —
-				    reviza usera); podział i odrzucenia (wideo na YouTube, reszta do R2,
-				    limity rozmiaru/liczby) robi splitAttachmentFiles. */}
-				<input
-					ref={imageInputRef}
-					type="file"
-					multiple
-					onChange={handleAttachmentsFileChange}
-					// #250: hint limitu — czytany przez czytniki ekranu i pokazywany
-					// jako tooltip; w natywnym pickerze iOS/Android limit komunikuje
-					// Toast wrappera Androida (MainActivity.onShowFileChooser).
-					title="Wybierz do 10 zdjęć"
-					className="hidden"
-				/>
-				<ToolbarAction
-					label="Dodaj załączniki"
-					labelMobile="Załączniki"
-					icon={IconPaperclip}
-					onClick={handlePickAttachments}
-					disabled={isSubmitting}
-				/>
-				<ToolbarAction
-					label="Dodaj ankietę"
-					labelMobile="Ankieta"
-					icon={IconChartBar}
-					onClick={() => setPollDialogOpen(true)}
-					hasPopup
-					disabled={isSubmitting}
-				/>
-				<ToolbarAction
-					label="Dodaj położenie"
-					labelMobile="Położenie"
-					icon={IconMapPin}
-					onClick={() => setLocationDialogOpen(true)}
-					hasPopup
-					disabled={isSubmitting}
-				/>
-			</div>
+			<ComposerToolbar
+				onPickAttachments={handleAttachmentsPicked}
+				onAddPoll={() => setPollDialogOpen(true)}
+				onAddLocation={() => setLocationDialogOpen(true)}
+				disabled={isSubmitting}
+			/>
 
 			{/* Jednolita siatka kafelków (reviza usera): zdjęcia, wideo, pliki,
 			    ankieta i położenie — wszystko kwadraty z X; ankieta/położenie
@@ -528,66 +371,15 @@ export function NewPostForm({
 				}}
 			/>
 
-			{isSubmitting && isSlowUpload ? (
-				<output className="block text-sm text-muted-foreground">
-					Masz wolne połączenie internetowe. Przesyłanie zdjęć może potrwać dłużej.
-				</output>
-			) : null}
-
-			<PublishButton
+			<ComposerSubmitButton
 				isSubmitting={isSubmitting}
 				canSubmit={canSubmit}
 				uploadProgress={uploadProgress}
 				imageProgress={imageProgress}
+				isSlowUpload={isSlowUpload}
+				idleLabel="Opublikuj"
+				busyLabel="Publikowanie..."
 			/>
 		</form>
-	);
-}
-
-interface PublishButtonProps {
-	isSubmitting: boolean;
-	canSubmit: boolean;
-	uploadProgress: { videoIndex: number; total: number; percent: number } | null;
-	imageProgress: ImageUploadProgress | null;
-}
-
-/** Przycisk publikacji: pasek postępu, Loader i label wg fazy (zdjęcia/wideo). */
-function PublishButton({
-	isSubmitting,
-	canSubmit,
-	uploadProgress,
-	imageProgress,
-}: PublishButtonProps) {
-	return (
-		<Button
-			type="submit"
-			className={cn(
-				"relative h-11 w-full overflow-hidden sm:h-9",
-				// W trakcie publikacji przycisk na niebiesko (Secondary #0c275f),
-				// żeby biały Loader nie zlewał się z zielonym tłem (reviza usera).
-				isSubmitting && "bg-[#0c275f] text-white hover:bg-[#0c275f]/90",
-			)}
-			disabled={!canSubmit}
-		>
-			{isSubmitting ? (
-				<>
-					<span
-						aria-hidden
-						className="absolute inset-0 origin-left animate-[publish-indeterminate_7s_ease-out_forwards] bg-primary-foreground/20"
-					/>
-					{/* "Opatentowany" Loader — biały (inline style wygrywa z loader.css). */}
-					<Loader loading size={4} color="#FFFFFF" className="relative mr-2" />
-				</>
-			) : null}
-			<span className="relative">
-				{isSubmitting
-					? imageProgress
-						? `Zdjęcie ${imageProgress.fileIndex + 1}/${imageProgress.total} — ${imageProgress.percent}%`
-						: uploadProgress
-							? `Wgrywanie wideo ${uploadProgress.videoIndex + 1}/${uploadProgress.total}…`
-							: "Publikowanie..."
-					: "Opublikuj"}
-			</span>
-		</Button>
 	);
 }

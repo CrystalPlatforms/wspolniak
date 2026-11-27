@@ -1,21 +1,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { IconArrowLeft } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { EditPostForm } from "@/components/app/edit-post-form";
 import type { Mention } from "@/components/app/mention-input";
 import { UploadErrorAlert } from "@/components/app/upload-error-alert";
 import {
 	uploadPostFilesForCreate,
 	uploadVideoPlan,
-	VideoNotConnectedError,
 	type VideoPlanEntry,
+	type VideoPublishProgress,
 } from "@/components/app/use-publish-post";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { PostVideoEntry } from "@/db/posts/schema";
-import { uploadImages } from "@/images/upload";
+import { type ImageUploadProgress, uploadImages } from "@/images/upload";
 
 interface PostImage {
 	id: string;
@@ -106,6 +105,17 @@ function EditPostPage() {
 		queryFn: () => fetchPost(id),
 	});
 
+	// Postęp wgrywania na przycisku „Zapisz zmiany" — jak przy publikacji (#251).
+	// Zapis edycji NIE czeka na pełny pasek: wraca do posta od razu po zapisie.
+	const [uploadProgress, setUploadProgress] = useState<VideoPublishProgress | null>(null);
+	const [imageProgress, setImageProgress] = useState<ImageUploadProgress | null>(null);
+	const [isSlowUpload, setIsSlowUpload] = useState(false);
+	const resetProgress = useCallback(() => {
+		setUploadProgress(null);
+		setImageProgress(null);
+		setIsSlowUpload(false);
+	}, []);
+
 	const mutation = useMutation({
 		mutationFn: async (input: EditSubmitInput) => {
 			// Delete removed images
@@ -117,8 +127,13 @@ function EditPostPage() {
 
 			// Upload new files (wspólny pipeline #135: kompresja, batch URL-i)
 			if (input.files.length > 0) {
-				const cfImageIds = await uploadImages(input.files);
+				const cfImageIds = await uploadImages(input.files, {
+					onProgress: setImageProgress,
+					onSlowLink: () => setIsSlowUpload(true),
+				});
 				await patchPost(id, { cfImageIds }, "Nie udało się dodać zdjęć");
+				// Zdjęcia gotowe — przycisk pokazuje potem już tylko postęp wideo.
+				setImageProgress(null);
 			}
 
 			if (input.imageOrder.length > 0) {
@@ -136,7 +151,7 @@ function EditPostPage() {
 
 			// Video v2 F3 (#197): najpierw wgrywa pending wideo z planu, potem zapis
 			// payloadu z finalną kolejnością + lokalizacją i plikami (#242, #243).
-			const videos = await uploadVideoPlan(input.videoPlan, () => {});
+			const videos = await uploadVideoPlan(input.videoPlan, setUploadProgress);
 			await patchPost(
 				id,
 				{
@@ -155,14 +170,16 @@ function EditPostPage() {
 			await queryClient.invalidateQueries({ queryKey: ["posts", id] });
 			navigate({ to: "/app/post/$id", params: { id } });
 		},
+		onError: resetProgress,
 	});
 
 	const handleSubmit = useCallback(
 		(data: EditSubmitInput) => {
 			mutation.reset();
+			resetProgress();
 			mutation.mutate(data);
 		},
-		[mutation],
+		[mutation, resetProgress],
 	);
 
 	const handleVideoDelete = useCallback((youtubeVideoId: string) => {
@@ -172,7 +189,7 @@ function EditPostPage() {
 	if (isLoading) {
 		return (
 			<div className="min-h-screen bg-background p-4" aria-busy="true">
-				<div className="mx-auto max-w-lg space-y-4 pt-6">
+				<div className="max-w-2xl space-y-4 pt-6">
 					<Skeleton className="h-6 w-36" />
 					<Skeleton className="h-24 w-full rounded-lg" />
 					<Skeleton className="h-11 w-full rounded-md" />
@@ -193,20 +210,8 @@ function EditPostPage() {
 	const post = response.data;
 
 	return (
-		<div className="mx-auto max-w-lg bg-background px-4 py-6 pb-50 sm:pb-6">
-			<div className="mb-6 flex items-center gap-4">
-				<button
-					type="button"
-					onClick={() => navigate({ to: "/app/post/$id", params: { id } })}
-					className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-					title="Wróć do posta"
-				>
-					<IconArrowLeft className="h-5 w-5" aria-hidden="true" />
-				</button>
-				<h1 className="text-2xl font-bold text-foreground">Edytuj post</h1>
-			</div>
-
-			{mutation.isError && !(mutation.error instanceof VideoNotConnectedError) && (
+		<div className="max-w-2xl bg-background px-4 py-6 pb-50 sm:pb-6">
+			{mutation.isError && (
 				<UploadErrorAlert
 					error={mutation.error}
 					// Ręczne ponowienie (issue #135): react-query trzyma ostatnie
@@ -215,6 +220,7 @@ function EditPostPage() {
 						const last = mutation.variables;
 						if (!last) return;
 						mutation.reset();
+						resetProgress();
 						mutation.mutate(last);
 					}}
 					retryDisabled={mutation.isPending}
@@ -233,6 +239,10 @@ function EditPostPage() {
 				onSubmit={handleSubmit}
 				onVideoDelete={handleVideoDelete}
 				isSubmitting={mutation.isPending}
+				uploadProgress={uploadProgress}
+				imageProgress={imageProgress}
+				isSlowUpload={isSlowUpload}
+				onBack={() => navigate({ to: "/app/post/$id", params: { id } })}
 			/>
 		</div>
 	);

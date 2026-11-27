@@ -43,7 +43,7 @@ export interface VideoPublishProgress {
 
 /**
  * Czas wypełniania paska postępu (ms). MUSI zgadzać się z animacją `7s` klasy
- * `animate-[publish-indeterminate_7s_ease-out_forwards]` w `new-post-form.tsx`.
+ * `animate-[publish-indeterminate_7s_ease-out_forwards]` w `composer-chrome.tsx`.
  * Pasek ma dojść do 100% zanim nawigujemy do feedu.
  */
 export const PUBLISH_BAR_DURATION_MS = 7000;

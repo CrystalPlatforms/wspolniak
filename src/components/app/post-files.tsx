@@ -10,9 +10,17 @@ import {
 import type { ComponentType } from "react";
 import { toast } from "sonner";
 import { AttachmentCard } from "@/components/app/attachment-card";
-import { formatPostFileSize } from "@/components/app/composer-files-section";
 import type { PostFileEntry } from "@/db/post-files/schema";
 import { isAndroidWrapper, saveBlobViaBridge } from "@/lib/download-image";
+
+/** Rozmiar pliku po ludzku: "512 B", "12,5 KB", "3,2 MB". */
+export function formatPostFileSize(bytes: number): string {
+	if (bytes < 1024) return `${bytes} B`;
+	if (bytes < 1024 * 1024) {
+		return `${(bytes / 1024).toLocaleString("pl-PL", { maximumFractionDigits: 1 })} KB`;
+	}
+	return `${(bytes / (1024 * 1024)).toLocaleString("pl-PL", { maximumFractionDigits: 1 })} MB`;
+}
 
 /** URL pobierania załącznika — prywatny bucket, więc tylko autoryzowana trasa API. */
 function postFileUrl(postId: string, fileId: string): string {

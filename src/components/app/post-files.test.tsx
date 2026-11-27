@@ -6,7 +6,7 @@
 // - brak plików → komponent renderuje null (karta bez sekcji);
 // - porażka fetcha → toast błędu, bez wysypu strony.
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { PostFilesList } from "./post-files";
+import { formatPostFileSize, PostFilesList } from "./post-files";
 
 vi.mock("sonner", () => ({
 	toast: { error: vi.fn() },
@@ -67,5 +67,13 @@ describe("PostFilesList", () => {
 		await waitFor(() => {
 			expect(vi.mocked(toast.error)).toHaveBeenCalledWith("Nie udało się pobrać pliku");
 		});
+	});
+});
+
+describe("formatPostFileSize", () => {
+	it("czytelnie formatuje rozmiar", () => {
+		expect(formatPostFileSize(512)).toBe("512 B");
+		expect(formatPostFileSize(12.5 * 1024)).toContain("KB");
+		expect(formatPostFileSize(3.2 * 1024 * 1024)).toContain("MB");
 	});
 });

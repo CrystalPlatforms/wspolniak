@@ -1,23 +1,28 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import { type FormEvent, useMemo, useState } from "react";
 import {
-	DndContext,
-	type DragEndEvent,
-	type DragOverEvent,
-	type DragStartEvent,
-	PointerSensor,
-	useSensor,
-	useSensors,
-} from "@dnd-kit/core";
-import { SortableContext, useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { IconAlertTriangle, IconPhotoPlus, IconX } from "@tabler/icons-react";
-import { type ChangeEvent, type FormEvent, useCallback, useMemo, useRef, useState } from "react";
-import { ComposerFilesSection } from "@/components/app/composer-files-section";
+	ComposerHeader,
+	ComposerSubmitButton,
+	ComposerToolbar,
+} from "@/components/app/composer-chrome";
+import {
+	ComposerAttachmentsGrid,
+	type GridVideoItem,
+	MAX_IMAGE_BYTES,
+	type MediaItem,
+} from "@/components/app/composer-image-grid";
 import {
 	ComposerLocationDialog,
 	type LocationDraft,
 } from "@/components/app/composer-location-section";
-import { EditPostVideos, type VideoItem } from "@/components/app/edit-post-videos";
+import {
+	descriptionTooLongMessage,
+	EMPTY_POST_MESSAGE,
+	hasComposerContent,
+	MAX_FILE_SIZE_MB,
+	oversizedImageMessage,
+	splitAttachmentFiles,
+} from "@/components/app/composer-rules";
 import type { Mention } from "@/components/app/mention-input";
 import { OversizedImageDialog } from "@/components/app/oversized-image-dialog";
 import { PostDescriptionField } from "@/components/app/post-description-field";
@@ -25,32 +30,33 @@ import { PostPollSummary } from "@/components/app/post-poll";
 import type { VideoPlanEntry } from "@/components/app/use-publish-post";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Loader } from "@/components/ui/loader";
-import type { PostVideoEntry } from "@/db/posts/schema";
-import { MAX_DESCRIPTION_LENGTH } from "@/db/posts/schema";
+import {
+	Dialog,
+	DialogContent,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import { MAX_DESCRIPTION_LENGTH, type PostVideoEntry } from "@/db/posts/schema";
 import { getImageUrl } from "@/images/client";
-import { reorder } from "@/lib/reorder";
-
-const ACCEPTED_TYPES = "image/jpeg,image/png,image/webp,image/heic,image/heif";
-const MAX_FILES = 10;
-const MAX_FILE_SIZE_MB = 19;
-const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+import type { ImageUploadProgress } from "@/images/upload";
 
 export interface ExistingImage {
 	id: string;
 	cfImageId: string;
 }
 
-interface ImageItem {
-	key: string;
-	url: string;
-	existingId?: string;
-	fileIndex?: number;
-	isOversized?: boolean;
-}
+/** Wideo w edycji posta: istniejące na YouTube albo nowe, do wgrania przy zapisie. */
+type EditVideoItem =
+	| { key: string; kind: "existing"; entry: PostVideoEntry }
+	| { key: string; kind: "pending"; file: File; title: string; preview: string };
 
-const LISTBOX_ROLE = "listbox";
-const OPTION_ROLE = "option";
+type ExistingVideo = Extract<EditVideoItem, { kind: "existing" }>;
+
+/** Plik w edycji posta: istniejący w R2 albo nowy, do wysłania przy zapisie. */
+type EditFileItem =
+	| { kind: "existing"; id: string; key: string; name: string; size: number; mimeType: string }
+	| { kind: "new"; file: File };
 
 interface EditPostFormProps {
 	postId: string;
@@ -87,105 +93,32 @@ interface EditPostFormProps {
 	 */
 	onVideoDelete?: (youtubeVideoId: string) => void;
 	isSubmitting: boolean;
-}
-
-function SortablePreview({
-	id,
-	url,
-	index,
-	isOver,
-	isOversized,
-	fileName,
-	onRemove,
-	onOpenDetails,
-}: {
-	id: string;
-	url: string;
-	index: number;
-	isOver: boolean;
-	isOversized: boolean;
-	fileName: string;
-	onRemove: () => void;
-	onOpenDetails: (id: string) => void;
-}) {
-	const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-		id,
-	});
-
-	const style: React.CSSProperties = isDragging
-		? {
-				transform: CSS.Transform.toString(transform),
-				transition,
-				zIndex: 50,
-			}
-		: {};
-
-	return (
-		<div
-			ref={setNodeRef}
-			style={style}
-			{...attributes}
-			{...listeners}
-			// Role przez zmienną — biome wycina statyczne role/tabIndex przy formacie.
-			role={OPTION_ROLE}
-			tabIndex={0}
-			className={`relative aspect-square touch-none ${isDragging ? "scale-90 opacity-80" : ""} ${isOver ? "rounded-md ring-4 ring-green-500 ring-offset-2" : ""}`}
-		>
-			<img
-				src={url}
-				alt={`Podgląd ${index + 1}`}
-				className="aspect-square w-full rounded-md object-cover"
-			/>
-			{isOversized && (
-				<button
-					type="button"
-					aria-label={`Zdjęcie za duże: ${fileName}`}
-					onClick={(e) => {
-						e.stopPropagation();
-						onOpenDetails(id);
-					}}
-					onPointerDown={(e) => e.stopPropagation()}
-					className="absolute inset-0 flex items-center justify-center rounded-md bg-destructive/60"
-				>
-					<IconAlertTriangle className="size-8 text-destructive-foreground" aria-hidden="true" />
-				</button>
-			)}
-			<button
-				type="button"
-				onClick={(e) => {
-					e.stopPropagation();
-					onRemove();
-				}}
-				onPointerDown={(e) => e.stopPropagation()}
-				className="absolute right-1 top-1 flex size-6 items-center justify-center rounded-full bg-destructive text-destructive-foreground opacity-90 transition-opacity hover:opacity-100"
-				title="Usuń zdjęcie"
-			>
-				<IconX className="h-3 w-3" aria-hidden="true" />
-			</button>
-		</div>
-	);
+	/** Strzałka „Wróć do posta" w nagłówku (rysowanym przez formie, jak w kompozytorze). */
+	onBack?: () => void;
+	/** Postęp uploadu wideo przy zapisie — label przycisku „Wideo 1/2 - 45%" (#194). */
+	uploadProgress?: { videoIndex: number; total: number; percent: number } | null;
+	/**
+	 * Upload zdjęcia trwa dłużej niż 7 s (issue #199) — pokazujemy ostrzeżenie
+	 * "wolne łącze" bez blokowania zapisu.
+	 */
+	isSlowUpload?: boolean;
+	/** Postęp uploadu zdjęć z realnych bajtów ("Zdjęcie i/N - x%") — issue #203. */
+	imageProgress?: ImageUploadProgress | null;
 }
 
 /**
- * Plan zdjęć do zapisu: co usunięte, co nowe, jaka kolejność istniejących.
+ * Plan zdjęć do zapisu: co usunięte (istniejące, których nie ma na siatce), jakie
+ * nowe pliki i jaka kolejność istniejących. Nowe wiersze powstają dopiero na
+ * serwerze, więc `imageOrder` obejmuje tylko zdjęcia istniejące.
  * Zwykła funkcja (nie hook) — handleSubmit nie potrzebuje stabilnej referencji.
  */
-function computeImagePlan(
-	items: ImageItem[],
-	existingImages: ExistingImage[],
-	newFiles: File[],
-): { removedImageIds: string[]; files: File[]; imageOrder: string[] } {
-	const currentExistingIds = items.flatMap((item) => (item.existingId ? [item.existingId] : []));
+function computeImagePlan(media: MediaItem[], existingImages: ExistingImage[]) {
 	const removedImageIds = existingImages
-		.filter((img) => !currentExistingIds.includes(img.id))
+		.filter((img) => !media.some((item) => item.existingId === img.id))
 		.map((img) => img.id);
-	const files = items
-		.filter((item) => item.fileIndex !== undefined)
-		.flatMap((item) => {
-			const file = item.fileIndex !== undefined ? newFiles[item.fileIndex] : undefined;
-			return file ? [file] : [];
-		});
-	return { removedImageIds, files, imageOrder: currentExistingIds };
+	const files = media.flatMap((item) => (item.file ? [item.file] : []));
+	const imageOrder = media.flatMap((item) => (item.existingId ? [item.existingId] : []));
+	return { removedImageIds, files, imageOrder };
 }
 
 /**
@@ -202,6 +135,12 @@ function resolveEditLocation(
 	return { lat: draft.lat, lng: draft.lng, ...(label ? { label } : {}) };
 }
 
+/**
+ * Formularz edycji posta — ten sam kompozytor co tworzenie (#251): nagłówek,
+ * pasek dodawania z jedną wybierarką, jednolita siatka kafelków i przycisk.
+ * Rzeczy już istniejące w poście (zdjęcia, wideo, pliki, położenie) stoją na
+ * siatce obok nowo dodanych; ankieta jest tylko do odczytu.
+ */
 export function EditPostForm({
 	postId: _postId,
 	description: initialDescription,
@@ -214,15 +153,46 @@ export function EditPostForm({
 	onSubmit,
 	onVideoDelete,
 	isSubmitting,
+	onBack,
+	uploadProgress = null,
+	isSlowUpload = false,
+	imageProgress = null,
 }: EditPostFormProps) {
 	const [description, setDescription] = useState(initialDescription ?? "");
-	const [videoItems, setVideoItems] = useState<VideoItem[]>(() =>
-		initialVideos.map((entry, index) => ({
-			key: `ex-${index}-${entry.youtubeVideoId}`,
-			existing: entry,
+	const [mentions, setMentions] = useState<Mention[]>([]);
+	/** Zdjęcia na siatce: istniejące w poście (miniatura z CF Images) + nowe. */
+	const [media, setMedia] = useState<MediaItem[]>(() =>
+		existingImages.map((img) => ({
+			id: `img-e-${img.id}`,
+			existingId: img.id,
+			preview: getImageUrl({
+				accountHash: imageAccountHash,
+				cfImageId: img.cfImageId,
+				variant: "thumbnail",
+			}),
 		})),
 	);
-	const [mentions, setMentions] = useState<Mention[]>([]);
+	const [videos, setVideos] = useState<EditVideoItem[]>(() =>
+		initialVideos.map(
+			(entry, index): EditVideoItem => ({
+				key: `ex-${index}-${entry.youtubeVideoId}`,
+				kind: "existing",
+				entry,
+			}),
+		),
+	);
+	const [fileItems, setFileItems] = useState<EditFileItem[]>(() =>
+		initialFiles.map(
+			({ id, key, name, size, mimeType }): EditFileItem => ({
+				kind: "existing",
+				id,
+				key,
+				name,
+				size,
+				mimeType,
+			}),
+		),
+	);
 	/** Lokalizacja (#242): szkic + flaga dotknięcia — bez dotknięcia PATCH nie wysyła pola. */
 	const [locationDraft, setLocationDraft] = useState<LocationDraft | null>(
 		initialLocation
@@ -231,167 +201,135 @@ export function EditPostForm({
 	);
 	const [locationTouched, setLocationTouched] = useState(false);
 	const [locationDialogOpen, setLocationDialogOpen] = useState(false);
-	/** Pliki (#243): id istniejących zostawionych + nowe pliki z wybierarki. */
-	const [keptFileIds, setKeptFileIds] = useState<string[]>(initialFiles.map((f) => f.id));
-	const [newPostFiles, setNewPostFiles] = useState<File[]>([]);
+	const [pollDialogOpen, setPollDialogOpen] = useState(false);
+	/** Istniejące wideo do usunięcia — czeka na potwierdzenie w dialogu. */
+	const [removalCandidate, setRemovalCandidate] = useState<ExistingVideo | null>(null);
 	const [error, setError] = useState<string | null>(null);
-	const [overId, setOverId] = useState<string | null>(null);
-	const fileInputRef = useRef<HTMLInputElement>(null);
-
-	// Single unified list — same pattern as NewPostForm
-	const [items, setItems] = useState<ImageItem[]>(
-		existingImages.map((img) => ({
-			key: `e-${img.id}`,
-			url: getImageUrl({
-				accountHash: imageAccountHash,
-				cfImageId: img.cfImageId,
-				variant: "thumbnail",
-			}),
-			existingId: img.id,
-		})),
-	);
-	const [newFiles, setNewFiles] = useState<File[]>([]);
-
-	const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
-
-	const sortableIds = useMemo(() => items.map((item) => item.key), [items]);
-
-	const handleDragStart = useCallback((_event: DragStartEvent) => {
-		setOverId(null);
-	}, []);
-
-	const handleDragOver = useCallback((event: DragOverEvent) => {
-		setOverId(event.over ? String(event.over.id) : null);
-	}, []);
-
-	const handleImageDragEnd = useCallback(
-		(event: DragEndEvent) => {
-			setOverId(null);
-			const { active, over } = event;
-			if (!over || active.id === over.id) return;
-
-			const activeIndex = items.findIndex((item) => item.key === String(active.id));
-			const overIndex = items.findIndex((item) => item.key === String(over.id));
-			if (activeIndex === -1 || overIndex === -1) return;
-
-			setItems((prev) => reorder(prev, activeIndex, overIndex));
-		},
-		[items],
-	);
-
-	const handleFileChange = useCallback(
-		(e: ChangeEvent<HTMLInputElement>) => {
-			const incoming = Array.from(e.target.files ?? []);
-			if (incoming.length === 0) return;
-
-			setError(null);
-
-			if (items.length + incoming.length > MAX_FILES) {
-				// #250: prosty komunikat limitu mediów.
-				setError(`Maksymalnie ${MAX_FILES} mediów`);
-				return;
-			}
-
-			// Za duże pliki NIE są odrzucane (issue #200): trafiają na listę jako
-			// oflagowane (czerwony mini z wykrzyknikiem), dialog na klik je naprawia.
-			const newItems: ImageItem[] = incoming.map((f, i) => ({
-				key: `n-${newFiles.length + i}`,
-				url: URL.createObjectURL(f),
-				fileIndex: newFiles.length + i,
-				isOversized: f.size > MAX_FILE_SIZE_BYTES,
-			}));
-
-			setItems((prev) => [...prev, ...newItems]);
-			setNewFiles((prev) => [...prev, ...incoming]);
-
-			if (fileInputRef.current) fileInputRef.current.value = "";
-		},
-		[items.length, newFiles.length],
-	);
-
-	const removeItem = useCallback(
-		(index: number) => {
-			const item = items[index];
-			if (!item) return;
-
-			// Revoke blob URL for new files
-			if (item.fileIndex !== undefined) {
-				URL.revokeObjectURL(item.url);
-			}
-
-			setItems((prev) => prev.filter((_, i) => i !== index));
-		},
-		[items],
-	);
-
-	const [oversizedKey, setOversizedKey] = useState<string | null>(null);
+	const [oversizedId, setOversizedId] = useState<string | null>(null);
 
 	/** Plik otwarty w dialogu „za duże zdjęcie" (issue #200). */
-	const oversizedItem = items.find((item) => item.key === oversizedKey) ?? null;
-	const oversizedFile =
-		oversizedItem?.fileIndex !== undefined ? (newFiles[oversizedItem.fileIndex] ?? null) : null;
+	const oversizedItem = media.find((item) => item.id === oversizedId) ?? null;
 
 	/** Podmiana pliku po zmniejszeniu (issue #200): nowy podgląd, flaga zdjęta. */
-	const replaceNewFile = useCallback((fileIndex: number, nextFile: File) => {
-		setNewFiles((prev) => prev.map((file, i) => (i === fileIndex ? nextFile : file)));
-		setItems((prev) =>
-			prev.map((item) => {
-				if (item.fileIndex !== fileIndex) return item;
-				URL.revokeObjectURL(item.url);
+	const replaceMediaFile = (id: string, nextFile: File) => {
+		setMedia(
+			media.map((item) => {
+				if (item.id !== id) return item;
+				if (item.preview) URL.revokeObjectURL(item.preview);
 				return {
 					...item,
-					url: URL.createObjectURL(nextFile),
-					isOversized: nextFile.size > MAX_FILE_SIZE_BYTES,
+					file: nextFile,
+					preview: URL.createObjectURL(nextFile),
+					isOversized: nextFile.size > MAX_IMAGE_BYTES,
 				};
 			}),
 		);
-	}, []);
+	};
+
+	/**
+	 * Wybór z „Dodaj załączniki" dzieli się po MIME jak w kompozytorze; limity
+	 * liczą razem z tym, co już jest w poście.
+	 */
+	const handlePickAttachments = (incoming: File[]) => {
+		const split = splitAttachmentFiles(incoming, {
+			images: media.length,
+			videos: videos.length,
+			files: fileItems.length,
+		});
+		if (split.images.length > 0) setMedia([...media, ...split.images]);
+		if (split.videos.length > 0) {
+			setVideos([
+				...videos,
+				...split.videos.map(
+					(video): EditVideoItem => ({
+						key: video.key,
+						kind: "pending",
+						file: video.file,
+						title: video.title,
+						preview: video.preview,
+					}),
+				),
+			]);
+		}
+		if (split.files.length > 0) {
+			setFileItems([
+				...fileItems,
+				...split.files.map((file): EditFileItem => ({ kind: "new", file })),
+			]);
+		}
+		// #250: ten sam komunikat (np. limit mediów) ma się pokazać raz, nie per odrzucony plik.
+		setError(split.errors.length > 0 ? [...new Set(split.errors)].join(", ") : null);
+	};
+
+	/** Wideo znika z listy (blob podglądu zwolniony); nowego nie ma czego potwierdzać. */
+	const requestRemoveVideo = (key: string) => {
+		const item = videos.find((video) => video.key === key);
+		if (!item) return;
+		if (item.kind === "existing") {
+			setRemovalCandidate(item);
+			return;
+		}
+		URL.revokeObjectURL(item.preview);
+		setVideos(videos.filter((video) => video.key !== key));
+	};
+
+	/** Potwierdzenie usunięcia ISTNIEJĄCEGO wideo: YouTube delete dokładnie raz (#197). */
+	const confirmRemoveVideo = () => {
+		const item = removalCandidate;
+		if (!item) return;
+		onVideoDelete?.(item.entry.youtubeVideoId);
+		setVideos(videos.filter((video) => video.key !== item.key));
+		setRemovalCandidate(null);
+	};
+
+	/** Czy post ma jakąkolwiek treść — ta sama reguła co w kompozytorze (#251). */
+	const hasContent = useMemo(
+		() =>
+			hasComposerContent({
+				description,
+				images: media.length,
+				videos: videos.length,
+				files: fileItems.length,
+				hasPoll: initialPoll !== null,
+				hasLocation: locationDraft !== null,
+			}),
+		[description, media.length, videos.length, fileItems.length, initialPoll, locationDraft],
+	);
 
 	const handleSubmit = (e: FormEvent) => {
 		e.preventDefault();
-		if (description.trim() === "" && items.length === 0 && videoItems.length === 0) {
-			setError("Dodaj tekst, zdjęcie lub wideo");
+		if (!hasContent) {
+			setError(EMPTY_POST_MESSAGE);
 			return;
 		}
-		const oversizedItem = items.find((item) => item.isOversized && item.fileIndex !== undefined);
-		if (oversizedItem?.fileIndex !== undefined) {
-			const oversizedFile = newFiles[oversizedItem.fileIndex];
-			if (oversizedFile) {
-				setError(
-					`Zdjęcie „${oversizedFile.name}" jest za duże — kliknij jego podgląd i zmniejsz je, albo usuń je przed publikacją.`,
-				);
-				// otwieramy od razu dialog problematycznego zdjęcia — skrócona ścieżka naprawy
-				setOversizedKey(oversizedItem.key);
-				return;
-			}
+		const oversized = media.find((item) => item.isOversized && item.file);
+		if (oversized?.file) {
+			setError(oversizedImageMessage(oversized.file.name));
+			// otwieramy od razu dialog problematycznego zdjęcia — skrócona ścieżka naprawy
+			setOversizedId(oversized.id);
+			return;
 		}
 		if (description.length > MAX_DESCRIPTION_LENGTH) {
-			setError(
-				`Tekst posta jest za długi — limit to ${MAX_DESCRIPTION_LENGTH} znaków (wpisanych: ${description.length})`,
-			);
+			setError(descriptionTooLongMessage(description.length));
 			return;
 		}
 
-		const { removedImageIds, files, imageOrder } = computeImagePlan(
-			items,
-			existingImages,
-			newFiles,
-		);
-		const videoPlan: VideoPlanEntry[] = videoItems.map((item) =>
-			item.existing
-				? { kind: "existing" as const, entry: item.existing }
-				: {
-						kind: "pending" as const,
-						file: item.pending?.file as File,
-						title: item.pending?.title as string,
-					},
+		const { removedImageIds, files, imageOrder } = computeImagePlan(media, existingImages);
+		const videoPlan = videos.map(
+			(item): VideoPlanEntry =>
+				item.kind === "existing"
+					? { kind: "existing", entry: item.entry }
+					: { kind: "pending", file: item.file, title: item.title },
 		);
 		const validMentions = mentions.filter((m) => description.includes(`@${m.name}`));
 		const location = resolveEditLocation(locationDraft, locationTouched);
-		const keptFiles = initialFiles
-			.filter((f) => keptFileIds.includes(f.id))
-			.map(({ key, name, size, mimeType }) => ({ key, name, size, mimeType }));
-		const filesDirty = keptFileIds.length !== initialFiles.length || newPostFiles.length > 0;
+		const keptFiles = fileItems.flatMap((item) =>
+			item.kind === "existing"
+				? [{ key: item.key, name: item.name, size: item.size, mimeType: item.mimeType }]
+				: [],
+		);
+		const newPostFiles = fileItems.flatMap((item) => (item.kind === "new" ? [item.file] : []));
+		const filesDirty = keptFiles.length !== initialFiles.length || newPostFiles.length > 0;
 
 		onSubmit({
 			description,
@@ -407,14 +345,18 @@ export function EditPostForm({
 		});
 	};
 
-	const canSubmit = useMemo(
-		() =>
-			(items.length > 0 || description.trim().length > 0 || videoItems.length > 0) && !isSubmitting,
-		[items.length, description, isSubmitting, videoItems.length],
+	const canSubmit = useMemo(() => hasContent && !isSubmitting, [hasContent, isSubmitting]);
+
+	const gridVideos: GridVideoItem[] = videos.map((item) =>
+		item.kind === "existing"
+			? { key: item.key, title: item.entry.title, thumbnailUrl: item.entry.thumbnailUrl }
+			: { key: item.key, title: item.title, preview: item.preview },
 	);
 
 	return (
 		<form onSubmit={handleSubmit} className="space-y-4">
+			<ComposerHeader title="Edytuj post" onBack={onBack} backLabel="Wróć do posta" />
+
 			{error && (
 				<Alert variant="destructive">
 					<AlertDescription>{error}</AlertDescription>
@@ -429,115 +371,66 @@ export function EditPostForm({
 				/>
 			</div>
 
-			{initialPoll && <PostPollSummary poll={initialPoll} />}
+			{/* Pasek dodawania jak w kompozytorze: 3 przyciski w jednej linii i jedna
+			    wybierarka na wszystko (#251). */}
+			<ComposerToolbar
+				onPickAttachments={handlePickAttachments}
+				pollUnavailableReason="Ankiety nie można dodać ani zmienić po opublikowaniu posta"
+				onAddLocation={() => setLocationDialogOpen(true)}
+				disabled={isSubmitting}
+			/>
 
-			<div>
-				<input
-					id="photos"
-					ref={fileInputRef}
-					type="file"
-					accept={ACCEPTED_TYPES}
-					multiple
-					onChange={handleFileChange}
-					// #250: hint limitu — czytany przez czytniki ekranu i pokazywany
-					// jako tooltip; w natywnym pickerze iOS/Android limit komunikuje
-					// Toast wrappera Androida (MainActivity.onShowFileChooser).
-					title="Wybierz do 10 zdjęć"
-					className="hidden"
+			{/* Jednolita siatka kafelków: zdjęcia, wideo, pliki, ankieta i położenie —
+			    istniejące w poście i nowo dodane obok siebie. */}
+			{(media.length > 0 ||
+				videos.length > 0 ||
+				fileItems.length > 0 ||
+				initialPoll ||
+				locationDraft) && (
+				<ComposerAttachmentsGrid
+					images={media}
+					onImagesChange={setMedia}
+					onOpenDetails={setOversizedId}
+					videos={gridVideos}
+					onRemoveVideo={requestRemoveVideo}
+					onReorderVideos={(keys) =>
+						setVideos(
+							keys.flatMap((key) => {
+								const item = videos.find((video) => video.key === key);
+								return item ? [item] : [];
+							}),
+						)
+					}
+					files={fileItems.map((item) =>
+						item.kind === "existing" ? { name: item.name } : item.file,
+					)}
+					onRemoveFile={(index) => setFileItems(fileItems.filter((_, i) => i !== index))}
+					poll={initialPoll ? { question: initialPoll.question } : null}
+					onEditPoll={() => setPollDialogOpen(true)}
+					onEditLocation={() => setLocationDialogOpen(true)}
+					onRemoveLocation={() => {
+						setLocationDraft(null);
+						setLocationTouched(true);
+					}}
+					location={locationDraft}
 				/>
-				{/* Zdjęcia pod przyciskiem zdjęć, wideo pod swoim — mirror kompozytora (reviza usera). */}
-				<div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-start">
-					<div className="space-y-2">
-						<Button
-							type="button"
-							variant="outline"
-							className="h-11 w-full sm:h-9"
-							onClick={() => fileInputRef.current?.click()}
-							disabled={items.length >= MAX_FILES}
-							title={items.length > 0 ? `${items.length}/${MAX_FILES}` : "Dodaj zdjęcia"}
-						>
-							<IconPhotoPlus className="h-4 w-4" aria-hidden="true" />
-							<span className="ml-2">
-								{items.length > 0 ? `${items.length}/${MAX_FILES}` : "Dodaj zdjęcia"}
-							</span>
-						</Button>
-
-						{items.length > 0 && (
-							<DndContext
-								sensors={sensors}
-								onDragStart={handleDragStart}
-								onDragOver={handleDragOver}
-								onDragEnd={handleImageDragEnd}
-							>
-								<SortableContext items={sortableIds}>
-									<div role={LISTBOX_ROLE} className="grid grid-cols-3 gap-2">
-										{items.map((item, i) => (
-											<SortablePreview
-												key={item.key}
-												id={item.key}
-												url={item.url}
-												index={i}
-												isOver={overId === item.key}
-												isOversized={item.isOversized ?? false}
-												fileName={
-													item.fileIndex !== undefined ? (newFiles[item.fileIndex]?.name ?? "") : ""
-												}
-												onRemove={() => removeItem(i)}
-												onOpenDetails={setOversizedKey}
-											/>
-										))}
-									</div>
-								</SortableContext>
-							</DndContext>
-						)}
-					</div>
-
-					<EditPostVideos
-						items={videoItems}
-						onItemsChange={setVideoItems}
-						disabled={isSubmitting}
-						onVideoDelete={onVideoDelete}
-					/>
-				</div>
-			</div>
-
-			{/* Lokalizacja (#242, reviza usera): chip + dialog zamiast rozwiniętej sekcji. */}
-			{locationDraft ? (
-				<div className="flex items-center gap-1.5">
-					<button
-						type="button"
-						onClick={() => setLocationDialogOpen(true)}
-						title="Kliknij, aby edytować"
-						className="flex min-w-0 max-w-56 items-center gap-1.5 rounded-full border border-border bg-muted px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-accent"
-					>
-						<span className="truncate">
-							{locationDraft.label.trim() ||
-								`${locationDraft.lat.toFixed(5)}, ${locationDraft.lng.toFixed(5)}`}
-						</span>
-					</button>
-					<button
-						type="button"
-						onClick={() => {
-							setLocationDraft(null);
-							setLocationTouched(true);
-						}}
-						aria-label="Usuń lokalizację"
-						className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-					>
-						<IconX className="size-4" aria-hidden="true" />
-					</button>
-				</div>
-			) : (
-				<Button
-					type="button"
-					variant="outline"
-					className="h-11 w-full sm:h-9"
-					onClick={() => setLocationDialogOpen(true)}
-				>
-					Dodaj położenie
-				</Button>
 			)}
 
+			{/* Dialog „za duże zdjęcie" (issue #200): błąd + akcja zmniejszenia. */}
+			<OversizedImageDialog
+				file={oversizedItem?.file ?? null}
+				limitMb={MAX_FILE_SIZE_MB}
+				open={oversizedItem !== null}
+				onOpenChange={(o) => {
+					if (!o) setOversizedId(null);
+				}}
+				onShrunk={(shrunkFile) => {
+					if (oversizedId) replaceMediaFile(oversizedId, shrunkFile);
+					setOversizedId(null);
+				}}
+			/>
+
+			{/* Lokalizacja (#242, reviza usera): dialog z mapą, kafelek edytuje się po kliku. */}
 			<ComposerLocationDialog
 				open={locationDialogOpen}
 				onOpenChange={setLocationDialogOpen}
@@ -548,68 +441,54 @@ export function EditPostForm({
 				}}
 			/>
 
-			{/* Pliki (#243): istniejące jako lista z usuwaniem, nowe przez wybierarkę. */}
-			<div className="space-y-2 rounded-md border border-border bg-card p-3">
-				<p className="text-sm font-medium text-foreground">
-					Pliki{" "}
-					<span className="text-xs text-muted-foreground">
-						{keptFileIds.length + newPostFiles.length}/5
-					</span>
-				</p>
-				{initialFiles.filter((f) => keptFileIds.includes(f.id)).length > 0 && (
-					<ul className="flex flex-col gap-1">
-						{initialFiles
-							.filter((f) => keptFileIds.includes(f.id))
-							.map((file) => (
-								<li
-									key={file.id}
-									className="flex items-center gap-2 rounded-md bg-background px-2 py-1.5"
-								>
-									<span
-										className="min-w-0 flex-1 truncate text-sm text-foreground"
-										title={file.name}
-									>
-										{file.name}
-									</span>
-									<button
-										type="button"
-										aria-label={`Usuń plik ${file.name}`}
-										onClick={() => setKeptFileIds(keptFileIds.filter((id) => id !== file.id))}
-										className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-									>
-										<IconX className="size-4" aria-hidden="true" />
-									</button>
-								</li>
-							))}
-					</ul>
-				)}
-				<ComposerFilesSection
-					files={newPostFiles}
-					onChange={setNewPostFiles}
-					existingCount={keptFileIds.length}
-				/>
-			</div>
+			{/* Ankieta (#241): po publikacji tylko do odczytu — kafelek pokazuje treść. */}
+			<Dialog open={pollDialogOpen} onOpenChange={setPollDialogOpen}>
+				<DialogContent className="sm:max-w-md" aria-describedby={undefined}>
+					<DialogHeader>
+						<DialogTitle>Ankieta</DialogTitle>
+					</DialogHeader>
+					{initialPoll && <PostPollSummary poll={initialPoll} />}
+					<DialogFooter>
+						<Button type="button" variant="outline" onClick={() => setPollDialogOpen(false)}>
+							Zamknij
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 
-			{/* Dialog „za duże zdjęcie" (issue #200): błąd + akcja zmniejszenia. */}
-			<OversizedImageDialog
-				file={oversizedFile}
-				limitMb={MAX_FILE_SIZE_MB}
-				open={oversizedItem !== null}
-				onOpenChange={(o) => {
-					if (!o) setOversizedKey(null);
-				}}
-				onShrunk={(shrunkFile) => {
-					if (oversizedItem?.fileIndex !== undefined) {
-						replaceNewFile(oversizedItem.fileIndex, shrunkFile);
-					}
-					setOversizedKey(null);
-				}}
+			{/* Confirm usunięcia istniejącego wideo (us story 13, #197). */}
+			<Dialog
+				open={removalCandidate !== null}
+				onOpenChange={(open) => !open && setRemovalCandidate(null)}
+			>
+				<DialogContent className="sm:max-w-sm" aria-describedby={undefined}>
+					<DialogHeader>
+						<DialogTitle>Usunąć wideo?</DialogTitle>
+					</DialogHeader>
+					<p className="text-sm text-muted-foreground">
+						„{removalCandidate?.entry.title}" zostanie usunięte z posta i z YouTube. Tej operacji
+						nie można cofnąć.
+					</p>
+					<DialogFooter>
+						<Button type="button" variant="outline" onClick={() => setRemovalCandidate(null)}>
+							Anuluj
+						</Button>
+						<Button type="button" variant="destructive" onClick={confirmRemoveVideo}>
+							Usuń
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			<ComposerSubmitButton
+				isSubmitting={isSubmitting}
+				canSubmit={canSubmit}
+				uploadProgress={uploadProgress}
+				imageProgress={imageProgress}
+				isSlowUpload={isSlowUpload}
+				idleLabel="Zapisz zmiany"
+				busyLabel="Zapisywanie..."
 			/>
-
-			<Button type="submit" className="w-full" disabled={!canSubmit}>
-				<Loader loading={isSubmitting} />
-				{isSubmitting ? "Zapisywanie..." : "Zapisz zmiany"}
-			</Button>
 		</form>
 	);
 }
