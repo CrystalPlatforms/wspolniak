@@ -1,3 +1,10 @@
+## [9.1.1](https://github.com/CrystalPlatforms/wspolniak/compare/v9.1.0...v9.1.1) (2026-11-27)
+
+
+### Bug Fixes
+
+* **ui:** post view header above reaction trigger, stable bottom bar labels, Home → Feed ([142dc42](https://github.com/CrystalPlatforms/wspolniak/commit/142dc424b89283f9e6258eb310a9ac20441e3cc0))
+
 # [9.1.0](https://github.com/CrystalPlatforms/wspolniak/compare/v9.0.3...v9.1.0) (2026-11-27)
 
 
