@@ -1,3 +1,10 @@
+# [9.1.0](https://github.com/CrystalPlatforms/wspolniak/compare/v9.0.3...v9.1.0) (2026-11-27)
+
+
+### Features
+
+* **ui:** reaction count chips on feed post cards — top 3 desktop / 2 mobile, click opens who-reacted dialog ([fe8fc05](https://github.com/CrystalPlatforms/wspolniak/commit/fe8fc05b0ccfe4ebb6932d873907e312d0f1ed8e))
+
 ## [9.0.3](https://github.com/CrystalPlatforms/wspolniak/compare/v9.0.2...v9.0.3) (2026-11-25)
 
 
